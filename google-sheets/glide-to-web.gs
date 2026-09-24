@@ -349,9 +349,17 @@ function fetchByIds_(ids) {
   return byId;
 }
 
+// Apps Script caps URL length (~2 KB), so ID lists go in small batches; for many IDs it is
+// cheaper to read the whole table page by page and filter.
+const ID_BATCH = 30;
+
 function fetchRowsByIds_(ids) {
+  if (ids.length > 300) {
+    const wanted = new Set(ids);
+    return fetchAllRows_().filter(r => wanted.has(r.id));
+  }
   const rows = [];
-  chunk_(ids, 100).forEach(part => {
+  chunk_(ids, ID_BATCH).forEach(part => {
     const res = UrlFetchApp.fetch(
       SUPABASE_URL + '/rest/v1/defects?select=id,position,data&id=in.(' + idList_(part) + ')',
       { headers: headers_() }
@@ -361,8 +369,22 @@ function fetchRowsByIds_(ids) {
   return rows;
 }
 
+function fetchAllRows_() {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const res = UrlFetchApp.fetch(
+      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&order=id.asc&offset=' + from + '&limit=1000',
+      { headers: headers_() }
+    );
+    const page = JSON.parse(res.getContentText());
+    page.forEach(r => rows.push(r));
+    if (page.length < 1000) break;
+  }
+  return rows;
+}
+
 function deleteByIds_(ids) {
-  chunk_(ids, 100).forEach(part =>
+  chunk_(ids, ID_BATCH).forEach(part =>
     UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?id=in.(' + idList_(part) + ')', {
       method: 'delete',
       headers: headers_(),
