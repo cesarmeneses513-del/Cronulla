@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Download, Upload, Plus, RotateCcw, LogOut, Eye, PencilLine } from 'lucide-react';
+import { Camera, Download, Upload, Plus, RotateCcw, LogOut, Eye, PencilLine, Undo2 } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 
 interface HeaderProps {
@@ -12,6 +12,8 @@ interface HeaderProps {
   onResetData: () => void;
   readOnly: boolean;
   onLogout: () => void;
+  onUndo: () => void;
+  undoLabel: string | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   onResetData,
   readOnly,
   onLogout,
+  onUndo,
+  undoLabel,
 }) => {
   const completedCount = items.filter(i => i.status === 'COMPLETED').length;
   const inProgressCount = items.filter(i => i.status === 'IN PROGRESS').length;
@@ -99,6 +103,16 @@ export const Header: React.FC<HeaderProps> = ({
 
           {!readOnly && (
           <>
+          <button
+            onClick={onUndo}
+            disabled={!undoLabel}
+            title={undoLabel ? `Deshacer: ${undoLabel} (Ctrl/Cmd + Z)` : 'Nada que deshacer'}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100 disabled:cursor-not-allowed rounded-lg transition-colors whitespace-nowrap"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Deshacer</span>
+          </button>
+
           <button
             onClick={onResetData}
             title="Restaurar datos iniciales"

@@ -13,7 +13,7 @@ import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, 
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
 import { supabase, fetchDefects, syncDefects, subscribeToDefects } from './lib/supabase';
-import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2 } from 'lucide-react';
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
 const ROLE_KEY = 'cronulla_role';
@@ -29,6 +29,25 @@ const applyRemoteChange = (list: DefectItem[], change: RemoteChange): DefectItem
   const next = [...list];
   next.splice(Math.min(change.position, next.length), 0, change.item);
   return next;
+};
+
+// One undoable editor action: the list right before and right after it.
+type HistoryEntry = { label: string; before: DefectItem[]; after: DefectItem[] };
+const MAX_HISTORY = 30;
+
+// Reverts only the rows the action touched, so changes made since (e.g. by other users) survive.
+const revertEntry = (current: DefectItem[], { before, after }: HistoryEntry): DefectItem[] => {
+  const beforeIds = new Set(before.map(i => i.id));
+  const afterById = new Map(after.map(i => [i.id, i]));
+  // Drop rows the action created.
+  const result = current.filter(i => beforeIds.has(i.id) || !afterById.has(i.id));
+  before.forEach((item, idx) => {
+    if (afterById.get(item.id) === item) return; // untouched by the action
+    const pos = result.findIndex(i => i.id === item.id);
+    if (pos >= 0) result[pos] = item;
+    else result.splice(Math.min(idx, result.length), 0, item);
+  });
+  return result;
 };
 
 const normalizeItems = (rawItems: DefectItem[]): DefectItem[] => {
@@ -181,14 +200,53 @@ export default function App() {
   });
 
   // Toast notification state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; undoable: boolean } | null>(null);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
+  const showToast = useCallback((message: string, undoable = false) => {
+    const next = { message, undoable };
+    setToast(next);
     setTimeout(() => {
-      setToastMessage(prev => (prev === msg ? null : prev));
-    }, 3000);
+      setToast(prev => (prev === next ? null : prev));
+    }, undoable ? 6000 : 3000);
   }, []);
+
+  // Undo history for editor actions. `itemsRef` lets consecutive actions build on each other
+  // without waiting for a re-render.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  const updateItems = useCallback((updater: (prev: DefectItem[]) => DefectItem[], label: string) => {
+    const before = itemsRef.current;
+    const after = updater(before);
+    if (after === before) return;
+    itemsRef.current = after;
+    setItems(after);
+    setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), { label, before, after }]);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    const entry = history[history.length - 1];
+    if (!entry || readOnly) return;
+    setHistory(history.slice(0, -1));
+    const next = revertEntry(itemsRef.current, entry);
+    itemsRef.current = next;
+    setItems(next);
+    showToast(`Deshecho: ${entry.label}`);
+  }, [history, readOnly, showToast]);
+
+  // Cmd/Ctrl + Z outside text fields.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      e.preventDefault();
+      handleUndo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleUndo]);
 
   // Modal States
   const [editingItem, setEditingItem] = useState<DefectItem | null>(null);
@@ -285,7 +343,7 @@ export default function App() {
   // Handler: Move photo between rows or within same row
   const handleMovePhoto = useCallback(
     (payload: DragPhotoPayload, targetItemId: string, targetPhotoIndex?: number) => {
-      setItems(prevItems => {
+      updateItems(prevItems => {
         const sourceItem = prevItems.find(i => i.id === payload.sourceItemId);
         const targetItem = prevItems.find(i => i.id === targetItemId);
 
@@ -300,7 +358,7 @@ export default function App() {
           const [movedPhoto] = photos.splice(payload.photoIndex, 1);
           photos.splice(targetPhotoIndex, 0, movedPhoto);
 
-          showToast(`Foto reordenada en la fila #${sourceItem.rowNo}`);
+          showToast(`Foto reordenada en la fila #${sourceItem.rowNo}`, true);
           return prevItems.map(i => (i.id === sourceItem.id ? { ...i, photos } : i));
         }
 
@@ -323,7 +381,8 @@ export default function App() {
         }
 
         showToast(
-          `Foto trasladada de Fila #${sourceItem.rowNo} (${sourceItem.defect}) a Fila #${targetItem.rowNo} (${targetItem.defect})`
+          `Foto trasladada de Fila #${sourceItem.rowNo} (${sourceItem.defect}) a Fila #${targetItem.rowNo} (${targetItem.defect})`,
+          true
         );
 
         return prevItems.map(i => {
@@ -331,34 +390,36 @@ export default function App() {
           if (i.id === targetItem.id) return { ...i, photos: targetPhotos };
           return i;
         });
-      });
+      }, 'mover foto');
     },
-    [showToast]
+    [showToast, updateItems]
   );
 
   // Handler: Add photo to row
   const handleAddPhoto = useCallback(
     (itemId: string, photoUrl: string, phase: PhotoPhase = 'BEFORE') => {
-      setItems(prev =>
-        prev.map(i => {
-          if (i.id !== itemId) return i;
-          const newPhoto: DefectPhoto = {
-            url: photoUrl,
-            phase,
-            slot: i.photos.length + 1,
-          };
-          return { ...i, photos: [...i.photos, newPhoto] };
-        })
+      updateItems(
+        prev =>
+          prev.map(i => {
+            if (i.id !== itemId) return i;
+            const newPhoto: DefectPhoto = {
+              url: photoUrl,
+              phase,
+              slot: i.photos.length + 1,
+            };
+            return { ...i, photos: [...i.photos, newPhoto] };
+          }),
+        'añadir foto'
       );
-      showToast(`Fotografía añadida a etapa ${phase}`);
+      showToast(`Fotografía añadida a etapa ${phase}`, true);
     },
-    [showToast]
+    [showToast, updateItems]
   );
 
   // Handler: Update photo phase directly
   const handleUpdatePhotoPhase = useCallback(
     (itemId: string, photoIndex: number, newPhase: PhotoPhase) => {
-      setItems(prev =>
+      updateItems(prev =>
         prev.map(item => {
           if (item.id !== itemId) return item;
           const photos = [...item.photos];
@@ -370,44 +431,47 @@ export default function App() {
             slot: typeof cur === 'object' ? cur.slot : photoIndex + 1,
           };
           return { ...item, photos };
-        })
+        }),
+        'cambiar etapa de foto'
       );
-      showToast(`Foto cambiada a ${newPhase}`);
+      showToast(`Foto cambiada a ${newPhase}`, true);
     },
-    [showToast]
+    [showToast, updateItems]
   );
 
   // Handler: Delete photo
   const handleDeletePhoto = useCallback(
     (itemId: string, photoIndex: number) => {
-      setItems(prev =>
-        prev.map(i => {
-          if (i.id !== itemId) return i;
-          return {
-            ...i,
-            photos: i.photos.filter((_, idx) => idx !== photoIndex),
-          };
-        })
+      updateItems(
+        prev =>
+          prev.map(i => {
+            if (i.id !== itemId) return i;
+            return {
+              ...i,
+              photos: i.photos.filter((_, idx) => idx !== photoIndex),
+            };
+          }),
+        'eliminar foto'
       );
-      showToast('Fotografía eliminada');
+      showToast('Fotografía eliminada', true);
     },
-    [showToast]
+    [showToast, updateItems]
   );
 
   // Handler: Quick update status
   const handleQuickUpdateStatus = useCallback(
     (itemId: string, status: DefectStatus) => {
-      setItems(prev => prev.map(i => (i.id === itemId ? { ...i, status } : i)));
+      updateItems(prev => prev.map(i => (i.id === itemId ? { ...i, status } : i)), 'cambiar estado');
     },
-    []
+    [updateItems]
   );
 
   // Handler: Quick update urgency
   const handleQuickUpdateUrgency = useCallback(
     (itemId: string, urgency: UrgencyLevel) => {
-      setItems(prev => prev.map(i => (i.id === itemId ? { ...i, urgency } : i)));
+      updateItems(prev => prev.map(i => (i.id === itemId ? { ...i, urgency } : i)), 'cambiar urgencia');
     },
-    []
+    [updateItems]
   );
 
   // Handler: Open Edit Modal
@@ -419,16 +483,16 @@ export default function App() {
   // Handler: Save from Edit Modal
   const handleSaveDefect = useCallback(
     (updated: DefectItem) => {
-      setItems(prev => {
+      updateItems(prev => {
         const exists = prev.some(i => i.id === updated.id);
         if (exists) {
           return prev.map(i => (i.id === updated.id ? updated : i));
         }
         return [updated, ...prev];
-      });
-      showToast(`Registro #${updated.rowNo} guardado`);
+      }, `guardar registro #${updated.rowNo}`);
+      showToast(`Registro #${updated.rowNo} guardado`, true);
     },
-    [showToast]
+    [showToast, updateItems]
   );
 
   // Handler: Duplicate defect
@@ -441,10 +505,10 @@ export default function App() {
         photos: [...original.photos],
         customTags: [...(original.customTags || [])],
       };
-      setItems(prev => [duplicate, ...prev]);
-      showToast(`Registro #${original.rowNo} duplicado`);
+      updateItems(prev => [duplicate, ...prev], `duplicar registro #${original.rowNo}`);
+      showToast(`Registro #${original.rowNo} duplicado`, true);
     },
-    [showToast]
+    [showToast, updateItems]
   );
 
   // Handler: Delete defect
@@ -452,11 +516,11 @@ export default function App() {
     (id: string) => {
       const target = items.find(i => i.id === id);
       if (window.confirm(`¿Estás seguro de eliminar el registro #${target?.rowNo || ''} (${target?.defect || ''})?`)) {
-        setItems(prev => prev.filter(i => i.id !== id));
-        showToast('Registro eliminado');
+        updateItems(prev => prev.filter(i => i.id !== id), `eliminar registro #${target?.rowNo || ''}`);
+        showToast('Registro eliminado', true);
       }
     },
-    [items, showToast]
+    [items, showToast, updateItems]
   );
 
   // Handler: New Defect
@@ -537,23 +601,23 @@ export default function App() {
   // Import CSV handler
   const handleImportCsv = useCallback(
     (importedItems: DefectItem[], replace: boolean) => {
-      setItems(prev => (replace ? importedItems : [...importedItems, ...prev]));
-      showToast(`${importedItems.length} registros importados correctamente`);
+      updateItems(prev => (replace ? importedItems : [...importedItems, ...prev]), 'importar CSV');
+      showToast(`${importedItems.length} registros importados correctamente`, true);
     },
-    [showToast]
+    [showToast, updateItems]
   );
 
   // Reset to original default dataset
   const handleResetData = useCallback(() => {
     const scope = supabase ? 'los cambios de todos los usuarios' : 'los cambios locales';
     if (window.confirm(`¿Deseas restaurar la lista de defectos original del proyecto? Esto sobrescribirá ${scope}.`)) {
-      setItems(INITIAL_DEFECTS);
+      updateItems(() => INITIAL_DEFECTS, 'restaurar datos originales');
       try {
         localStorage.removeItem(STORAGE_KEY);
       } catch (e) {}
-      showToast('Datos originales restaurados');
+      showToast('Datos originales restaurados', true);
     }
-  }, [showToast]);
+  }, [showToast, updateItems]);
 
   if (!role) {
     return <RoleSelectScreen onSelect={handleSelectRole} />;
@@ -562,10 +626,22 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased">
       {/* Toast notification */}
-      {toastMessage && (
+      {toast && (
         <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 border border-slate-700 animate-in slide-in-from-bottom-3 duration-200">
           <Check className="w-4 h-4 text-emerald-400" />
-          <span>{toastMessage}</span>
+          <span>{toast.message}</span>
+          {toast.undoable && !readOnly && history.length > 0 && (
+            <button
+              onClick={() => {
+                setToast(null);
+                handleUndo();
+              }}
+              className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-amber-300 font-semibold transition-colors"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+              Deshacer
+            </button>
+          )}
         </div>
       )}
 
@@ -609,6 +685,8 @@ export default function App() {
         onResetData={handleResetData}
         readOnly={readOnly}
         onLogout={() => handleSelectRole(null)}
+        onUndo={handleUndo}
+        undoLabel={history.length > 0 ? history[history.length - 1].label : null}
       />
 
       {/* Filter and View Mode Controller */}
