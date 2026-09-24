@@ -5,8 +5,6 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    // Relative asset paths so the build works under GitHub Pages' /Cronulla/ subpath.
-    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
