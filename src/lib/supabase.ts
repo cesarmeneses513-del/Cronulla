@@ -22,9 +22,21 @@ interface DefectRow {
 
 export async function fetchDefects(): Promise<DefectItem[]> {
   if (!supabase) throw new Error('Supabase no configurado');
-  const { data, error } = await supabase.from(TABLE).select('id, position, data').order('position');
-  if (error) throw error;
-  return (data as DefectRow[]).map(r => r.data);
+  // PostgREST caps each response (1000 rows by default), so page through the table.
+  const PAGE = 1000;
+  const rows: DefectRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('id, position, data')
+      .order('position')
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    rows.push(...(data as DefectRow[]));
+    if (data.length < PAGE) break;
+  }
+  return rows.map(r => r.data);
 }
 
 // Persist the difference between two snapshots: upsert new/changed rows, delete removed ones.

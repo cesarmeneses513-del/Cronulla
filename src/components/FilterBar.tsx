@@ -24,7 +24,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Extract unique values
-  const uniqueStages = Array.from(new Set(items.map(i => i.orientation).filter(Boolean))).sort();
+  const uniqueStages = Array.from(new Set(items.map(i => i.orientation).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true })
+  );
   const uniqueDefects = Array.from(new Set(items.map(i => i.defect).filter(Boolean))).sort();
   const uniqueDrops = Array.from(new Set(items.map(i => i.drop).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
   const uniqueLevels = Array.from(new Set(items.map(i => i.level).filter(Boolean))).sort((a, b) => {
@@ -186,6 +188,53 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             )}
           </div>
         </div>
+
+        {/* Quick Filter Bar: Stage / Orientation */}
+        {uniqueStages.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
+              Stage:
+            </span>
+            <button
+              onClick={() => onFilterChange({ ...filters, orientations: [] })}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
+                filters.orientations.length === 0
+                  ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <span>Todos</span>
+              <span
+                className={`text-[10px] tabular-nums ${
+                  filters.orientations.length === 0 ? 'text-slate-300' : 'text-slate-500'
+                }`}
+              >
+                ({items.length})
+              </span>
+            </button>
+            {uniqueStages.map(stg => {
+              const isSelected = filters.orientations.includes(stg);
+              const count = items.filter(i => i.orientation === stg).length;
+              return (
+                <button
+                  key={stg}
+                  onClick={() => toggleFilterItem('orientations', stg)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
+                    isSelected
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {isSelected && <Check className="w-3 h-3" />}
+                  <span>{stg}</span>
+                  <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Quick Filter Bar: Status & Urgency */}
         <div className="flex flex-wrap items-center gap-2 pt-1">

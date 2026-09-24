@@ -247,6 +247,16 @@ export default function App() {
     });
   }, [items, filters]);
 
+  const stageCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    items.forEach(i => {
+      if (i.orientation) counts.set(i.orientation, (counts.get(i.orientation) || 0) + 1);
+    });
+    return Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true })
+    );
+  }, [items]);
+
   const totalPhotos = useMemo(() => {
     return items.reduce((acc, curr) => acc + curr.photos.length, 0);
   }, [items]);
@@ -646,6 +656,9 @@ export default function App() {
           /* View Mode 3: Elevation Matrix (Drop vs Level) */
           <ElevationMatrixView
             items={filteredItems}
+            stages={stageCounts}
+            selectedStages={filters.orientations}
+            onSelectStage={stage => setFilters(prev => ({ ...prev, orientations: stage ? [stage] : [] }))}
             onSelectCell={handleSelectElevationCell}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
           />

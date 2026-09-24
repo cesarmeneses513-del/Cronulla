@@ -4,12 +4,21 @@ import { DefectItem } from '../types/inspection';
 
 interface ElevationMatrixViewProps {
   items: DefectItem[];
+  stages: { name: string; count: number }[];
+  selectedStages: string[];
+  onSelectStage: (stage: string | null) => void;
   onSelectCell: (drop: string, level: string) => void;
   onOpenPhotoLightbox: (item: DefectItem, photoIndex: number) => void;
 }
 
+// "STAGE 3" → "S3" for the compact per-cell breakdown.
+const shortStage = (stage: string) => stage.replace(/^STAGE\s*/i, 'S');
+
 export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
   items,
+  stages,
+  selectedStages,
+  onSelectStage,
   onSelectCell,
   onOpenPhotoLightbox,
 }) => {
@@ -31,12 +40,51 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
       <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">Matriz de Elevación Fachada (Drop vs Piso)</h3>
+          <h3 className="text-sm font-bold text-slate-900">
+            Matriz de Elevación Fachada (Drop vs Piso)
+            {selectedStages.length > 0 && <span className="text-slate-500 font-semibold"> · {selectedStages.join(', ')}</span>}
+          </h3>
           <p className="text-xs text-slate-500">
             Vista espacial de cuerda/drop y niveles. Haz clic en una celda para ver o filtrar los defectos de esa posición.
           </p>
         </div>
       </div>
+
+      {/* Stage / Orientation tabs */}
+      {stages.length > 0 && (
+        <div className="px-4 pt-3 flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-3">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mr-1">Stage:</span>
+          <button
+            onClick={() => onSelectStage(null)}
+            className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+              selectedStages.length === 0
+                ? 'border-slate-900 bg-slate-900 text-white'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            Todos
+          </button>
+          {stages.map(st => {
+            const active = selectedStages.length === 1 && selectedStages[0] === st.name;
+            return (
+              <button
+                key={st.name}
+                onClick={() => onSelectStage(active ? null : st.name)}
+                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+                  active
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {st.name}
+                <span className={`text-[10px] tabular-nums ${active ? 'text-slate-300' : 'text-slate-400'}`}>
+                  ({st.count})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="overflow-x-auto p-4">
         <table className="w-full border-collapse text-xs">
@@ -66,6 +114,13 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                   const totalPhotos = cellItems.reduce((acc, cur) => acc + cur.photos.length, 0);
                   const hasHigh = cellItems.some(i => i.urgency === 'HIGH');
                   const allCompleted = cellItems.length > 0 && cellItems.every(i => i.status === 'COMPLETED');
+                  const stageCounts = Object.entries(
+                    cellItems.reduce<Record<string, number>>((acc, i) => {
+                      const key = i.orientation || '—';
+                      acc[key] = (acc[key] || 0) + 1;
+                      return acc;
+                    }, {})
+                  ).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
 
                   return (
                     <td
@@ -93,6 +148,21 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                               <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                             ) : null}
                           </div>
+
+                          {/* Stage breakdown (hidden when the matrix is already showing a single stage) */}
+                          {selectedStages.length !== 1 && stageCounts.length > 0 && (
+                            <div className="flex flex-wrap gap-0.5">
+                              {stageCounts.map(([stage, n]) => (
+                                <span
+                                  key={stage}
+                                  title={`${stage}: ${n}`}
+                                  className="px-1 rounded bg-slate-100 border border-slate-200 text-[9px] font-mono font-semibold text-slate-600"
+                                >
+                                  {shortStage(stage)}·{n}
+                                </span>
+                              ))}
+                            </div>
+                          )}
 
                           {/* Thumbnails preview */}
                           {totalPhotos > 0 && (
