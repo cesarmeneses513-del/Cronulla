@@ -8,7 +8,10 @@ import { TableView } from './components/TableView';
 import { PhotoLightbox } from './components/PhotoLightbox';
 import { EditDefectModal } from './components/EditDefectModal';
 import { ImportCsvModal } from './components/ImportCsvModal';
-import { RoleSelectScreen, AppRole } from './components/RoleSelectScreen';
+import { RoleSelectScreen, AppRole, getStoredUserName } from './components/RoleSelectScreen';
+import { HistoryPanel } from './components/HistoryPanel';
+import { diffForHistory, logHistory } from './lib/history';
+import { useI18n, PHASE_LABEL } from './i18n';
 import { SortBar, SortMode, SortDirection, sortDefects } from './components/SortBar';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
@@ -70,6 +73,8 @@ const normalizeItems = (rawItems: DefectItem[]): DefectItem[] => {
 };
 
 export default function App() {
+  const { t } = useI18n();
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   // Chosen on the start screen; kept for the browser session so a reload doesn't ask again.
   const [role, setRole] = useState<AppRole | null>(() => {
     try {
@@ -225,17 +230,23 @@ export default function App() {
     itemsRef.current = after;
     setItems(after);
     setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), { label, before, after }]);
+    logHistory(getStoredUserName(), diffForHistory(before, after, label));
   }, []);
 
   const handleUndo = useCallback(() => {
     const entry = history[history.length - 1];
     if (!entry || readOnly) return;
     setHistory(history.slice(0, -1));
-    const next = revertEntry(itemsRef.current, entry);
+    const current = itemsRef.current;
+    const next = revertEntry(current, entry);
     itemsRef.current = next;
     setItems(next);
-    showToast(`Deshecho: ${entry.label}`);
-  }, [history, readOnly, showToast]);
+    logHistory(getStoredUserName(), [
+      { action: 'undo', defect_id: null, row_no: null, details: { label: entry.label } },
+      ...diffForHistory(current, next, entry.label).filter(r => r.action !== 'bulk'),
+    ]);
+    showToast(t('Deshecho: {label}', { label: entry.label }));
+  }, [history, readOnly, showToast, t]);
 
   // Cmd/Ctrl + Z outside text fields.
   useEffect(() => {
@@ -424,7 +435,7 @@ export default function App() {
           const [movedPhoto] = photos.splice(payload.photoIndex, 1);
           photos.splice(targetPhotoIndex, 0, movedPhoto);
 
-          showToast(`Foto reordenada en la fila #${sourceItem.rowNo}`, true);
+          showToast(t('Foto reordenada en la fila #{row}', { row: sourceItem.rowNo }), true);
           return prevItems.map(i => (i.id === sourceItem.id ? { ...i, photos } : i));
         }
 
@@ -447,7 +458,12 @@ export default function App() {
         }
 
         showToast(
-          `Foto trasladada de Fila #${sourceItem.rowNo} (${sourceItem.defect}) a Fila #${targetItem.rowNo} (${targetItem.defect})`,
+          t('Foto trasladada de Fila #{a} ({da}) a Fila #{b} ({db})', {
+            a: sourceItem.rowNo,
+            da: sourceItem.defect,
+            b: targetItem.rowNo,
+            db: targetItem.defect,
+          }),
           true
         );
 
@@ -456,9 +472,9 @@ export default function App() {
           if (i.id === targetItem.id) return { ...i, photos: targetPhotos };
           return i;
         });
-      }, 'mover foto');
+      }, t('mover foto'));
     },
-    [showToast, updateItems]
+    [showToast, updateItems, t]
   );
 
   // Handler: Add photo to row
@@ -475,11 +491,11 @@ export default function App() {
             };
             return { ...i, photos: [...i.photos, newPhoto] };
           }),
-        'añadir foto'
+        t('añadir foto')
       );
-      showToast(`Fotografía añadida a etapa ${phase}`, true);
+      showToast(t('Fotografía añadida a {phase}', { phase: t(PHASE_LABEL[phase]) }), true);
     },
-    [showToast, updateItems]
+    [showToast, updateItems, t]
   );
 
   // Handler: Update photo phase directly
@@ -498,11 +514,11 @@ export default function App() {
           };
           return { ...item, photos };
         }),
-        'cambiar etapa de foto'
+        t('cambiar fase de foto')
       );
-      showToast(`Foto cambiada a ${newPhase}`, true);
+      showToast(t('Foto cambiada a {phase}', { phase: t(PHASE_LABEL[newPhase]) }), true);
     },
-    [showToast, updateItems]
+    [showToast, updateItems, t]
   );
 
   // Handler: Delete photo
@@ -517,27 +533,27 @@ export default function App() {
               photos: i.photos.filter((_, idx) => idx !== photoIndex),
             };
           }),
-        'eliminar foto'
+        t('eliminar foto')
       );
-      showToast('Fotografía eliminada', true);
+      showToast(t('Fotografía eliminada'), true);
     },
-    [showToast, updateItems]
+    [showToast, updateItems, t]
   );
 
   // Handler: Quick update status
   const handleQuickUpdateStatus = useCallback(
     (itemId: string, status: DefectStatus) => {
-      updateItems(prev => prev.map(i => (i.id === itemId ? { ...i, status } : i)), 'cambiar estado');
+      updateItems(prev => prev.map(i => (i.id === itemId ? { ...i, status } : i)), t('cambiar estado'));
     },
-    [updateItems]
+    [updateItems, t]
   );
 
   // Handler: Quick update urgency
   const handleQuickUpdateUrgency = useCallback(
     (itemId: string, urgency: UrgencyLevel) => {
-      updateItems(prev => prev.map(i => (i.id === itemId ? { ...i, urgency } : i)), 'cambiar urgencia');
+      updateItems(prev => prev.map(i => (i.id === itemId ? { ...i, urgency } : i)), t('cambiar urgencia'));
     },
-    [updateItems]
+    [updateItems, t]
   );
 
   // Handler: Open Edit Modal
@@ -555,10 +571,10 @@ export default function App() {
           return prev.map(i => (i.id === updated.id ? updated : i));
         }
         return [updated, ...prev];
-      }, `guardar registro #${updated.rowNo}`);
-      showToast(`Registro #${updated.rowNo} guardado`, true);
+      }, t('guardar registro #{row}', { row: updated.rowNo }));
+      showToast(t('Registro #{row} guardado', { row: updated.rowNo }), true);
     },
-    [showToast, updateItems]
+    [showToast, updateItems, t]
   );
 
   // Handler: Duplicate defect
@@ -571,34 +587,34 @@ export default function App() {
         photos: [...original.photos],
         customTags: [...(original.customTags || [])],
       };
-      updateItems(prev => [duplicate, ...prev], `duplicar registro #${original.rowNo}`);
-      showToast(`Registro #${original.rowNo} duplicado`, true);
+      updateItems(prev => [duplicate, ...prev], t('duplicar registro #{row}', { row: original.rowNo }));
+      showToast(t('Registro #{row} duplicado', { row: original.rowNo }), true);
     },
-    [showToast, updateItems]
+    [showToast, updateItems, t]
   );
 
   // Handler: Delete defect
   const handleDeleteDefect = useCallback(
     (id: string) => {
       const target = items.find(i => i.id === id);
-      if (window.confirm(`¿Estás seguro de eliminar el registro #${target?.rowNo || ''} (${target?.defect || ''})?`)) {
-        updateItems(prev => prev.filter(i => i.id !== id), `eliminar registro #${target?.rowNo || ''}`);
-        showToast('Registro eliminado', true);
+      if (window.confirm(t('¿Estás seguro de eliminar el registro #{row} ({defect})?', { row: target?.rowNo || '', defect: target?.defect || '' }))) {
+        updateItems(prev => prev.filter(i => i.id !== id), t('eliminar registro #{row}', { row: target?.rowNo || '' }));
+        showToast(t('Registro eliminado'), true);
       }
     },
-    [items, showToast, updateItems]
+    [items, showToast, updateItems, t]
   );
 
   // Handler: Delete all selected (visible) defects
   const handleDeleteSelected = useCallback(() => {
     const ids = new Set(visibleSelected.map(i => i.id));
     if (ids.size === 0) return;
-    if (!window.confirm(`¿Eliminar ${ids.size} registros seleccionados?\n\nPuedes recuperarlos con el botón "Deshacer".`)) return;
-    updateItems(prev => prev.filter(i => !ids.has(i.id)), `eliminar ${ids.size} registros`);
+    if (!window.confirm(t('¿Eliminar {n} registros seleccionados?\n\nPuedes recuperarlos con el botón "Deshacer".', { n: ids.size }))) return;
+    updateItems(prev => prev.filter(i => !ids.has(i.id)), t('eliminar {n} registros', { n: ids.size }));
     setSelectedIds(new Set());
     lastSelectedRef.current = null;
-    showToast(`${ids.size} registros eliminados`, true);
-  }, [visibleSelected, updateItems, showToast]);
+    showToast(t('{n} registros eliminados', { n: ids.size }), true);
+  }, [visibleSelected, updateItems, showToast, t]);
 
   // Handler: New Defect
   const handleNewDefect = useCallback(() => {
@@ -657,8 +673,8 @@ export default function App() {
       levels: [level],
     }));
     setViewMode('rows');
-    showToast(`Filtrado por Drop ${drop} y Nivel ${level}`);
-  }, [showToast]);
+    showToast(t('Filtrado por Drop {drop} y Nivel {level}', { drop, level }));
+  }, [showToast, t]);
 
   // Export CSV
   const handleExportCsv = useCallback(() => {
@@ -672,8 +688,8 @@ export default function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('Archivo CSV exportado exitosamente');
-  }, [items, showToast]);
+    showToast(t('Archivo CSV exportado exitosamente'));
+  }, [items, showToast, t]);
 
   // Import CSV handler
   const handleImportCsv = useCallback(
@@ -685,23 +701,25 @@ export default function App() {
         const updated = prev.map(i => byId.get(i.id) || i);
         const prevIds = new Set(prev.map(i => i.id));
         return [...importedItems.filter(i => !prevIds.has(i.id)), ...updated];
-      }, 'importar CSV');
-      showToast(`${importedItems.length} registros importados correctamente`, true);
+      }, t('importar CSV'));
+      showToast(t('{n} registros importados correctamente', { n: importedItems.length }), true);
     },
-    [showToast, updateItems]
+    [showToast, updateItems, t]
   );
 
   // Reset to original default dataset
   const handleResetData = useCallback(() => {
-    const scope = supabase ? 'los cambios de todos los usuarios' : 'los cambios locales';
-    if (window.confirm(`¿Deseas restaurar la lista de defectos original del proyecto? Esto sobrescribirá ${scope}.`)) {
-      updateItems(() => INITIAL_DEFECTS, 'restaurar datos originales');
+    const message = supabase
+      ? '¿Deseas restaurar la lista de defectos original del proyecto? Esto sobrescribirá los cambios de todos los usuarios.'
+      : '¿Deseas restaurar la lista de defectos original del proyecto? Esto sobrescribirá los cambios locales.';
+    if (window.confirm(t(message))) {
+      updateItems(() => INITIAL_DEFECTS, t('restaurar datos originales'));
       try {
         localStorage.removeItem(STORAGE_KEY);
       } catch (e) {}
-      showToast('Datos originales restaurados', true);
+      showToast(t('Datos originales restaurados'), true);
     }
-  }, [showToast, updateItems]);
+  }, [showToast, updateItems, t]);
 
   if (!role) {
     return <RoleSelectScreen onSelect={handleSelectRole} />;
@@ -723,7 +741,7 @@ export default function App() {
               className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-amber-300 font-semibold transition-colors"
             >
               <Undo2 className="w-3.5 h-3.5" />
-              Deshacer
+              {t('Deshacer')}
             </button>
           )}
         </div>
@@ -738,7 +756,7 @@ export default function App() {
             ? 'bg-amber-50 text-amber-700 border-amber-200'
             : 'bg-white text-slate-600 border-slate-200'
         }`}
-        title={syncStatus === 'error' ? 'Revisa la consola del navegador para más detalles' : undefined}
+        title={syncStatus === 'error' ? t('Revisa la consola del navegador para más detalles') : undefined}
       >
         {syncStatus === 'loading' || syncStatus === 'saving' ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -747,7 +765,7 @@ export default function App() {
         ) : (
           <CloudOff className="w-3.5 h-3.5" />
         )}
-        {
+        {t(
           {
             loading: 'Cargando desde la nube…',
             saving: 'Guardando…',
@@ -755,7 +773,7 @@ export default function App() {
             error: 'Error de sincronización',
             local: 'Solo en este navegador',
           }[syncStatus]
-        }
+        )}
       </div>
 
       {/* Header */}
@@ -771,6 +789,7 @@ export default function App() {
         onLogout={() => handleSelectRole(null)}
         onUndo={handleUndo}
         undoLabel={history.length > 0 ? history[history.length - 1].label : null}
+        onOpenHistory={() => setIsHistoryOpen(true)}
       />
 
       {/* Filter and View Mode Controller */}
@@ -791,9 +810,9 @@ export default function App() {
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
               <Info className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-800">No se encontraron defectos coincidentes</h3>
+            <h3 className="text-base font-bold text-slate-800">{t('No se encontraron defectos coincidentes')}</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Intenta cambiar los filtros seleccionados o el término de búsqueda para ver los registros de inspección.
+              {t('Intenta cambiar los filtros seleccionados o el término de búsqueda para ver los registros de inspección.')}
             </p>
             <button
               onClick={() =>
@@ -811,7 +830,7 @@ export default function App() {
               }
               className="inline-flex items-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors"
             >
-              Restablecer Filtros
+              {t('Restablecer Filtros')}
             </button>
           </div>
         ) : viewMode === 'rows' ? (
@@ -832,7 +851,7 @@ export default function App() {
                     }`}
                   >
                     {selecting ? <X className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
-                    {selecting ? 'Cancelar selección' : 'Seleccionar'}
+                    {selecting ? t('Cancelar selección') : t('Seleccionar')}
                   </button>
                 )
               }
@@ -851,6 +870,7 @@ export default function App() {
                 onDeletePhoto={handleDeletePhoto}
                 onQuickUpdateStatus={handleQuickUpdateStatus}
                 onQuickUpdateUrgency={handleQuickUpdateUrgency}
+                onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
                 readOnly={readOnly}
                 selectable={selectionActive}
                 selected={selectionActive && selectedIds.has(item.id)}
@@ -867,6 +887,7 @@ export default function App() {
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onDeletePhoto={handleDeletePhoto}
             onMovePhotoPrompt={handlePromptMovePhoto}
+            onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
             readOnly={readOnly}
           />
           </>
@@ -898,7 +919,7 @@ export default function App() {
                 }`}
               >
                 {selecting ? <X className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
-                {selecting ? 'Cancelar selección' : 'Seleccionar'}
+                {selecting ? t('Cancelar selección') : t('Seleccionar')}
               </button>
               )
             }
@@ -922,21 +943,21 @@ export default function App() {
       {selectionActive && (viewMode === 'rows' || viewMode === 'table') && (
         <div className="fixed bottom-16 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] sm:w-auto flex flex-wrap items-center justify-center gap-2 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700">
           <span className="font-semibold tabular-nums">
-            {visibleSelected.length} seleccionado{visibleSelected.length === 1 ? '' : 's'}
+            {t('{n} seleccionados', { n: visibleSelected.length })}
           </span>
           <span className="text-slate-500 hidden sm:inline">·</span>
           <button
             onClick={() => setSelectedIds(new Set(sortedItems.map(i => i.id)))}
             className="px-2 py-1 rounded-md hover:bg-white/10 text-slate-200"
           >
-            Seleccionar todos ({sortedItems.length})
+            {t('Seleccionar todos ({n})', { n: sortedItems.length })}
           </button>
           {visibleSelected.length > 0 && (
             <button
               onClick={() => setSelectedIds(new Set())}
               className="px-2 py-1 rounded-md hover:bg-white/10 text-slate-200"
             >
-              Quitar selección
+              {t('Quitar selección')}
             </button>
           )}
           <button
@@ -945,9 +966,9 @@ export default function App() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Eliminar ({visibleSelected.length})
+            {t('Eliminar ({n})', { n: visibleSelected.length })}
           </button>
-          <button onClick={exitSelection} title="Salir de la selección" className="p-1.5 rounded-md hover:bg-white/10">
+          <button onClick={exitSelection} title={t('Salir de la selección')} className="p-1.5 rounded-md hover:bg-white/10">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -956,13 +977,14 @@ export default function App() {
       {/* Lightbox Modal */}
       {lightboxItem && (
         <PhotoLightbox
-          item={lightboxItem}
+          item={items.find(i => i.id === lightboxItem.id) || lightboxItem}
           photoIndex={lightboxPhotoIndex}
           allItems={items}
           onClose={() => setLightboxItem(null)}
           onNavigatePhoto={handleNavigatePhoto}
           onMovePhoto={handleMovePhoto}
           onDeletePhoto={handleDeletePhoto}
+          onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
           readOnly={readOnly}
         />
       )}
@@ -983,12 +1005,15 @@ export default function App() {
         existingItems={items}
       />
 
+      {/* Change history */}
+      {isHistoryOpen && !readOnly && <HistoryPanel onClose={() => setIsHistoryOpen(false)} />}
+
       {/* Quiet footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Cronulla Job · Sistema de Control de Inspección en Altura & Defectos de Fachada</span>
+          <span>{t('Cronulla Job · Sistema de Control de Inspección en Altura & Defectos de Fachada')}</span>
           <span className="font-mono text-[11px] text-slate-400">
-            {items.length} filas registradas{readOnly ? ' · Solo lectura' : ' · Drag & Drop habilitado'}
+            {t('{n} filas registradas', { n: items.length })} · {readOnly ? t('Solo lectura') : t('Drag & Drop habilitado')}
           </span>
         </div>
       </footer>

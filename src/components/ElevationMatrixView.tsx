@@ -1,6 +1,7 @@
 import React from 'react';
 import { Camera, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
+import { useI18n } from '../i18n';
 
 interface ElevationMatrixViewProps {
   items: DefectItem[];
@@ -22,6 +23,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
   onSelectCell,
   onOpenPhotoLightbox,
 }) => {
+  const { t } = useI18n();
   // Extract all drops and levels present in the dataset
   const drops = Array.from(new Set(items.map(i => i.drop).filter(Boolean))).sort(
     (a, b) => Number(a) - Number(b)
@@ -41,11 +43,11 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
       <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-bold text-slate-900">
-            Matriz de Elevación Fachada (Drop vs Piso)
+            {t('Matriz de Elevación Fachada (Drop vs Piso)')}
             {selectedStages.length > 0 && <span className="text-slate-500 font-semibold"> · {selectedStages.join(', ')}</span>}
           </h3>
           <p className="text-xs text-slate-500">
-            Vista espacial de cuerda/drop y niveles. Haz clic en una celda para ver o filtrar los defectos de esa posición.
+            {t('Vista espacial de cuerda/drop y niveles. Haz clic en una celda para ver o filtrar los defectos de esa posición.')}
           </p>
         </div>
       </div>
@@ -53,7 +55,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
       {/* Stage / Orientation tabs */}
       {stages.length > 0 && (
         <div className="px-4 pt-3 flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-3">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mr-1">Stage:</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider me-1">{t('Stage:')}</span>
           <button
             onClick={() => onSelectStage(null)}
             className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
@@ -62,7 +64,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
-            Todos
+            {t('Todos')}
           </button>
           {stages.map(st => {
             const active = selectedStages.length === 1 && selectedStages[0] === st.name;
@@ -91,14 +93,14 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
           <thead>
             <tr>
               <th className="p-2 border border-slate-200 bg-slate-100 font-bold text-slate-700 text-center sticky left-0 z-10">
-                Piso / Drop
+                {t('Piso / Drop')}
               </th>
               {drops.map(d => (
                 <th
                   key={d}
                   className="p-2 border border-slate-200 bg-slate-100 font-bold text-slate-900 text-center min-w-[100px]"
                 >
-                  Drop {d}
+                  {t('Drop {d}', { d })}
                 </th>
               ))}
             </tr>
@@ -107,7 +109,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
             {levels.map(lvl => (
               <tr key={lvl}>
                 <td className="p-2 border border-slate-200 bg-slate-100 font-bold text-slate-900 text-center sticky left-0 z-10 font-mono">
-                  {lvl === 'R' ? 'R (Azotea)' : lvl === 'G' ? 'G (PB)' : `Nivel ${lvl}`}
+                  {lvl === 'R' ? t('R (Azotea)') : lvl === 'G' ? t('G (PB)') : t('Nivel {n}', { n: lvl })}
                 </td>
                 {drops.map(drp => {
                   const cellItems = items.filter(i => i.drop === drp && i.level === lvl);
@@ -140,7 +142,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px] font-bold">
                             <span className={hasHigh ? 'text-rose-700' : 'text-slate-800'}>
-                              {cellItems.length} {cellItems.length === 1 ? 'defecto' : 'defectos'}
+                              {cellItems.length === 1 ? t('1 defecto') : t('{n} defectos', { n: cellItems.length })}
                             </span>
                             {allCompleted ? (
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />

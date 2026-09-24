@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, X, SlidersHorizontal, LayoutGrid, Rows3, Grid3X3, Table2, Check } from 'lucide-react';
 import { DefectItem, FilterState } from '../types/inspection';
+import { useI18n, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 
 export type ViewMode = 'rows' | 'photos' | 'matrix' | 'table';
 
@@ -23,6 +24,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   filteredCount,
   readOnly = false,
 }) => {
+  const { t } = useI18n();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Extract unique values
@@ -91,7 +93,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por defecto, drop, piso, técnico, nota..."
+              placeholder={t('Buscar por defecto, drop, piso, técnico, nota...')}
               value={filters.searchQuery}
               onChange={e => onFilterChange({ ...filters, searchQuery: e.target.value })}
               className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-slate-400 focus:bg-white transition-colors"
@@ -110,7 +112,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200">
             <button
               onClick={() => onViewModeChange('rows')}
-              title="Vista de Filas & Inspección"
+              title={t('Vista de Filas & Inspección')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 viewMode === 'rows'
                   ? 'bg-white text-slate-900 shadow-xs'
@@ -118,12 +120,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               }`}
             >
               <Rows3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Filas</span>
+              <span className="hidden sm:inline">{t('Filas')}</span>
             </button>
 
             <button
               onClick={() => onViewModeChange('photos')}
-              title="Mosaico de Todas las Fotografías"
+              title={t('Mosaico de Todas las Fotografías')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 viewMode === 'photos'
                   ? 'bg-white text-slate-900 shadow-xs'
@@ -131,12 +133,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Mosaico</span>
+              <span className="hidden sm:inline">{t('Mosaico')}</span>
             </button>
 
             <button
               onClick={() => onViewModeChange('matrix')}
-              title="Elevación Fachada (Drop vs Piso)"
+              title={t('Elevación Fachada (Drop vs Piso)')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 viewMode === 'matrix'
                   ? 'bg-white text-slate-900 shadow-xs'
@@ -144,12 +146,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               }`}
             >
               <Grid3X3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Elevación</span>
+              <span className="hidden sm:inline">{t('Elevación')}</span>
             </button>
 
             <button
               onClick={() => onViewModeChange('table')}
-              title="Vista Tabla"
+              title={t('Vista Tabla')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 viewMode === 'table'
                   ? 'bg-white text-slate-900 shadow-xs'
@@ -157,7 +159,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               }`}
             >
               <Table2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Tabla</span>
+              <span className="hidden sm:inline">{t('Tabla')}</span>
             </button>
           </div>
 
@@ -172,7 +174,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Filtros</span>
+              <span>{t('Filtros')}</span>
               {activeFilterCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 bg-amber-400 text-slate-950 font-bold rounded-full text-[10px]">
                   {activeFilterCount}
@@ -185,7 +187,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 onClick={clearAllFilters}
                 className="text-xs text-rose-600 hover:text-rose-700 font-medium px-2 py-1 transition-colors"
               >
-                Limpiar todo
+                {t('Limpiar todo')}
               </button>
             )}
           </div>
@@ -195,7 +197,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         {uniqueStages.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-              Stage:
+              {t('Stage:')}
             </span>
             <button
               onClick={() => onFilterChange({ ...filters, orientations: [] })}
@@ -205,7 +207,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <span>Todos</span>
+              <span>{t('Todos')}</span>
               <span
                 className={`text-[10px] tabular-nums ${
                   filters.orientations.length === 0 ? 'text-slate-300' : 'text-slate-500'
@@ -241,11 +243,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         {/* Quick Filter Bar: Status & Urgency */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-            Estado:
+            {t('Estado:')}
           </span>
           {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
             const isSelected = filters.statuses.includes(st);
-            const label = st === 'BEFORE' ? 'Antes' : st === 'IN PROGRESS' ? 'En Progreso' : 'Completado';
+            const label = t(STATUS_LABEL[st]);
             const count = items.filter(i => i.status === st).length;
             return (
               <button
@@ -269,11 +271,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
 
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-            Urgencia:
+            {t('Urgencia:')}
           </span>
           {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
             const isSelected = filters.urgencies.includes(ug);
-            const label = ug === 'HIGH' ? 'Alta' : ug === 'MEDIUM' ? 'Media' : 'Baja';
+            const label = t(URGENCY_LABEL[ug]);
             const count = items.filter(i => i.urgency === ug).length;
             return (
               <button
@@ -305,7 +307,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             }`}
           >
             {filters.hasPhotosOnly && <Check className="w-3 h-3 text-indigo-600" />}
-            <span>Solo con fotografías</span>
+            <span>{t('Solo con fotografías')}</span>
           </button>
         </div>
 
@@ -314,7 +316,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             {/* Stage / Orientation */}
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">Etapa / Orientación</label>
+              <label className="font-semibold text-slate-700 block">{t('Etapa / Orientación')}</label>
               <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
                 {uniqueStages.map(stg => {
                   const isSelected = filters.orientations.includes(stg);
@@ -338,7 +340,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
             {/* Defect Type */}
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">Tipo de Defecto</label>
+              <label className="font-semibold text-slate-700 block">{t('Tipo de Defecto')}</label>
               <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
                 {uniqueDefects.slice(0, 12).map(df => {
                   const isSelected = filters.defects.includes(df);
@@ -363,10 +365,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
             {/* Drop & Level */}
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">Línea (Drop) & Nivel</label>
+              <label className="font-semibold text-slate-700 block">{t('Línea (Drop) & Nivel')}</label>
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
-                  <span className="text-[10px] text-slate-400 font-bold mr-1">Drop:</span>
+                  <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Drop:')}</span>
                   {uniqueDrops.map(dr => {
                     const isSelected = filters.drops.includes(dr);
                     return (
@@ -386,7 +388,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 </div>
 
                 <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
-                  <span className="text-[10px] text-slate-400 font-bold mr-1">Piso:</span>
+                  <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Piso:')}</span>
                   {uniqueLevels.map(lv => {
                     const isSelected = filters.levels.includes(lv);
                     return (
@@ -409,7 +411,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
             {/* Technicians */}
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">Técnico Asignado</label>
+              <label className="font-semibold text-slate-700 block">{t('Técnico Asignado')}</label>
               <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
                 {uniqueTechnicians.map(tc => {
                   const isSelected = filters.technicians.includes(tc);
@@ -435,12 +437,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         {/* Count Indicator */}
         <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
           <div>
-            Mostrando <span className="font-semibold text-slate-800 tabular-nums">{filteredCount}</span> de{' '}
-            <span className="tabular-nums font-semibold text-slate-800">{items.length}</span> registros de inspección
+            {t('Mostrando {n} de {total} registros de inspección', { n: filteredCount, total: items.length })}
           </div>
           {!readOnly && (
             <div className="text-[11px] text-slate-400">
-              Arrastra las fotos entre filas o casillas para reordenar o cambiar de defecto
+              {t('Arrastra las fotos entre filas o casillas para reordenar o cambiar de defecto')}
             </div>
           )}
         </div>

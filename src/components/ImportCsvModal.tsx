@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { parseInspectionCsv } from '../utils/csvParser';
 import { DefectItem } from '../types/inspection';
+import { useI18n } from '../i18n';
 
 interface ImportCsvModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const { t } = useI18n();
   const [csvText, setCsvText] = useState('');
   const [replaceExisting, setReplaceExisting] = useState(true);
   const [previewItems, setPreviewItems] = useState<DefectItem[]>([]);
@@ -30,13 +32,13 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     try {
       const parsed = parseInspectionCsv(text, new Map(existingItems.map(i => [i.id, i])));
       if (parsed.length === 0) {
-        setError('No se detectaron registros válidos en el texto CSV.');
+        setError(t('No se detectaron registros válidos en el texto CSV.'));
         setPreviewItems([]);
       } else {
         setPreviewItems(parsed);
       }
     } catch (err: any) {
-      setError(`Error al procesar CSV: ${err?.message || 'Formato no reconocido'}`);
+      setError(t('Error al procesar CSV: {msg}', { msg: err?.message || t('Formato no reconocido') }));
       setPreviewItems([]);
     }
   };
@@ -68,7 +70,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
           <div className="flex items-center gap-2">
             <Upload className="w-5 h-5 text-indigo-600" />
             <h2 className="text-base font-bold text-slate-900">
-              Importar Datos desde CSV (Google Sheets / Glide)
+              {t('Importar Datos desde CSV (Google Sheets / Glide)')}
             </h2>
           </div>
           <button
@@ -82,7 +84,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         {/* Content */}
         <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
           <p className="text-slate-600">
-            Pega el texto copiado desde Google Sheets o sube un archivo <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">.csv</code> con las columnas de inspección (#REF!, No, Defect, Urgency, Drop, Level, PHOTO 1..9, etc.).
+            {t('Pega el texto copiado desde Google Sheets o sube un archivo .csv con las columnas de inspección (ID, No, Defect, Urgency, Drop, Level, PHOTO 1..9, etc.).')}
           </p>
 
           {/* File Picker */}
@@ -100,9 +102,9 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
               className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg font-semibold text-slate-800 shadow-xs flex items-center gap-1.5"
             >
               <FileText className="w-4 h-4 text-slate-500" />
-              Seleccionar archivo CSV
+              {t('Seleccionar archivo CSV')}
             </button>
-            <span className="text-slate-500">o pega el contenido en el área inferior:</span>
+            <span className="text-slate-500">{t('o pega el contenido en el área inferior:')}</span>
           </div>
 
           {/* Text Area */}
@@ -111,7 +113,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
               rows={8}
               value={csvText}
               onChange={e => handleParseText(e.target.value)}
-              placeholder="Pega aquí el contenido CSV con las cabeceras..."
+              placeholder={t('Pega aquí el contenido CSV con las cabeceras...')}
               className="w-full p-3 font-mono text-[11px] border border-slate-200 rounded-xl focus:border-slate-400 focus:outline-hidden leading-relaxed"
             />
           </div>
@@ -129,7 +131,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
             <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg flex items-center justify-between">
               <div className="flex items-center gap-2 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Se detectaron exitosamente <strong>{previewItems.length} registros</strong> de inspección con sus fotos.</span>
+                <span>{t('Se detectaron {n} registros de inspección con sus fotos.', { n: previewItems.length })}</span>
               </div>
             </div>
           )}
@@ -144,7 +146,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
               className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
             />
             <label htmlFor="replaceExisting" className="text-slate-700 font-medium select-none cursor-pointer">
-              Reemplazar los registros actuales con estos datos nuevos (desmarcar para anexar)
+              {t('Reemplazar los registros actuales con estos datos nuevos (desmarcar para anexar)')}
             </label>
           </div>
         </div>
@@ -156,7 +158,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
           >
-            Cancelar
+            {t('Cancelar')}
           </button>
           <button
             type="button"
@@ -164,7 +166,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
             onClick={handleExecuteImport}
             className="px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg shadow-xs transition-colors"
           >
-            Importar {previewItems.length > 0 && `(${previewItems.length})`}
+            {t('Importar')} {previewItems.length > 0 && `(${previewItems.length})`}
           </button>
         </div>
       </div>

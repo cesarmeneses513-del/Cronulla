@@ -17,6 +17,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { DefectItem, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from '../types/inspection';
+import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { PhaseChips } from './PhaseChips';
 
 interface DefectRowCardProps {
   item: DefectItem;
@@ -55,6 +57,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   selected = false,
   onToggleSelect,
 }) => {
+  const { t } = useI18n();
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,19 +65,19 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   // Status visual styling
   const statusConfig = {
     BEFORE: {
-      label: 'Antes',
+      label: t(STATUS_LABEL.BEFORE),
       color: 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300',
       dot: 'bg-slate-400',
       icon: Clock,
     },
     'IN PROGRESS': {
-      label: 'En Progreso',
+      label: t(STATUS_LABEL['IN PROGRESS']),
       color: 'text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300',
       dot: 'bg-amber-500',
       icon: Timer,
     },
     COMPLETED: {
-      label: 'Completado',
+      label: t(STATUS_LABEL.COMPLETED),
       color: 'text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border-emerald-300',
       dot: 'bg-emerald-500',
       icon: CheckCircle2,
@@ -88,9 +91,9 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
   // Urgency styling
   const urgencyConfig = {
-    HIGH: { label: 'Alta', color: 'text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200' },
-    MEDIUM: { label: 'Media', color: 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200' },
-    LOW: { label: 'Baja', color: 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-200' },
+    HIGH: { label: t(URGENCY_LABEL.HIGH), color: 'text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200' },
+    MEDIUM: { label: t(URGENCY_LABEL.MEDIUM), color: 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200' },
+    LOW: { label: t(URGENCY_LABEL.LOW), color: 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-200' },
   }[item.urgency] || { label: item.urgency, color: 'text-slate-700 bg-slate-100 border-slate-200' };
 
   // Cycle status on click
@@ -166,7 +169,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   };
 
   const handlePromptAddPhoto = () => {
-    const url = window.prompt('Ingrese la URL de la fotografía o use el selector de archivos:');
+    const url = window.prompt(t('Ingrese la URL de la fotografía o use el selector de archivos:'));
     if (url && url.trim().length > 0) {
       onAddPhoto(item.id, url.trim());
     }
@@ -190,7 +193,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
         <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-[1px] border-2 border-dashed border-emerald-500 rounded-xl z-20 flex items-center justify-center pointer-events-none">
           <div className="bg-emerald-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg shadow-md flex items-center gap-2">
             <Plus className="w-4 h-4" />
-            <span>Mover fotografía a la fila #{item.rowNo} ({item.defect})</span>
+            <span>{t('Mover fotografía a la fila #{row} ({defect})', { row: item.rowNo, defect: item.defect })}</span>
           </div>
         </div>
       )}
@@ -206,7 +209,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                 checked={selected}
                 onChange={() => {}}
                 onClick={e => onToggleSelect?.(item.id, e.shiftKey)}
-                title="Seleccionar (Shift + clic para seleccionar un rango)"
+                title={t('Seleccionar (Shift + clic para seleccionar un rango)')}
                 className="w-4 h-4 accent-rose-600 cursor-pointer"
               />
             ) : (
@@ -227,19 +230,21 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
           {/* Location details: Drop & Level */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-2.5 py-0.5 rounded border border-slate-200 font-medium">
-            <span>Drop: <strong className="text-slate-900 font-mono">{item.drop || '—'}</strong></span>
+            <span>{t('Drop:')} <strong className="text-slate-900 font-mono">{item.drop || '—'}</strong></span>
             <span className="text-slate-300">/</span>
-            <span>Nivel: <strong className="text-slate-900 font-mono">{item.level || '—'}</strong></span>
+            <span>{t('Nivel:')} <strong className="text-slate-900 font-mono">{item.level || '—'}</strong></span>
           </div>
         </div>
 
-        {/* Right: Status & Urgency interactive triggers + Actions */}
-        <div className="flex items-center gap-2 ml-auto">
+        {/* Right: phase photo chips, Status & Urgency interactive triggers + Actions */}
+        <div className="flex flex-wrap items-center gap-2 ms-auto">
+          <PhaseChips item={item} />
+
           {/* Status badge button */}
           <button
             onClick={readOnly ? undefined : cycleStatus}
             disabled={readOnly}
-            title={readOnly ? undefined : 'Click para cambiar estado'}
+            title={readOnly ? undefined : t('Click para cambiar estado')}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all disabled:cursor-default ${statusConfig.color}`}
           >
             <span className={`w-2 h-2 rounded-full ${statusConfig.dot}`} />
@@ -250,7 +255,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
           <button
             onClick={readOnly ? undefined : cycleUrgency}
             disabled={readOnly}
-            title={readOnly ? undefined : 'Click para alternar urgencia'}
+            title={readOnly ? undefined : t('Click para alternar urgencia')}
             className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border transition-all disabled:cursor-default ${urgencyConfig.color}`}
           >
             <AlertCircle className="w-3 h-3" />
@@ -259,10 +264,10 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
           {/* Action buttons */}
           {!readOnly && (
-          <div className="flex items-center border-l border-slate-200 pl-2 gap-1">
+          <div className="flex items-center border-s border-slate-200 ps-2 gap-1">
             <button
               onClick={() => onEdit(item)}
-              title="Editar todos los datos del defecto"
+              title={t('Editar todos los datos del defecto')}
               className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
             >
               <Edit2 className="w-3.5 h-3.5" />
@@ -270,7 +275,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
             <button
               onClick={() => onDuplicate(item)}
-              title="Duplicar este registro"
+              title={t('Duplicar este registro')}
               className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
             >
               <Copy className="w-3.5 h-3.5" />
@@ -278,7 +283,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
             <button
               onClick={() => onDelete(item.id)}
-              title="Eliminar registro"
+              title={t('Eliminar registro')}
               className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -294,10 +299,10 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-              <span>Fotografías ({item.photos.length})</span>
+              <span>{t('Fotografías ({n})', { n: item.photos.length })}</span>
               {!readOnly && (
                 <span className="text-[11px] font-normal text-slate-400">
-                  Arrastra para ordenar o mover a otra fila
+                  {t('Arrastra para ordenar o mover a otra fila')}
                 </span>
               )}
             </span>
@@ -315,14 +320,14 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                 onClick={() => fileInputRef.current?.click()}
                 className="text-xs text-slate-600 hover:text-slate-900 hover:underline inline-flex items-center gap-1"
               >
-                <Plus className="w-3 h-3" /> Subir archivo
+                <Plus className="w-3 h-3" /> {t('Subir archivo')}
               </button>
               <span className="text-slate-300">·</span>
               <button
                 onClick={handlePromptAddPhoto}
                 className="text-xs text-slate-600 hover:text-slate-900 hover:underline"
               >
-                + Pegar URL
+                {t('+ Pegar URL')}
               </button>
             </div>
             )}
@@ -333,8 +338,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             {item.photos.length === 0 ? (
               <div className="w-full py-5 text-center text-xs text-slate-400 border border-dashed border-slate-300 rounded-md bg-white">
                 {readOnly
-                  ? 'No hay fotografías registradas en esta fila.'
-                  : 'No hay fotografías registradas en esta fila. Arrastra una foto aquí o haz clic en Subir.'}
+                  ? t('No hay fotografías registradas en esta fila.')
+                  : `${t('No hay fotografías registradas en esta fila.')} ${t('Arrastra una foto aquí o haz clic en Subir.')}`}
               </div>
             ) : (
               item.photos.map((photo, pIdx) => {
@@ -347,17 +352,17 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                   BEFORE: {
                     badge: 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:border-slate-400',
                     dot: 'bg-slate-400',
-                    label: 'BEFORE',
+                    label: t(PHASE_LABEL.BEFORE),
                   },
                   'IN PROGRESS': {
                     badge: 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 hover:border-amber-400',
                     dot: 'bg-amber-500',
-                    label: 'IN PROGRESS',
+                    label: t(PHASE_LABEL['IN PROGRESS']),
                   },
                   COMPLETED: {
                     badge: 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200 hover:border-emerald-400',
                     dot: 'bg-emerald-500',
-                    label: 'COMPLETED',
+                    label: t(PHASE_LABEL.COMPLETED),
                   },
                 }[phase] || {
                   badge: 'bg-slate-100 text-slate-700 border-slate-300',
@@ -378,7 +383,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                           onUpdatePhotoPhase(item.id, pIdx, next);
                         }
                       }}
-                      title={readOnly ? undefined : 'Clic para cambiar: BEFORE, IN PROGRESS o COMPLETED'}
+                      title={readOnly ? undefined : t('Clic para cambiar la fase de la foto')}
                       className={`w-24 sm:w-28 mb-1.5 py-0.5 px-1.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center justify-between border shadow-2xs transition-all cursor-pointer disabled:cursor-default ${phaseStyles.badge}`}
                     >
                       <span className="flex items-center gap-1 truncate">
@@ -431,7 +436,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
                         <button
                           onClick={() => onOpenPhotoLightbox(item, pIdx)}
-                          title="Ver en pantalla completa"
+                          title={t('Ver en pantalla completa')}
                           className="p-1.5 bg-white text-slate-900 rounded-full hover:bg-slate-100 shadow-xs"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
@@ -439,7 +444,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                         {!readOnly && (
                           <button
                             onClick={() => onDeletePhoto(item.id, pIdx)}
-                            title="Quitar foto"
+                            title={t('Quitar foto')}
                             className="p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 shadow-xs"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -456,15 +461,15 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             {!readOnly && (
             <div className="flex flex-col items-center">
               <span className="w-24 sm:w-28 mb-1.5 py-0.5 text-[10px] font-bold text-center text-slate-400 uppercase tracking-wider">
-                + NUEVA
+                {t('+ NUEVA')}
               </span>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                title="Añadir fotografía a esta fila"
+                title={t('Añadir fotografía a esta fila')}
                 className="w-24 h-24 sm:w-28 sm:h-28 border border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-400 hover:bg-white transition-all gap-1 text-xs"
               >
                 <Plus className="w-5 h-5" />
-                <span className="text-[11px] font-medium">Añadir</span>
+                <span className="text-[11px] font-medium">{t('Añadir')}</span>
               </button>
             </div>
             )}
@@ -480,22 +485,22 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                 <Ruler className="w-3.5 h-3.5 text-slate-500" />
                 {item.linearMeters && (
                   <span>
-                    Metros lineales: <strong className="text-slate-900 font-mono tabular-nums">{item.linearMeters} m</strong>
+                    {t('Metros lineales:')} <strong className="text-slate-900 font-mono tabular-nums">{item.linearMeters} m</strong>
                   </span>
                 )}
                 {(item.baseM || item.heightM) && (
                   <span>
-                    Dimensión: <strong className="text-slate-900 font-mono tabular-nums">{item.baseM || '0'} × {item.heightM || '0'} m</strong>
+                    {t('Dimensión:')} <strong className="text-slate-900 font-mono tabular-nums">{item.baseM || '0'} × {item.heightM || '0'} m</strong>
                   </span>
                 )}
                 {item.quantity && (
                   <span>
-                    Cantidad: <strong className="text-slate-900 font-mono tabular-nums">{item.quantity}</strong>
+                    {t('Cantidad:')} <strong className="text-slate-900 font-mono tabular-nums">{item.quantity}</strong>
                   </span>
                 )}
               </div>
             ) : (
-              <span className="text-slate-400 text-xs italic">Sin medidas especificadas</span>
+              <span className="text-slate-400 text-xs italic">{t('Sin medidas especificadas')}</span>
             )}
 
             {/* Comment */}
@@ -526,13 +531,13 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             {item.technicianStart && (
               <span className="flex items-center gap-1">
                 <User className="w-3 h-3 text-slate-400" />
-                <span>Inicio: <strong>{item.technicianStart}</strong> {item.date1stPhoto && `(${item.date1stPhoto})`}</span>
+                <span>{t('Inicio:')} <strong>{item.technicianStart}</strong> {item.date1stPhoto && `(${item.date1stPhoto})`}</span>
               </span>
             )}
             {item.technicianCompleted && (
               <span className="flex items-center gap-1 text-emerald-700">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                <span>Listo: <strong>{item.technicianCompleted}</strong> {item.dateCompleted && `(${item.dateCompleted})`}</span>
+                <span>{t('Listo:')} <strong>{item.technicianCompleted}</strong> {item.dateCompleted && `(${item.dateCompleted})`}</span>
               </span>
             )}
           </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowDownUp, ArrowDown01, ArrowUp10 } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
+import { useI18n } from '../i18n';
 
 export type SortMode = 'original' | 'number' | 'stage' | 'defect';
 export type SortDirection = 'asc' | 'desc';
@@ -48,11 +49,13 @@ interface SortBarProps {
   actions?: React.ReactNode;
 }
 
-export const SortBar: React.FC<SortBarProps> = ({ mode, direction, onChange, actions }) => (
+export const SortBar: React.FC<SortBarProps> = ({ mode, direction, onChange, actions }) => {
+  const { t } = useI18n();
+  return (
   <div className="flex flex-wrap items-center gap-2 mb-4">
     <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
       <ArrowDownUp className="w-3.5 h-3.5" />
-      Ordenar por:
+      {t('Ordenar por:')}
     </span>
     <div className="flex flex-wrap items-center gap-1 p-1 bg-white rounded-lg border border-slate-200">
       {SORT_OPTIONS.map(opt => (
@@ -63,18 +66,19 @@ export const SortBar: React.FC<SortBarProps> = ({ mode, direction, onChange, act
             mode === opt.mode ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          {opt.label}
+          {t(opt.label)}
         </button>
       ))}
     </div>
     <button
       onClick={() => onChange(mode, direction === 'asc' ? 'desc' : 'asc')}
-      title={direction === 'asc' ? 'Ascendente (clic para invertir)' : 'Descendente (clic para invertir)'}
+      title={t(direction === 'asc' ? 'Ascendente (clic para invertir)' : 'Descendente (clic para invertir)')}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
     >
       {direction === 'asc' ? <ArrowDown01 className="w-3.5 h-3.5" /> : <ArrowUp10 className="w-3.5 h-3.5" />}
-      {direction === 'asc' ? 'Ascendente' : 'Descendente'}
+      {t(direction === 'asc' ? 'Ascendente' : 'Descendente')}
     </button>
-    {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+    {actions && <div className="ms-auto flex items-center gap-2">{actions}</div>}
   </div>
-);
+  );
+};

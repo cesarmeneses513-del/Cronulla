@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ExternalLink, ArrowRightLeft, Trash2, MapPin, Tag } from 'lucide-react';
 import { DefectItem, PhotoPhase } from '../types/inspection';
+import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
 
 interface PhotoMosaicViewProps {
   items: DefectItem[];
@@ -19,6 +20,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
   onUpdatePhotoPhase,
   readOnly = false,
 }) => {
+  const { t } = useI18n();
   const [phaseFilter, setPhaseFilter] = useState<'ALL' | PhotoPhase>('ALL');
 
   // Flatten all photos with their parent item reference & resolved phase
@@ -57,7 +59,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
       {/* Phase Filter Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-semibold text-slate-500 mr-1">Filtrar por etapa:</span>
+          <span className="text-xs font-semibold text-slate-500 mr-1">{t('Filtrar por fase:')}</span>
           
           <button
             onClick={() => setPhaseFilter('ALL')}
@@ -67,7 +69,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            TODAS ({allPhotos.length})
+            {t('Todas')} ({allPhotos.length})
           </button>
 
           <button
@@ -79,7 +81,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-slate-400" />
-            BEFORE ({countBefore})
+            {t(PHASE_LABEL.BEFORE)} ({countBefore})
           </button>
 
           <button
@@ -91,7 +93,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-amber-500" />
-            IN PROGRESS ({countInProgress})
+            {t(PHASE_LABEL['IN PROGRESS'])} ({countInProgress})
           </button>
 
           <button
@@ -103,18 +105,18 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            COMPLETED ({countCompleted})
+            {t(PHASE_LABEL.COMPLETED)} ({countCompleted})
           </button>
         </div>
 
         <div className="text-xs text-slate-500 font-medium">
-          Mostrando <span className="font-bold text-slate-900">{displayedPhotos.length}</span> fotos
+          {t('Mostrando {n} fotos', { n: displayedPhotos.length })}
         </div>
       </div>
 
       {displayedPhotos.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-          <p className="text-slate-500 text-sm">No se encontraron fotografías con los filtros seleccionados.</p>
+          <p className="text-slate-500 text-sm">{t('No se encontraron fotografías con los filtros seleccionados.')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -152,12 +154,12 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                       onUpdatePhotoPhase(item.id, pIdx, next);
                     }
                   }}
-                  title="Clic para cambiar: BEFORE, IN PROGRESS o COMPLETED"
+                  title={t('Clic para cambiar la fase de la foto')}
                   className={`px-2.5 py-1 text-[11px] font-black uppercase tracking-wider flex items-center justify-between border-b transition-colors cursor-pointer ${phaseStyle.header}`}
                 >
                   <span className="flex items-center gap-1.5 truncate">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${phaseStyle.dot}`} />
-                    <span className="truncate">{phase}</span>
+                    <span className="truncate">{t(PHASE_LABEL[phase])}</span>
                   </span>
                   <span className="text-[10px] font-mono opacity-60 shrink-0">F{pIdx + 1}</span>
                 </button>
@@ -178,7 +180,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
                     <button
                       onClick={() => onOpenPhotoLightbox(item, pIdx)}
-                      title="Ampliar fotografía"
+                      title={t('Ampliar fotografía')}
                       className="p-2 bg-white text-slate-900 rounded-full hover:bg-slate-100 shadow-sm"
                     >
                       <ExternalLink className="w-4 h-4" />
@@ -188,7 +190,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                     <>
                     <button
                       onClick={() => onMovePhotoPrompt(item, pIdx)}
-                      title="Reasignar a otra fila de defecto"
+                      title={t('Reasignar a otra fila de defecto')}
                       className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-sm"
                     >
                       <ArrowRightLeft className="w-4 h-4" />
@@ -196,7 +198,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
 
                     <button
                       onClick={() => onDeletePhoto(item.id, pIdx)}
-                      title="Eliminar foto"
+                      title={t('Eliminar foto')}
                       className="p-2 bg-rose-600 text-white rounded-full hover:bg-rose-700 shadow-sm"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -226,7 +228,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                     </span>
 
                     <span className="font-medium text-slate-700">
-                      {item.urgency}
+                      {t(URGENCY_LABEL[item.urgency] || item.urgency)}
                     </span>
                   </div>
 

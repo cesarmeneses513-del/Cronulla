@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Plus, Trash2, ArrowUp, ArrowDown, Save, Camera, Ruler, User } from 'lucide-react';
 import { DefectItem, UrgencyLevel, DefectStatus, PhotoPhase, DefectPhoto } from '../types/inspection';
 import { uploadPhoto } from '../lib/supabase';
+import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 
 interface EditDefectModalProps {
   item: DefectItem | null;
@@ -42,6 +43,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useI18n();
   if (!isOpen || !item) return null;
 
   const [formData, setFormData] = useState<DefectItem>({ ...item });
@@ -116,7 +118,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   };
 
   const handleAddPhotoByUrl = () => {
-    const url = window.prompt('Pegar enlace URL de la fotografía:');
+    const url = window.prompt(t('Pegar enlace URL de la fotografía:'));
     if (url && url.trim()) {
       const newPhoto: DefectPhoto = {
         url: url.trim(),
@@ -137,10 +139,10 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
         <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
             <span className="text-xs font-mono font-bold text-slate-500">
-              Registro #{formData.rowNo}
+              {t('Registro #{row}', { row: formData.rowNo })}
             </span>
             <h2 className="text-base font-bold text-slate-900">
-              Editar Datos del Defecto
+              {t('Editar Datos del Defecto')}
             </h2>
           </div>
           <button
@@ -158,7 +160,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
             {/* Row No & Project */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Número de Fila / ID
+                {t('Número de Fila / ID')}
               </label>
               <input
                 type="text"
@@ -170,7 +172,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Proyecto
+                {t('Proyecto')}
               </label>
               <input
                 type="text"
@@ -182,7 +184,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Etapa / Orientación
+                {t('Etapa / Orientación')}
               </label>
               <input
                 list="stages-list"
@@ -202,7 +204,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Tipo de Defecto
+                {t('Tipo de Defecto')}
               </label>
               <input
                 list="defects-list"
@@ -219,31 +221,31 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Urgencia
+                {t('Urgencia')}
               </label>
               <select
                 value={formData.urgency}
                 onChange={e => setFormData({ ...formData, urgency: e.target.value as UrgencyLevel })}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-semibold focus:border-slate-400 focus:outline-hidden"
               >
-                <option value="LOW">Baja (LOW)</option>
-                <option value="MEDIUM">Media (MEDIUM)</option>
-                <option value="HIGH">Alta (HIGH)</option>
+                <option value="LOW">{t(URGENCY_LABEL.LOW)} (LOW)</option>
+                <option value="MEDIUM">{t(URGENCY_LABEL.MEDIUM)} (MEDIUM)</option>
+                <option value="HIGH">{t(URGENCY_LABEL.HIGH)} (HIGH)</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Estado
+                {t('Estado')}
               </label>
               <select
                 value={formData.status}
                 onChange={e => setFormData({ ...formData, status: e.target.value as DefectStatus })}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-semibold focus:border-slate-400 focus:outline-hidden"
               >
-                <option value="BEFORE">Antes (BEFORE)</option>
-                <option value="IN PROGRESS">En Progreso (IN PROGRESS)</option>
-                <option value="COMPLETED">Completado (COMPLETED)</option>
+                <option value="BEFORE">{t(STATUS_LABEL.BEFORE)} (BEFORE)</option>
+                <option value="IN PROGRESS">{t(STATUS_LABEL['IN PROGRESS'])} (IN PROGRESS)</option>
+                <option value="COMPLETED">{t(STATUS_LABEL.COMPLETED)} (COMPLETED)</option>
               </select>
             </div>
           </div>
@@ -252,33 +254,33 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Línea (Drop)
+                {t('Línea (Drop)')}
               </label>
               <input
                 type="text"
                 value={formData.drop}
                 onChange={e => setFormData({ ...formData, drop: e.target.value })}
                 className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center font-bold focus:border-slate-400 focus:outline-hidden"
-                placeholder="Ej. 1"
+                placeholder={t('Ej. 1')}
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nivel / Piso
+                {t('Nivel / Piso')}
               </label>
               <input
                 type="text"
                 value={formData.level}
                 onChange={e => setFormData({ ...formData, level: e.target.value })}
                 className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center font-bold focus:border-slate-400 focus:outline-hidden"
-                placeholder="Ej. 4, G, R"
+                placeholder={t('Ej. 4, G, R')}
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Metros Lineales (m)
+                {t('Metros Lineales (m)')}
               </label>
               <input
                 type="text"
@@ -291,7 +293,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Base × Altura (m)
+                {t('Base × Altura (m)')}
               </label>
               <div className="flex items-center gap-1">
                 <input
@@ -299,7 +301,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   value={formData.baseM}
                   onChange={e => setFormData({ ...formData, baseM: e.target.value })}
                   className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center focus:border-slate-400 focus:outline-hidden"
-                  placeholder="Base"
+                  placeholder={t('Base')}
                 />
                 <span className="text-slate-400">×</span>
                 <input
@@ -307,7 +309,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   value={formData.heightM}
                   onChange={e => setFormData({ ...formData, heightM: e.target.value })}
                   className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center focus:border-slate-400 focus:outline-hidden"
-                  placeholder="Alto"
+                  placeholder={t('Alto')}
                 />
               </div>
             </div>
@@ -316,21 +318,21 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           {/* Comment & Notes */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Comentarios y Notas de Campo
+              {t('Comentarios y Notas de Campo')}
             </label>
             <textarea
               rows={2}
               value={formData.comment}
               onChange={e => setFormData({ ...formData, comment: e.target.value })}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:border-slate-400 focus:outline-hidden"
-              placeholder="Ej. INTRODUCE NEW JOINT, fisuras observadas, requiere andamio..."
+              placeholder={t('Ej. INTRODUCE NEW JOINT, fisuras observadas, requiere andamio...')}
             />
           </div>
 
           {/* Custom Tags */}
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-700">
-              Etiquetas Personalizadas
+              {t('Etiquetas Personalizadas')}
             </label>
             <div className="flex flex-wrap items-center gap-1.5">
               {(formData.customTags || []).map((tag, tIdx) => (
@@ -360,7 +362,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                       handleAddTag();
                     }
                   }}
-                  placeholder="+ Añadir etiqueta..."
+                  placeholder={t('+ Añadir etiqueta...')}
                   className="px-2.5 py-1 border border-slate-200 rounded-md text-xs focus:outline-hidden focus:border-slate-400 w-36"
                 />
                 <button
@@ -368,7 +370,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   onClick={handleAddTag}
                   className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-md text-xs font-medium text-slate-700"
                 >
-                  Añadir
+                  {t('Añadir')}
                 </button>
               </div>
             </div>
@@ -378,7 +380,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           <div className="space-y-3 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-700 block">
-                Gestión de Fotografías ({formData.photos.length})
+                {t('Gestión de Fotografías ({n})', { n: formData.photos.length })}
               </label>
 
               <div className="flex items-center gap-2">
@@ -394,7 +396,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className="text-xs text-indigo-600 hover:underline font-medium inline-flex items-center gap-1"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Subir archivo
+                  <Plus className="w-3.5 h-3.5" /> {t('Subir archivo')}
                 </button>
                 <span className="text-slate-300">·</span>
                 <button
@@ -402,7 +404,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   onClick={handleAddPhotoByUrl}
                   className="text-xs text-indigo-600 hover:underline font-medium"
                 >
-                  + Pegar URL
+                  {t('+ Pegar URL')}
                 </button>
               </div>
             </div>
@@ -433,9 +435,9 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                       onChange={e => handleChangePhotoPhase(pIdx, e.target.value as PhotoPhase)}
                       className={`w-full mb-1 text-[10px] font-black uppercase tracking-wider py-1 px-1.5 rounded-md border focus:outline-hidden ${phaseSelectStyle}`}
                     >
-                      <option value="BEFORE">BEFORE</option>
-                      <option value="IN PROGRESS">IN PROGRESS</option>
-                      <option value="COMPLETED">COMPLETED</option>
+                      <option value="BEFORE">{t(PHASE_LABEL.BEFORE)}</option>
+                      <option value="IN PROGRESS">{t(PHASE_LABEL['IN PROGRESS'])}</option>
+                      <option value="COMPLETED">{t(PHASE_LABEL.COMPLETED)}</option>
                     </select>
 
                     {/* Photo thumbnail */}
@@ -455,7 +457,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                           type="button"
                           disabled={pIdx === 0}
                           onClick={() => handleMovePhotoOrder(pIdx, 'up')}
-                          title="Mover antes"
+                          title={t('Mover antes')}
                           className="p-1 text-white hover:bg-white/20 rounded disabled:opacity-30"
                         >
                           <ArrowUp className="w-3 h-3" />
@@ -464,7 +466,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                           type="button"
                           disabled={pIdx === formData.photos.length - 1}
                           onClick={() => handleMovePhotoOrder(pIdx, 'down')}
-                          title="Mover después"
+                          title={t('Mover después')}
                           className="p-1 text-white hover:bg-white/20 rounded disabled:opacity-30"
                         >
                           <ArrowDown className="w-3 h-3" />
@@ -472,7 +474,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemovePhoto(pIdx)}
-                          title="Eliminar foto"
+                          title={t('Eliminar foto')}
                           className="p-1 text-rose-400 hover:bg-rose-500 hover:text-white rounded"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -488,12 +490,12 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           {/* Technicians & Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 text-xs">
             <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span className="font-semibold text-slate-800 block">Técnico de Inicio</span>
+              <span className="font-semibold text-slate-800 block">{t('Técnico de Inicio')}</span>
               <input
                 type="text"
                 value={formData.technicianStart}
                 onChange={e => setFormData({ ...formData, technicianStart: e.target.value })}
-                placeholder="Nombre del técnico"
+                placeholder={t('Nombre del técnico')}
                 className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
               />
               <div className="flex gap-2">
@@ -501,26 +503,26 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   type="text"
                   value={formData.date1stPhoto}
                   onChange={e => setFormData({ ...formData, date1stPhoto: e.target.value })}
-                  placeholder="Fecha (dd/mm/aaaa)"
+                  placeholder={t('Fecha (dd/mm/aaaa)')}
                   className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
                 />
                 <input
                   type="text"
                   value={formData.time1stPhoto}
                   onChange={e => setFormData({ ...formData, time1stPhoto: e.target.value })}
-                  placeholder="Hora"
+                  placeholder={t('Hora')}
                   className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
                 />
               </div>
             </div>
 
             <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span className="font-semibold text-slate-800 block">Técnico Finalizado</span>
+              <span className="font-semibold text-slate-800 block">{t('Técnico Finalizado')}</span>
               <input
                 type="text"
                 value={formData.technicianCompleted}
                 onChange={e => setFormData({ ...formData, technicianCompleted: e.target.value })}
-                placeholder="Nombre del técnico"
+                placeholder={t('Nombre del técnico')}
                 className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
               />
               <div className="flex gap-2">
@@ -528,14 +530,14 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   type="text"
                   value={formData.dateCompleted}
                   onChange={e => setFormData({ ...formData, dateCompleted: e.target.value })}
-                  placeholder="Fecha (dd/mm/aaaa)"
+                  placeholder={t('Fecha (dd/mm/aaaa)')}
                   className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
                 />
                 <input
                   type="text"
                   value={formData.timeCompleted}
                   onChange={e => setFormData({ ...formData, timeCompleted: e.target.value })}
-                  placeholder="Hora"
+                  placeholder={t('Hora')}
                   className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
                 />
               </div>
@@ -549,14 +551,14 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             >
-              Cancelar
+              {t('Cancelar')}
             </button>
             <button
               type="submit"
               className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors"
             >
               <Save className="w-4 h-4" />
-              Guardar Cambios
+              {t('Guardar Cambios')}
             </button>
           </div>
         </form>
