@@ -340,7 +340,6 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${phaseStyles.dot}`} />
                         <span className="truncate">{phaseStyles.label}</span>
                       </span>
-                      <span className="text-[9px] font-mono opacity-60 shrink-0">F{pIdx + 1}</span>
                     </button>
 
                     {/* Photo thumbnail */}

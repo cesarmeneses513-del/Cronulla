@@ -448,9 +448,6 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                         referrerPolicy="no-referrer"
                         className="w-full h-24 object-cover"
                       />
-                      <span className="absolute bottom-1 left-1 bg-black/70 text-white font-mono text-[10px] px-1 rounded">
-                        F{pIdx + 1}
-                      </span>
 
                       <div className="absolute top-1 right-1 flex items-center gap-1 bg-black/60 rounded p-0.5">
                         <button

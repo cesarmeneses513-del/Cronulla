@@ -335,35 +335,46 @@ function fillGaps_(item, rec, log) {
 }
 
 function mergePhotos_(item, rec, old, log) {
-  const slotMap = src => {
-    const m = {};
+  // A photo is identified by URL + phase: Glide may put the same image in two phases.
+  const keys = src => {
+    const out = [];
     PHOTO_HEADERS.forEach((h, i) => {
       const url = src[h];
-      if (url && /^https?:\/\//.test(url) && !m[url]) m[url] = phaseOfSlot_(i);
+      if (!url || !/^https?:\/\//.test(url)) return;
+      const key = phaseOfSlot_(i) + '|' + url;
+      if (out.indexOf(key) < 0) out.push(key);
     });
-    return m;
+    return out;
   };
-  const before = slotMap(old);
-  const after = slotMap(rec);
-  let photos = (item.photos || []).map((p, i) => (typeof p === 'string' ? { url: p, phase: phaseOfSlot_(i) } : p));
-  const has = url => photos.some(p => p.url === url);
+  const split = key => ({ phase: key.slice(0, key.indexOf('|')), url: key.slice(key.indexOf('|') + 1) });
+  const before = keys(old);
+  const after = keys(rec);
+  const removed = before.filter(k => after.indexOf(k) < 0);
+  const added = after.filter(k => before.indexOf(k) < 0);
 
-  Object.keys(before).forEach(url => {
-    if (!after[url] && has(url)) {
-      photos = photos.filter(p => p.url !== url);
-      log.push({ action: 'photo_remove', details: { phase: before[url], url: url } });
+  let photos = (item.photos || []).map((p, i) => (typeof p === 'string' ? { url: p, phase: phaseOfSlot_(i) } : p));
+  const find = (url, phase) => photos.find(p => p.url === url && p.phase === phase);
+
+  added.forEach(key => {
+    const { phase, url } = split(key);
+    if (find(url, phase)) return; // the web already has it
+    // Same image moved to another phase in Glide: move it in the web too.
+    const movedFrom = removed.map(split).find(r => r.url === url && find(url, r.phase));
+    if (movedFrom) {
+      find(url, movedFrom.phase).phase = phase;
+      removed.splice(removed.indexOf(movedFrom.phase + '|' + url), 1);
+      log.push({ action: 'photo_phase', details: { from: movedFrom.phase, to: phase, url: url } });
+      return;
     }
+    photos.push({ url: url, phase: phase });
+    log.push({ action: 'photo_add', details: { phase: phase, url: url } });
   });
-  Object.keys(after).forEach(url => {
-    const phase = after[url];
-    const existing = photos.find(p => p.url === url);
-    if (!existing) {
-      photos.push({ url: url, phase: phase });
-      log.push({ action: 'photo_add', details: { phase: phase, url: url } });
-    } else if (existing.phase !== phase && before[url] && before[url] !== phase) {
-      log.push({ action: 'photo_phase', details: { from: existing.phase, to: phase, url: url } });
-      existing.phase = phase;
-    }
+  removed.forEach(key => {
+    const { phase, url } = split(key);
+    const photo = find(url, phase);
+    if (!photo) return;
+    photos = photos.filter(p => p !== photo);
+    log.push({ action: 'photo_remove', details: { phase: phase, url: url } });
   });
 
   // Keep phases grouped (BEFORE, IN PROGRESS, COMPLETED) like the web app shows them.

@@ -161,7 +161,6 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                     <span className={`w-2 h-2 rounded-full shrink-0 ${phaseStyle.dot}`} />
                     <span className="truncate">{t(PHASE_LABEL[phase])}</span>
                   </span>
-                  <span className="text-[10px] font-mono opacity-60 shrink-0">F{pIdx + 1}</span>
                 </button>
 
                 {/* Image Box */}
