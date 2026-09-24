@@ -17,14 +17,17 @@ Los datos se guardan en **Supabase** (tabla `defects` + bucket `inspection-photo
 
 La primera vez que la app abre con la base de datos vacía, sube automáticamente los datos iniciales (`src/data/initialData.ts`).
 
-## Copia en Google Sheets
+## Sincronización con Google Sheets
 
-[`google-sheets/sync.gs`](google-sheets/sync.gs) mantiene una hoja de cálculo como espejo de la app (solo en sentido app → hoja):
+[`google-sheets/sync.gs`](google-sheets/sync.gs) sincroniza la app con una hoja de cálculo en ambos sentidos:
 
 1. En la hoja: *Extensiones → Apps Script*, pega el contenido de `sync.gs` y guarda.
 2. Ejecuta la función `setup` una vez y autoriza los permisos.
 
-Cada minuto comprueba si hubo cambios en Supabase y, si los hay, reescribe las filas de la primera pestaña. Las columnas se identifican por el texto de la fila 1 (`No`, `Orientation`, `PHOTO 1`…), así que su orden no importa. El menú *Cronulla → Actualizar ahora* fuerza una actualización. Las ediciones hechas a mano en las filas de datos se sobrescriben.
+- **App → hoja:** cada minuto comprueba si hubo cambios en Supabase y, si los hay, reescribe las filas de la primera pestaña. *Cronulla → Actualizar ahora* lo fuerza.
+- **Hoja → app:** al editar celdas se envían al momento solo las columnas editadas de esas filas. Una fila nueva con *Defect* u *Orientation* crea un defecto.
+- Las filas se identifican por la columna **ID** (la crea y rellena el script; no editarla). Las columnas se reconocen por el texto de la fila 1, así que su orden no importa.
+- Borrar filas en la hoja **no** las borra en la app (vuelven en la siguiente actualización): borrar desde la app.
 
 ## Seguridad
 
