@@ -678,7 +678,14 @@ export default function App() {
   // Import CSV handler
   const handleImportCsv = useCallback(
     (importedItems: DefectItem[], replace: boolean) => {
-      updateItems(prev => (replace ? importedItems : [...importedItems, ...prev]), 'importar CSV');
+      updateItems(prev => {
+        if (replace) return importedItems;
+        // Append mode: rows whose ID already exists update in place, the rest go on top.
+        const byId = new Map(importedItems.map(i => [i.id, i]));
+        const updated = prev.map(i => byId.get(i.id) || i);
+        const prevIds = new Set(prev.map(i => i.id));
+        return [...importedItems.filter(i => !prevIds.has(i.id)), ...updated];
+      }, 'importar CSV');
       showToast(`${importedItems.length} registros importados correctamente`, true);
     },
     [showToast, updateItems]
@@ -973,6 +980,7 @@ export default function App() {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImport={handleImportCsv}
+        existingItems={items}
       />
 
       {/* Quiet footer */}

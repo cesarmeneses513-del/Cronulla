@@ -7,12 +7,14 @@ interface ImportCsvModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImport: (items: DefectItem[], replace: boolean) => void;
+  existingItems: DefectItem[];
 }
 
 export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   isOpen,
   onClose,
   onImport,
+  existingItems,
 }) => {
   if (!isOpen) return null;
 
@@ -26,7 +28,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     setCsvText(text);
     setError(null);
     try {
-      const parsed = parseInspectionCsv(text);
+      const parsed = parseInspectionCsv(text, new Map(existingItems.map(i => [i.id, i])));
       if (parsed.length === 0) {
         setError('No se detectaron registros válidos en el texto CSV.');
         setPreviewItems([]);
