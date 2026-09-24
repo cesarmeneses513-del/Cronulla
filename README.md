@@ -27,7 +27,7 @@ La primera vez que la app abre con la base de datos vacía, sube automáticament
 - **App → hoja:** cada minuto comprueba si hubo cambios en Supabase y, si los hay, reescribe las filas de la primera pestaña. *Cronulla → Actualizar ahora* lo fuerza.
 - **Hoja → app:** al editar celdas se envían al momento solo las columnas editadas de esas filas. Una fila nueva con *Defect* u *Orientation* crea un defecto.
 - Las filas se identifican por la columna **ID** (la crea y rellena el script; no editarla). Las columnas se reconocen por el texto de la fila 1, así que su orden no importa.
-- Borrar filas en la hoja **no** las borra en la app (vuelven en la siguiente actualización): borrar desde la app.
+- **Borrar filas** (clic derecho → *Eliminar fila*) borra esos defectos en la app. Antes se copian a la pestaña oculta `_papelera`; *Cronulla → Restaurar último borrado* los recupera. Vaciar el contenido de una fila no cuenta como borrado.
 
 ## Seguridad
 

@@ -10,7 +10,9 @@
  * Sheet → app: editing cells pushes just the edited columns of those rows to Supabase, and the
  * web app picks them up live. A new row (with Defect or Orientation filled) creates a defect.
  * Rows are identified by the ID column, which the script adds and fills — don't edit it.
- * Deleting rows in the sheet does NOT delete them in the app; delete in the app instead.
+ * Deleting rows in the sheet (right-click → Delete row) deletes those defects in the app. Deleted
+ * rows are first copied to a hidden "_papelera" tab; Cronulla → Restaurar último borrado brings
+ * the last batch back. Clearing a row's contents is NOT a delete — use Delete row.
  */
 
 const SUPABASE_URL = 'https://jawmcsrcgqvndjhhvovl.supabase.co';
@@ -22,6 +24,9 @@ const SHEET_NAME = '';
 
 const PAGE_SIZE = 1000;
 const ID_HEADER = 'ID';
+// Hidden helper tabs: IDs the sheet showed after the last rewrite, and deleted rows (for restore).
+const SNAPSHOT_SHEET = '_sync_ids';
+const TRASH_SHEET = '_papelera';
 
 // Sheet header (trimmed, upper-case) → DefectItem field, for plain text columns.
 const FIELDS = {
@@ -64,10 +69,12 @@ const PHOTO_PHASES = [['BEFORE', 0], ['IN PROGRESS', 3], ['COMPLETED', 6]];
 /** Run once: installs the triggers, adds the ID column, then does a first sync. */
 function setup() {
   ScriptApp.getProjectTriggers()
-    .filter(t => ['syncIfChanged', 'onSheetEdit'].indexOf(t.getHandlerFunction()) >= 0)
+    .filter(t => ['syncIfChanged', 'onSheetEdit', 'onSheetChange'].indexOf(t.getHandlerFunction()) >= 0)
     .forEach(t => ScriptApp.deleteTrigger(t));
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   ScriptApp.newTrigger('syncIfChanged').timeBased().everyMinutes(1).create();
-  ScriptApp.newTrigger('onSheetEdit').forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onEdit().create();
+  ScriptApp.newTrigger('onSheetEdit').forSpreadsheet(ss).onEdit().create();
+  ScriptApp.newTrigger('onSheetChange').forSpreadsheet(ss).onChange().create();
   ensureIdColumn_(getSheet_());
   syncNow();
 }
@@ -76,6 +83,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Cronulla')
     .addItem('Actualizar ahora', 'syncNow')
+    .addItem('Restaurar último borrado', 'restoreLastDeletion')
     .addToUi();
 }
 
@@ -167,6 +175,7 @@ function writeRows_(items) {
 
   const oldRows = Math.max(sheet.getLastRow() - 1, 0);
   if (values.length > 0) sheet.getRange(2, 1, values.length, width).setValues(values);
+  writeSnapshot_(items.map(i => i.id));
 
   // Clear leftover app rows (the app now has fewer). Rows without an ID are someone typing
   // a new defect in the sheet, so leave those alone.
@@ -254,6 +263,7 @@ function pushRows_(sheet, firstRow, rows, headers, editedHeaders) {
     });
     upsert_(inserts);
     fresh.forEach((x, i) => sheet.getRange(x.sheetRow, idIdx + 1).setValue(inserts[i].id));
+    writeSnapshot_(readSnapshot_().concat(inserts.map(r => r.id)));
   }
 }
 
@@ -318,15 +328,33 @@ function emptyItem_(id) {
 
 function fetchByIds_(ids) {
   const byId = {};
+  fetchRowsByIds_(ids).forEach(r => (byId[r.id] = r.data));
+  return byId;
+}
+
+function fetchRowsByIds_(ids) {
+  const rows = [];
   for (let i = 0; i < ids.length; i += 100) {
-    const list = ids.slice(i, i + 100).map(id => '"' + id.replace(/"/g, '') + '"').join(',');
     const res = UrlFetchApp.fetch(
-      SUPABASE_URL + '/rest/v1/defects?select=id,data&id=in.(' + encodeURIComponent(list) + ')',
+      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&id=in.(' + idList_(ids.slice(i, i + 100)) + ')',
       { headers: headers_() }
     );
-    JSON.parse(res.getContentText()).forEach(r => (byId[r.id] = r.data));
+    JSON.parse(res.getContentText()).forEach(r => rows.push(r));
   }
-  return byId;
+  return rows;
+}
+
+function deleteByIds_(ids) {
+  for (let i = 0; i < ids.length; i += 100) {
+    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?id=in.(' + idList_(ids.slice(i, i + 100)) + ')', {
+      method: 'delete',
+      headers: headers_(),
+    });
+  }
+}
+
+function idList_(ids) {
+  return encodeURIComponent(ids.map(id => '"' + String(id).replace(/"/g, '') + '"').join(','));
 }
 
 function fetchMaxPosition_() {
@@ -335,6 +363,111 @@ function fetchMaxPosition_() {
   });
   const rows = JSON.parse(res.getContentText());
   return rows[0] ? rows[0].position : -1;
+}
+
+// ─────────────────────────── Row deletions ───────────────────────────
+
+/** Installable onChange trigger (installed by `setup`): propagates deleted rows to the app. */
+function onSheetChange(e) {
+  if (!e || e.changeType !== 'REMOVE_ROW') return;
+  const sheet = getSheet_();
+  const idIdx = readHeaders_(sheet).indexOf(ID_HEADER);
+  if (idIdx < 0) return;
+
+  // Read what's left right away, before a concurrent rewrite could restore the rows.
+  const remaining = new Set(readColumn_(sheet, idIdx + 1));
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const known = readSnapshot_();
+    // Only IDs the sheet was showing: rows the app added since the last rewrite are never touched.
+    const removed = known.filter(id => !remaining.has(id));
+    if (removed.length === 0) return;
+
+    const rows = fetchRowsByIds_(removed);
+    appendTrash_(rows);
+    deleteByIds_(removed);
+    writeSnapshot_(known.filter(id => remaining.has(id)));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Menu action: re-creates the most recent batch of rows deleted from the sheet. */
+function restoreLastDeletion() {
+  const trash = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TRASH_SHEET);
+  const ui = SpreadsheetApp.getUi();
+  if (!trash || trash.getLastRow() < 2) {
+    ui.alert('No hay borrados para restaurar.');
+    return;
+  }
+  const values = trash.getRange(2, 1, trash.getLastRow() - 1, 4).getValues();
+  const batch = String(values[values.length - 1][0]);
+  const rowsIdx = [];
+  values.forEach((v, i) => {
+    if (String(v[0]) === batch) rowsIdx.push(i);
+  });
+
+  const now = new Date().toISOString();
+  const rows = rowsIdx.map(i => ({
+    id: String(values[i][1]),
+    position: Number(values[i][2]),
+    data: JSON.parse(values[i][3]),
+    client_id: 'google-sheet',
+    updated_at: now,
+  }));
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    for (let i = 0; i < rows.length; i += 500) upsert_(rows.slice(i, i + 500));
+    // Drop the restored batch from the trash (they are the last rows).
+    trash.deleteRows(rowsIdx[0] + 2, rowsIdx.length);
+  } finally {
+    lock.releaseLock();
+  }
+  syncNow();
+  ui.alert(rows.length + ' fila(s) restaurada(s).');
+}
+
+function appendTrash_(rows) {
+  if (rows.length === 0) return;
+  const trash = helperSheet_(TRASH_SHEET, ['BORRADO', 'ID', 'POSITION', 'DATA']);
+  const batch = new Date().toISOString();
+  const values = rows.map(r => [batch, r.id, r.position, JSON.stringify(r.data)]);
+  trash.getRange(trash.getLastRow() + 1, 1, values.length, 4).setValues(values);
+}
+
+function readSnapshot_() {
+  const snap = helperSheet_(SNAPSHOT_SHEET, ['ID']);
+  return snap.getLastRow() < 2 ? [] : readColumn_(snap, 1);
+}
+
+function writeSnapshot_(ids) {
+  const snap = helperSheet_(SNAPSHOT_SHEET, ['ID']);
+  if (snap.getLastRow() > 1) snap.getRange(2, 1, snap.getLastRow() - 1, 1).clearContent();
+  if (ids.length > 0) snap.getRange(2, 1, ids.length, 1).setValues(ids.map(id => [id]));
+}
+
+function helperSheet_(name, header) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name, ss.getSheets().length);
+    sheet.getRange(1, 1, 1, header.length).setValues([header]);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
+function readColumn_(sheet, col) {
+  if (sheet.getLastRow() < 2) return [];
+  return sheet
+    .getRange(2, col, sheet.getLastRow() - 1, 1)
+    .getValues()
+    .map(r => String(r[0]).trim())
+    .filter(Boolean);
 }
 
 // ───────────────────────────── Helpers ─────────────────────────────
