@@ -11,6 +11,7 @@ interface FilterBarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   filteredCount: number;
+  readOnly?: boolean;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -20,6 +21,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   viewMode,
   onViewModeChange,
   filteredCount,
+  readOnly = false,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -436,9 +438,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             Mostrando <span className="font-semibold text-slate-800 tabular-nums">{filteredCount}</span> de{' '}
             <span className="tabular-nums font-semibold text-slate-800">{items.length}</span> registros de inspección
           </div>
-          <div className="text-[11px] text-slate-400">
-            Arrastra las fotos entre filas o casillas para reordenar o cambiar de defecto
-          </div>
+          {!readOnly && (
+            <div className="text-[11px] text-slate-400">
+              Arrastra las fotos entre filas o casillas para reordenar o cambiar de defecto
+            </div>
+          )}
         </div>
       </div>
     </div>

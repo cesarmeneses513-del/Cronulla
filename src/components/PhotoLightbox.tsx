@@ -29,6 +29,7 @@ interface PhotoLightboxProps {
   onMovePhoto: (payload: DragPhotoPayload, targetItemId: string) => void;
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
+  readOnly?: boolean;
 }
 
 export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
@@ -40,6 +41,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   onMovePhoto,
   onDeletePhoto,
   onUpdatePhotoPhase,
+  readOnly = false,
 }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -342,6 +344,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         </div>
 
         {/* Move Photo to Another Row Form */}
+        {!readOnly && (
         <div className="pt-4 border-t border-white/10 space-y-3 mt-4">
           <form onSubmit={handleMovePhotoSubmit} className="space-y-2">
             <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
@@ -388,6 +391,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             <span>Eliminar esta fotografía</span>
           </button>
         </div>
+        )}
       </div>
     </div>
   );

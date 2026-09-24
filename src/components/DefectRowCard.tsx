@@ -31,6 +31,7 @@ interface DefectRowCardProps {
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
   onQuickUpdateStatus: (itemId: string, status: DefectStatus) => void;
   onQuickUpdateUrgency: (itemId: string, urgency: UrgencyLevel) => void;
+  readOnly?: boolean;
 }
 
 export const DefectRowCard: React.FC<DefectRowCardProps> = ({
@@ -46,6 +47,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   onUpdatePhotoPhase,
   onQuickUpdateStatus,
   onQuickUpdateUrgency,
+  readOnly = false,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -166,9 +168,9 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
   return (
     <div
-      onDragOver={handleRowDragOver}
-      onDragLeave={handleRowDragLeave}
-      onDrop={e => handleRowDrop(e)}
+      onDragOver={readOnly ? undefined : handleRowDragOver}
+      onDragLeave={readOnly ? undefined : handleRowDragLeave}
+      onDrop={readOnly ? undefined : e => handleRowDrop(e)}
       className={`relative bg-white border rounded-xl transition-all duration-200 shadow-xs ${
         isDragOver
           ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-400/30'
@@ -190,7 +192,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
         {/* Left: Index, Row No, Orientation, Defect Name */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5">
-            <GripVertical className="w-4 h-4 text-slate-300" />
+            {!readOnly && <GripVertical className="w-4 h-4 text-slate-300" />}
             <span className="text-xs font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               #{item.rowNo}
             </span>
@@ -216,9 +218,10 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
         <div className="flex items-center gap-2 ml-auto">
           {/* Status badge button */}
           <button
-            onClick={cycleStatus}
-            title="Click para cambiar estado"
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all ${statusConfig.color}`}
+            onClick={readOnly ? undefined : cycleStatus}
+            disabled={readOnly}
+            title={readOnly ? undefined : 'Click para cambiar estado'}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all disabled:cursor-default ${statusConfig.color}`}
           >
             <span className={`w-2 h-2 rounded-full ${statusConfig.dot}`} />
             <span>{statusConfig.label}</span>
@@ -226,15 +229,17 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
           {/* Urgency badge button */}
           <button
-            onClick={cycleUrgency}
-            title="Click para alternar urgencia"
-            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border transition-all ${urgencyConfig.color}`}
+            onClick={readOnly ? undefined : cycleUrgency}
+            disabled={readOnly}
+            title={readOnly ? undefined : 'Click para alternar urgencia'}
+            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border transition-all disabled:cursor-default ${urgencyConfig.color}`}
           >
             <AlertCircle className="w-3 h-3" />
             <span>{urgencyConfig.label}</span>
           </button>
 
           {/* Action buttons */}
+          {!readOnly && (
           <div className="flex items-center border-l border-slate-200 pl-2 gap-1">
             <button
               onClick={() => onEdit(item)}
@@ -260,6 +265,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
+          )}
         </div>
       </div>
 
@@ -270,11 +276,14 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
               <span>Fotografías ({item.photos.length})</span>
-              <span className="text-[11px] font-normal text-slate-400">
-                Arrastra para ordenar o mover a otra fila
-              </span>
+              {!readOnly && (
+                <span className="text-[11px] font-normal text-slate-400">
+                  Arrastra para ordenar o mover a otra fila
+                </span>
+              )}
             </span>
 
+            {!readOnly && (
             <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
@@ -297,13 +306,16 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                 + Pegar URL
               </button>
             </div>
+            )}
           </div>
 
           {/* Photo slots container */}
           <div className="flex flex-wrap items-start gap-3 min-h-[110px] bg-slate-50/60 p-3 rounded-lg border border-slate-200/80">
             {item.photos.length === 0 ? (
               <div className="w-full py-5 text-center text-xs text-slate-400 border border-dashed border-slate-300 rounded-md bg-white">
-                No hay fotografías registradas en esta fila. Arrastra una foto aquí o haz clic en Subir.
+                {readOnly
+                  ? 'No hay fotografías registradas en esta fila.'
+                  : 'No hay fotografías registradas en esta fila. Arrastra una foto aquí o haz clic en Subir.'}
               </div>
             ) : (
               item.photos.map((photo, pIdx) => {
@@ -339,15 +351,16 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                     {/* LABEL DIRECTLY ABOVE PHOTO */}
                     <button
                       type="button"
+                      disabled={readOnly}
                       onClick={() => {
-                        if (onUpdatePhotoPhase) {
+                        if (onUpdatePhotoPhase && !readOnly) {
                           const cycle: PhotoPhase[] = ['BEFORE', 'IN PROGRESS', 'COMPLETED'];
                           const next = cycle[(cycle.indexOf(phase) + 1) % cycle.length];
                           onUpdatePhotoPhase(item.id, pIdx, next);
                         }
                       }}
-                      title="Clic para cambiar: BEFORE, IN PROGRESS o COMPLETED"
-                      className={`w-24 sm:w-28 mb-1.5 py-0.5 px-1.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center justify-between border shadow-2xs transition-all cursor-pointer ${phaseStyles.badge}`}
+                      title={readOnly ? undefined : 'Clic para cambiar: BEFORE, IN PROGRESS o COMPLETED'}
+                      className={`w-24 sm:w-28 mb-1.5 py-0.5 px-1.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center justify-between border shadow-2xs transition-all cursor-pointer disabled:cursor-default ${phaseStyles.badge}`}
                     >
                       <span className="flex items-center gap-1 truncate">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${phaseStyles.dot}`} />
@@ -358,18 +371,28 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
                     {/* Photo thumbnail */}
                     <div
-                      draggable
-                      onDragStart={e => handlePhotoDragStart(e, photo, pIdx)}
-                      onDragOver={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDragOverIndex(pIdx);
-                      }}
-                      onDrop={e => {
-                        e.stopPropagation();
-                        handleRowDrop(e, pIdx);
-                      }}
-                      className={`group relative w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden border bg-slate-900 cursor-grab active:cursor-grabbing transition-all shadow-xs ${
+                      draggable={!readOnly}
+                      onDragStart={readOnly ? undefined : e => handlePhotoDragStart(e, photo, pIdx)}
+                      onDragOver={
+                        readOnly
+                          ? undefined
+                          : e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDragOverIndex(pIdx);
+                            }
+                      }
+                      onDrop={
+                        readOnly
+                          ? undefined
+                          : e => {
+                              e.stopPropagation();
+                              handleRowDrop(e, pIdx);
+                            }
+                      }
+                      className={`group relative w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden border bg-slate-900 transition-all shadow-xs ${
+                        readOnly ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+                      } ${
                         dragOverIndex === pIdx
                           ? 'border-emerald-500 ring-2 ring-emerald-400'
                           : 'border-slate-200 hover:border-slate-400 hover:shadow-sm'
@@ -392,13 +415,15 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          onClick={() => onDeletePhoto(item.id, pIdx)}
-                          title="Quitar foto"
-                          className="p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 shadow-xs"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {!readOnly && (
+                          <button
+                            onClick={() => onDeletePhoto(item.id, pIdx)}
+                            title="Quitar foto"
+                            className="p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 shadow-xs"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -407,6 +432,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             )}
 
             {/* Quick Add Button */}
+            {!readOnly && (
             <div className="flex flex-col items-center">
               <span className="w-24 sm:w-28 mb-1.5 py-0.5 text-[10px] font-bold text-center text-slate-400 uppercase tracking-wider">
                 + NUEVA
@@ -420,6 +446,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                 <span className="text-[11px] font-medium">Añadir</span>
               </button>
             </div>
+            )}
           </div>
         </div>
 

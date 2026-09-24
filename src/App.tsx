@@ -8,6 +8,7 @@ import { TableView } from './components/TableView';
 import { PhotoLightbox } from './components/PhotoLightbox';
 import { EditDefectModal } from './components/EditDefectModal';
 import { ImportCsvModal } from './components/ImportCsvModal';
+import { RoleSelectScreen, AppRole } from './components/RoleSelectScreen';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
@@ -15,6 +16,7 @@ import { supabase, fetchDefects, syncDefects, subscribeToDefects } from './lib/s
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2 } from 'lucide-react';
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
+const ROLE_KEY = 'cronulla_role';
 
 type SyncStatus = 'local' | 'loading' | 'synced' | 'saving' | 'error';
 
@@ -47,6 +49,25 @@ const normalizeItems = (rawItems: DefectItem[]): DefectItem[] => {
 };
 
 export default function App() {
+  // Chosen on the start screen; kept for the browser session so a reload doesn't ask again.
+  const [role, setRole] = useState<AppRole | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(ROLE_KEY);
+      return stored === 'editor' || stored === 'client' ? stored : null;
+    } catch {
+      return null;
+    }
+  });
+  const readOnly = role !== 'editor';
+
+  const handleSelectRole = useCallback((next: AppRole | null) => {
+    setRole(next);
+    try {
+      if (next) sessionStorage.setItem(ROLE_KEY, next);
+      else sessionStorage.removeItem(ROLE_KEY);
+    } catch {}
+  }, []);
+
   // Load initial data from localStorage if present
   const [items, setItems] = useState<DefectItem[]>(() => {
     try {
@@ -123,7 +144,7 @@ export default function App() {
 
   // Push local changes to Supabase (debounced, one save at a time).
   useEffect(() => {
-    if (!supabase || syncedRef.current === null || items === syncedRef.current) return;
+    if (!supabase || readOnly || syncedRef.current === null || items === syncedRef.current) return;
     const timer = setTimeout(() => {
       const prev = syncedRef.current;
       if (!prev) return;
@@ -141,7 +162,7 @@ export default function App() {
         });
     }, 600);
     return () => clearTimeout(timer);
-  }, [items]);
+  }, [items, readOnly]);
 
   // View Mode
   const [viewMode, setViewMode] = useState<ViewMode>('rows');
@@ -534,6 +555,10 @@ export default function App() {
     }
   }, [showToast]);
 
+  if (!role) {
+    return <RoleSelectScreen onSelect={handleSelectRole} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased">
       {/* Toast notification */}
@@ -582,6 +607,8 @@ export default function App() {
         onExportCsv={handleExportCsv}
         onOpenImportModal={() => setIsImportModalOpen(true)}
         onResetData={handleResetData}
+        readOnly={readOnly}
+        onLogout={() => handleSelectRole(null)}
       />
 
       {/* Filter and View Mode Controller */}
@@ -592,6 +619,7 @@ export default function App() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         filteredCount={filteredItems.length}
+        readOnly={readOnly}
       />
 
       {/* Main View Area */}
@@ -641,6 +669,7 @@ export default function App() {
                 onDeletePhoto={handleDeletePhoto}
                 onQuickUpdateStatus={handleQuickUpdateStatus}
                 onQuickUpdateUrgency={handleQuickUpdateUrgency}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -651,6 +680,7 @@ export default function App() {
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onDeletePhoto={handleDeletePhoto}
             onMovePhotoPrompt={handlePromptMovePhoto}
+            readOnly={readOnly}
           />
         ) : viewMode === 'matrix' ? (
           /* View Mode 3: Elevation Matrix (Drop vs Level) */
@@ -670,6 +700,7 @@ export default function App() {
             onDelete={handleDeleteDefect}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onQuickUpdateStatus={handleQuickUpdateStatus}
+            readOnly={readOnly}
           />
         )}
       </main>
@@ -684,6 +715,7 @@ export default function App() {
           onNavigatePhoto={handleNavigatePhoto}
           onMovePhoto={handleMovePhoto}
           onDeletePhoto={handleDeletePhoto}
+          readOnly={readOnly}
         />
       )}
 
@@ -707,7 +739,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>Cronulla Job · Sistema de Control de Inspección en Altura & Defectos de Fachada</span>
           <span className="font-mono text-[11px] text-slate-400">
-            {items.length} filas registradas · Drag & Drop habilitado
+            {items.length} filas registradas{readOnly ? ' · Solo lectura' : ' · Drag & Drop habilitado'}
           </span>
         </div>
       </footer>

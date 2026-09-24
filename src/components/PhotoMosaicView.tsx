@@ -8,6 +8,7 @@ interface PhotoMosaicViewProps {
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
   onMovePhotoPrompt: (sourceItem: DefectItem, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
+  readOnly?: boolean;
 }
 
 export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
@@ -16,6 +17,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
   onDeletePhoto,
   onMovePhotoPrompt,
   onUpdatePhotoPhase,
+  readOnly = false,
 }) => {
   const [phaseFilter, setPhaseFilter] = useState<'ALL' | PhotoPhase>('ALL');
 
@@ -180,6 +182,8 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                       <ExternalLink className="w-4 h-4" />
                     </button>
 
+                    {!readOnly && (
+                    <>
                     <button
                       onClick={() => onMovePhotoPrompt(item, pIdx)}
                       title="Reasignar a otra fila de defecto"
@@ -195,6 +199,8 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+                    </>
+                    )}
                   </div>
                 </div>
 

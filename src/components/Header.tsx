@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Download, Upload, Plus, RotateCcw } from 'lucide-react';
+import { Camera, Download, Upload, Plus, RotateCcw, LogOut, Eye, PencilLine } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 
 interface HeaderProps {
@@ -10,6 +10,8 @@ interface HeaderProps {
   onExportCsv: () => void;
   onOpenImportModal: () => void;
   onResetData: () => void;
+  readOnly: boolean;
+  onLogout: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,6 +22,8 @@ export const Header: React.FC<HeaderProps> = ({
   onExportCsv,
   onOpenImportModal,
   onResetData,
+  readOnly,
+  onLogout,
 }) => {
   const completedCount = items.filter(i => i.status === 'COMPLETED').length;
   const inProgressCount = items.filter(i => i.status === 'IN PROGRESS').length;
@@ -84,6 +88,17 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Primary Actions */}
         <div className="flex items-center gap-2">
+          <span
+            className={`hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border ${
+              readOnly ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+            }`}
+          >
+            {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
+            {readOnly ? 'Cliente' : 'Editor'}
+          </span>
+
+          {!readOnly && (
+          <>
           <button
             onClick={onResetData}
             title="Restaurar datos iniciales"
@@ -114,6 +129,17 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>Nuevo Defecto</span>
+          </button>
+          </>
+          )}
+
+          <button
+            onClick={onLogout}
+            title="Cambiar de modo"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Salir</span>
           </button>
         </div>
       </div>

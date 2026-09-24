@@ -8,6 +8,7 @@ interface TableViewProps {
   onDelete: (id: string) => void;
   onOpenPhotoLightbox: (item: DefectItem, photoIndex: number) => void;
   onQuickUpdateStatus: (itemId: string, status: DefectStatus) => void;
+  readOnly?: boolean;
 }
 
 export const TableView: React.FC<TableViewProps> = ({
@@ -16,6 +17,7 @@ export const TableView: React.FC<TableViewProps> = ({
   onDelete,
   onOpenPhotoLightbox,
   onQuickUpdateStatus,
+  readOnly = false,
 }) => {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -34,7 +36,7 @@ export const TableView: React.FC<TableViewProps> = ({
               <th className="p-3">Medidas</th>
               <th className="p-3">Técnico / Fecha</th>
               <th className="p-3">Notas</th>
-              <th className="p-3 text-right">Acciones</th>
+              {!readOnly && <th className="p-3 text-right">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -123,6 +125,7 @@ export const TableView: React.FC<TableViewProps> = ({
                 <td className="p-3">
                   <select
                     value={item.status}
+                    disabled={readOnly}
                     onChange={e => onQuickUpdateStatus(item.id, e.target.value as DefectStatus)}
                     className={`text-xs font-semibold px-2 py-1 rounded border focus:outline-hidden ${
                       item.status === 'COMPLETED'
@@ -158,6 +161,7 @@ export const TableView: React.FC<TableViewProps> = ({
                   {item.comment || '—'}
                 </td>
 
+                {!readOnly && (
                 <td className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <button
@@ -176,6 +180,7 @@ export const TableView: React.FC<TableViewProps> = ({
                     </button>
                   </div>
                 </td>
+                )}
               </tr>
             ))}
           </tbody>
