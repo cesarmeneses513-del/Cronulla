@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, PencilLine, Eye, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
+import { PencilLine, Eye, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -48,8 +48,8 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
           <LanguageSwitcher className="bg-white border border-slate-200" />
         </div>
         <div className="flex flex-col items-center text-center gap-3">
-          <div className="w-14 h-14 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
-            <Camera className="w-7 h-7 text-amber-400" />
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs px-6 py-4">
+            <img src="/cpr-logo-full.png" alt="CPR Facade Upgrade Specialists" className="h-20 sm:h-24 w-auto" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cronulla Inspection Gallery</h1>

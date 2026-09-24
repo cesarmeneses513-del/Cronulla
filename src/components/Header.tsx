@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History } from 'lucide-react';
+import { Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -43,9 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         {/* Zone 1: Wordmark Brand Title */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-xs">
-            <Camera className="w-5 h-5 text-amber-400" />
-          </div>
+          <img src="/cpr-logo-circle.png" alt="CPR" className="w-11 h-11 shrink-0" />
           <div>
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
               Cronulla Inspection Gallery
