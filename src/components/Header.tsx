@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-xs">
       {/* Top Bar Contract: Brand - Info/Stats - Actions */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         {/* Zone 1: Wordmark Brand Title */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-xs">
@@ -53,8 +53,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Zone 2: Progress & Counts */}
-        <div className="hidden md:flex items-center gap-6 text-xs text-slate-600">
+        {/* Zone 2: Progress & Counts — own line below brand + actions so the header never overflows */}
+        <div className="hidden md:flex order-last basis-full flex-wrap items-center gap-x-6 gap-y-1 pt-2 border-t border-slate-100 text-xs text-slate-600 whitespace-nowrap">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-900 tabular-nums">{items.length}</span>
             <span>defectos</span>
@@ -91,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Zone 3: Primary Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span
             className={`hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border ${
               readOnly ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-800 border-amber-200'

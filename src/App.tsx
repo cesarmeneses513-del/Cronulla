@@ -624,7 +624,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
       {/* Toast notification */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 border border-slate-700 animate-in slide-in-from-bottom-3 duration-200">
