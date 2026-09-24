@@ -1,0 +1,6 @@
+{
+  "name": "Inspection Photo Gallery & Organizer",
+  "description": "Galería organizada de fotografías de inspección y defectos con filtros rápidos por categoría, edición completa y reordenamiento drag & drop entre filas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
