@@ -74,7 +74,7 @@ function setup() {
     .filter(t => t.getHandlerFunction() === 'syncToWeb')
     .forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('syncToWeb').timeBased().everyMinutes(1).create();
-  const result = syncToWeb();
+  const result = syncToWeb(120000);
   SpreadsheetApp.getUi().alert(
     'Conectado a la web.\n\nPestaña: "' + getSheet_().getName() + '"\n' + describeResult_(result) +
     '\n\nDesde ahora los cambios de esta planilla llegan a la web cada minuto.'
@@ -91,7 +91,7 @@ function onOpen() {
 }
 
 function syncNowFromMenu() {
-  SpreadsheetApp.getUi().alert(describeResult_(syncToWeb()));
+  SpreadsheetApp.getUi().alert(describeResult_(syncToWeb(120000)));
 }
 
 /** Sends every row as if all its cells had changed. Web edits to those cells are replaced. */
@@ -105,7 +105,7 @@ function pushEverythingFromMenu() {
   );
   if (ok !== ui.Button.YES) return;
   PropertiesService.getScriptProperties().setProperty('forceAll', '1');
-  ui.alert(describeResult_(syncToWeb()));
+  ui.alert(describeResult_(syncToWeb(120000)));
 }
 
 /** Creates in the web app the rows of this sheet it doesn't have (e.g. deleted there earlier). */
@@ -119,11 +119,11 @@ function addMissingFromMenu() {
   );
   if (ok !== ui.Button.YES) return;
   PropertiesService.getScriptProperties().setProperty('addMissing', '1');
-  ui.alert(describeResult_(syncToWeb()));
+  ui.alert(describeResult_(syncToWeb(120000)));
 }
 
 function describeResult_(r) {
-  if (!r) return 'Otra sincronización está en curso, intenta en un minuto.';
+  if (!r) return 'La sincronización automática sigue trabajando (la primera vez puede tardar unos minutos). Espera un poco y vuelve a intentar.';
   const parts = [
     r.baseline ? 'Primera lectura: ' + r.rows + ' filas registradas como punto de partida.' : 'Filas leídas: ' + r.rows + '.',
     'Nuevas en la web: ' + r.added,
@@ -137,9 +137,10 @@ function describeResult_(r) {
 
 // ───────────────────────────── Main loop ─────────────────────────────
 
-function syncToWeb() {
+// `waitMs`: menu actions wait for a running sync to finish instead of giving up.
+function syncToWeb(waitMs) {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return null;
+  if (!lock.tryLock(typeof waitMs === 'number' ? waitMs : 5000)) return null;
   try {
     return syncLocked_();
   } finally {
