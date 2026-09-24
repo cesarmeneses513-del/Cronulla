@@ -32,6 +32,9 @@ interface DefectRowCardProps {
   onQuickUpdateStatus: (itemId: string, status: DefectStatus) => void;
   onQuickUpdateUrgency: (itemId: string, urgency: UrgencyLevel) => void;
   readOnly?: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string, shiftKey: boolean) => void;
 }
 
 export const DefectRowCard: React.FC<DefectRowCardProps> = ({
@@ -48,6 +51,9 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   onQuickUpdateStatus,
   onQuickUpdateUrgency,
   readOnly = false,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -174,6 +180,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
       className={`relative bg-white border rounded-xl transition-all duration-200 shadow-xs ${
         isDragOver
           ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-400/30'
+          : selected
+          ? 'border-rose-400 ring-2 ring-rose-300/40'
           : 'border-slate-200 hover:border-slate-300'
       }`}
     >
@@ -192,7 +200,18 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
         {/* Left: Index, Row No, Orientation, Defect Name */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5">
-            {!readOnly && <GripVertical className="w-4 h-4 text-slate-300" />}
+            {selectable ? (
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => {}}
+                onClick={e => onToggleSelect?.(item.id, e.shiftKey)}
+                title="Seleccionar (Shift + clic para seleccionar un rango)"
+                className="w-4 h-4 accent-rose-600 cursor-pointer"
+              />
+            ) : (
+              !readOnly && <GripVertical className="w-4 h-4 text-slate-300" />
+            )}
             <span className="text-xs font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               #{item.rowNo}
             </span>

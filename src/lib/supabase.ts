@@ -9,6 +9,8 @@ export const supabase: SupabaseClient | null = url && key ? createClient(url, ke
 
 const TABLE = 'defects';
 const PHOTO_BUCKET = 'inspection-photos';
+const WRITE_CHUNK = 500;
+const DELETE_CHUNK = 100;
 
 // Identifies this browser tab so realtime events caused by our own writes can be skipped.
 const CLIENT_ID = crypto.randomUUID();
@@ -57,14 +59,16 @@ export async function syncDefects(prev: DefectItem[], next: DefectItem[]): Promi
   const nextIds = new Set(next.map(i => i.id));
   const deletes = prev.filter(i => !nextIds.has(i.id)).map(i => i.id);
 
-  if (upserts.length > 0) {
+  // Chunked: bulk deletes put every id in the URL, which has a length limit.
+  const now = new Date().toISOString();
+  for (let i = 0; i < upserts.length; i += WRITE_CHUNK) {
     const { error } = await supabase
       .from(TABLE)
-      .upsert(upserts.map(r => ({ ...r, client_id: CLIENT_ID, updated_at: new Date().toISOString() })));
+      .upsert(upserts.slice(i, i + WRITE_CHUNK).map(r => ({ ...r, client_id: CLIENT_ID, updated_at: now })));
     if (error) throw error;
   }
-  if (deletes.length > 0) {
-    const { error } = await supabase.from(TABLE).delete().in('id', deletes);
+  for (let i = 0; i < deletes.length; i += DELETE_CHUNK) {
+    const { error } = await supabase.from(TABLE).delete().in('id', deletes.slice(i, i + DELETE_CHUNK));
     if (error) throw error;
   }
 }

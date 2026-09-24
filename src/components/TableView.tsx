@@ -9,6 +9,9 @@ interface TableViewProps {
   onOpenPhotoLightbox: (item: DefectItem, photoIndex: number) => void;
   onQuickUpdateStatus: (itemId: string, status: DefectStatus) => void;
   readOnly?: boolean;
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string, shiftKey: boolean) => void;
 }
 
 export const TableView: React.FC<TableViewProps> = ({
@@ -18,6 +21,9 @@ export const TableView: React.FC<TableViewProps> = ({
   onOpenPhotoLightbox,
   onQuickUpdateStatus,
   readOnly = false,
+  selectable = false,
+  selectedIds,
+  onToggleSelect,
 }) => {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -25,6 +31,7 @@ export const TableView: React.FC<TableViewProps> = ({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+              {selectable && <th className="p-3 w-8" />}
               <th className="p-3 w-12 text-center">#</th>
               <th className="p-3 w-28">Fotos</th>
               <th className="p-3">Etapa / Proyecto</th>
@@ -41,7 +48,23 @@ export const TableView: React.FC<TableViewProps> = ({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.map((item, idx) => (
-              <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+              <tr
+                key={item.id}
+                className={`transition-colors ${
+                  selectable && selectedIds?.has(item.id) ? 'bg-rose-50/70' : 'hover:bg-slate-50/80'
+                }`}
+              >
+                {selectable && (
+                  <td className="p-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedIds?.has(item.id)}
+                      onChange={() => {}}
+                      onClick={e => onToggleSelect?.(item.id, e.shiftKey)}
+                      className="w-4 h-4 accent-rose-600 cursor-pointer"
+                    />
+                  </td>
+                )}
                 <td className="p-3 font-mono font-bold text-slate-800 text-center">
                   {item.rowNo}
                 </td>

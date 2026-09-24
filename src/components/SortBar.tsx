@@ -45,9 +45,10 @@ interface SortBarProps {
   mode: SortMode;
   direction: SortDirection;
   onChange: (mode: SortMode, direction: SortDirection) => void;
+  actions?: React.ReactNode;
 }
 
-export const SortBar: React.FC<SortBarProps> = ({ mode, direction, onChange }) => (
+export const SortBar: React.FC<SortBarProps> = ({ mode, direction, onChange, actions }) => (
   <div className="flex flex-wrap items-center gap-2 mb-4">
     <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
       <ArrowDownUp className="w-3.5 h-3.5" />
@@ -74,5 +75,6 @@ export const SortBar: React.FC<SortBarProps> = ({ mode, direction, onChange }) =
       {direction === 'asc' ? <ArrowDown01 className="w-3.5 h-3.5" /> : <ArrowUp10 className="w-3.5 h-3.5" />}
       {direction === 'asc' ? 'Ascendente' : 'Descendente'}
     </button>
+    {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
   </div>
 );

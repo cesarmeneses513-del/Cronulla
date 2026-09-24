@@ -14,7 +14,7 @@ import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, 
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
 import { supabase, fetchDefects, syncDefects, subscribeToDefects } from './lib/supabase';
-import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2 } from 'lucide-react';
+import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
 const ROLE_KEY = 'cronulla_role';
@@ -349,6 +349,49 @@ export default function App() {
     [filteredItems, sort]
   );
 
+  // Multi-select for bulk delete (editor only).
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const lastSelectedRef = useRef<string | null>(null);
+  const selectionActive = selecting && !readOnly;
+
+  // Only what is visible counts, so hidden (filtered-out) selections are never deleted.
+  const visibleSelected = useMemo(
+    () => (selectionActive ? sortedItems.filter(i => selectedIds.has(i.id)) : []),
+    [selectionActive, sortedItems, selectedIds]
+  );
+
+  const handleToggleSelect = useCallback(
+    (id: string, shiftKey: boolean) => {
+      const anchor = lastSelectedRef.current;
+      lastSelectedRef.current = id;
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        const select = !prev.has(id);
+        if (shiftKey && anchor && anchor !== id) {
+          // Shift + click: apply to the whole range between the last click and this one.
+          const ids = sortedItems.map(i => i.id);
+          const a = ids.indexOf(anchor);
+          const b = ids.indexOf(id);
+          if (a >= 0 && b >= 0) {
+            ids.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(x => (select ? next.add(x) : next.delete(x)));
+            return next;
+          }
+        }
+        if (select) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    },
+    [sortedItems]
+  );
+
+  const exitSelection = useCallback(() => {
+    setSelecting(false);
+    setSelectedIds(new Set());
+    lastSelectedRef.current = null;
+  }, []);
+
   const stageCounts = useMemo(() => {
     const counts = new Map<string, number>();
     items.forEach(i => {
@@ -545,6 +588,17 @@ export default function App() {
     },
     [items, showToast, updateItems]
   );
+
+  // Handler: Delete all selected (visible) defects
+  const handleDeleteSelected = useCallback(() => {
+    const ids = new Set(visibleSelected.map(i => i.id));
+    if (ids.size === 0) return;
+    if (!window.confirm(`¿Eliminar ${ids.size} registros seleccionados?\n\nPuedes recuperarlos con el botón "Deshacer".`)) return;
+    updateItems(prev => prev.filter(i => !ids.has(i.id)), `eliminar ${ids.size} registros`);
+    setSelectedIds(new Set());
+    lastSelectedRef.current = null;
+    showToast(`${ids.size} registros eliminados`, true);
+  }, [visibleSelected, updateItems, showToast]);
 
   // Handler: New Defect
   const handleNewDefect = useCallback(() => {
@@ -756,7 +810,26 @@ export default function App() {
         ) : viewMode === 'rows' ? (
           /* View Mode 1: Detailed Rows with Drag and Drop Photo Reordering */
           <div className="space-y-4">
-            <SortBar mode={sort.mode} direction={sort.direction} onChange={handleSortChange} />
+            <SortBar
+              mode={sort.mode}
+              direction={sort.direction}
+              onChange={handleSortChange}
+              actions={
+                !readOnly && (
+                  <button
+                    onClick={() => (selecting ? exitSelection() : setSelecting(true))}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                      selecting
+                        ? 'border-rose-600 bg-rose-600 text-white hover:bg-rose-700'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {selecting ? <X className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+                    {selecting ? 'Cancelar selección' : 'Seleccionar'}
+                  </button>
+                )
+              }
+            />
             {sortedItems.map((item, idx) => (
               <DefectRowCard
                 key={item.id}
@@ -772,6 +845,9 @@ export default function App() {
                 onQuickUpdateStatus={handleQuickUpdateStatus}
                 onQuickUpdateUrgency={handleQuickUpdateUrgency}
                 readOnly={readOnly}
+                selectable={selectionActive}
+                selected={selectionActive && selectedIds.has(item.id)}
+                onToggleSelect={handleToggleSelect}
               />
             ))}
           </div>
@@ -800,7 +876,26 @@ export default function App() {
         ) : (
           /* View Mode 4: Table View */
           <>
-          <SortBar mode={sort.mode} direction={sort.direction} onChange={handleSortChange} />
+          <SortBar
+            mode={sort.mode}
+            direction={sort.direction}
+            onChange={handleSortChange}
+            actions={
+              !readOnly && (
+              <button
+                onClick={() => (selecting ? exitSelection() : setSelecting(true))}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  selecting
+                    ? 'border-rose-600 bg-rose-600 text-white hover:bg-rose-700'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {selecting ? <X className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+                {selecting ? 'Cancelar selección' : 'Seleccionar'}
+              </button>
+              )
+            }
+          />
           <TableView
             items={sortedItems}
             onEdit={handleOpenEdit}
@@ -808,10 +903,48 @@ export default function App() {
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onQuickUpdateStatus={handleQuickUpdateStatus}
             readOnly={readOnly}
+            selectable={selectionActive}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
           />
           </>
         )}
       </main>
+
+      {/* Bulk selection bar */}
+      {selectionActive && (viewMode === 'rows' || viewMode === 'table') && (
+        <div className="fixed bottom-16 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] sm:w-auto flex flex-wrap items-center justify-center gap-2 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700">
+          <span className="font-semibold tabular-nums">
+            {visibleSelected.length} seleccionado{visibleSelected.length === 1 ? '' : 's'}
+          </span>
+          <span className="text-slate-500 hidden sm:inline">·</span>
+          <button
+            onClick={() => setSelectedIds(new Set(sortedItems.map(i => i.id)))}
+            className="px-2 py-1 rounded-md hover:bg-white/10 text-slate-200"
+          >
+            Seleccionar todos ({sortedItems.length})
+          </button>
+          {visibleSelected.length > 0 && (
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-2 py-1 rounded-md hover:bg-white/10 text-slate-200"
+            >
+              Quitar selección
+            </button>
+          )}
+          <button
+            onClick={handleDeleteSelected}
+            disabled={visibleSelected.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Eliminar ({visibleSelected.length})
+          </button>
+          <button onClick={exitSelection} title="Salir de la selección" className="p-1.5 rounded-md hover:bg-white/10">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Lightbox Modal */}
       {lightboxItem && (
