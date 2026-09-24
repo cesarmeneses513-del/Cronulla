@@ -9,6 +9,7 @@ import { PhotoLightbox } from './components/PhotoLightbox';
 import { EditDefectModal } from './components/EditDefectModal';
 import { ImportCsvModal } from './components/ImportCsvModal';
 import { RoleSelectScreen, AppRole } from './components/RoleSelectScreen';
+import { SortBar, SortMode, SortDirection, sortDefects } from './components/SortBar';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
@@ -17,6 +18,7 @@ import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2 } fro
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
 const ROLE_KEY = 'cronulla_role';
+const SORT_KEY = 'cronulla_sort';
 
 type SyncStatus = 'local' | 'loading' | 'synced' | 'saving' | 'error';
 
@@ -325,6 +327,27 @@ export default function App() {
       return true;
     });
   }, [items, filters]);
+
+  // Display-only ordering; the stored order (and the Google Sheet) are untouched.
+  const [sort, setSort] = useState<{ mode: SortMode; direction: SortDirection }>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+      if (stored && stored.mode && stored.direction) return stored;
+    } catch {}
+    return { mode: 'original', direction: 'asc' };
+  });
+
+  const handleSortChange = useCallback((mode: SortMode, direction: SortDirection) => {
+    setSort({ mode, direction });
+    try {
+      localStorage.setItem(SORT_KEY, JSON.stringify({ mode, direction }));
+    } catch {}
+  }, []);
+
+  const sortedItems = useMemo(
+    () => sortDefects(filteredItems, sort.mode, sort.direction),
+    [filteredItems, sort]
+  );
 
   const stageCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -733,7 +756,8 @@ export default function App() {
         ) : viewMode === 'rows' ? (
           /* View Mode 1: Detailed Rows with Drag and Drop Photo Reordering */
           <div className="space-y-4">
-            {filteredItems.map((item, idx) => (
+            <SortBar mode={sort.mode} direction={sort.direction} onChange={handleSortChange} />
+            {sortedItems.map((item, idx) => (
               <DefectRowCard
                 key={item.id}
                 item={item}
@@ -753,13 +777,16 @@ export default function App() {
           </div>
         ) : viewMode === 'photos' ? (
           /* View Mode 2: Photo Mosaic Grid */
+          <>
+          <SortBar mode={sort.mode} direction={sort.direction} onChange={handleSortChange} />
           <PhotoMosaicView
-            items={filteredItems}
+            items={sortedItems}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onDeletePhoto={handleDeletePhoto}
             onMovePhotoPrompt={handlePromptMovePhoto}
             readOnly={readOnly}
           />
+          </>
         ) : viewMode === 'matrix' ? (
           /* View Mode 3: Elevation Matrix (Drop vs Level) */
           <ElevationMatrixView
@@ -772,14 +799,17 @@ export default function App() {
           />
         ) : (
           /* View Mode 4: Table View */
+          <>
+          <SortBar mode={sort.mode} direction={sort.direction} onChange={handleSortChange} />
           <TableView
-            items={filteredItems}
+            items={sortedItems}
             onEdit={handleOpenEdit}
             onDelete={handleDeleteDefect}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onQuickUpdateStatus={handleQuickUpdateStatus}
             readOnly={readOnly}
           />
+          </>
         )}
       </main>
 

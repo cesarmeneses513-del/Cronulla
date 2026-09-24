@@ -399,6 +399,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                       }`}
                     >
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={photoUrl}
                         alt={`Foto ${pIdx + 1} - ${item.defect}`}
                         referrerPolicy="no-referrer"

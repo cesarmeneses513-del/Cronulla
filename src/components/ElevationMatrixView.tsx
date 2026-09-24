@@ -174,6 +174,8 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                                   const photoUrl = typeof p === 'string' ? p : p.url;
                                   return (
                                     <img
+                                      loading="lazy"
+                                      decoding="async"
                                       key={pIdx}
                                       src={photoUrl}
                                       alt="Foto"

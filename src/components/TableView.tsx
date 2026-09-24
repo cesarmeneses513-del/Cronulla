@@ -75,7 +75,10 @@ export const TableView: React.FC<TableViewProps> = ({
                             className="relative w-8 h-8 rounded overflow-hidden border border-slate-200 hover:border-slate-400 group"
                             title={`${pPhase} - Ver foto`}
                           >
-                            <img src={pUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                            <img
+                              loading="lazy"
+                              decoding="async"
+                              src={pUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                           </button>
                         </div>
                       );

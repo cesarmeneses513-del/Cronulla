@@ -165,6 +165,8 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                 {/* Image Box */}
                 <div className="relative aspect-4/3 w-full bg-slate-950 overflow-hidden cursor-pointer">
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={url}
                     alt={`${item.defect} - Drop ${item.drop} Lvl ${item.level}`}
                     referrerPolicy="no-referrer"
