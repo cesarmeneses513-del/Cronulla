@@ -707,19 +707,6 @@ export default function App() {
     [showToast, updateItems, t]
   );
 
-  // Reset to original default dataset
-  const handleResetData = useCallback(() => {
-    const message = supabase
-      ? '¿Deseas restaurar la lista de defectos original del proyecto? Esto sobrescribirá los cambios de todos los usuarios.'
-      : '¿Deseas restaurar la lista de defectos original del proyecto? Esto sobrescribirá los cambios locales.';
-    if (window.confirm(t(message))) {
-      updateItems(() => INITIAL_DEFECTS, t('restaurar datos originales'));
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch (e) {}
-      showToast(t('Datos originales restaurados'), true);
-    }
-  }, [showToast, updateItems, t]);
 
   if (!role) {
     return <RoleSelectScreen onSelect={handleSelectRole} />;
@@ -784,7 +771,6 @@ export default function App() {
         onNewDefect={handleNewDefect}
         onExportCsv={handleExportCsv}
         onOpenImportModal={() => setIsImportModalOpen(true)}
-        onResetData={handleResetData}
         readOnly={readOnly}
         onLogout={() => handleSelectRole(null)}
         onUndo={handleUndo}

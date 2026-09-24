@@ -15,13 +15,15 @@ create table if not exists public.defect_history (
 
 create index if not exists defect_history_created_at_idx on public.defect_history (created_at desc);
 
--- Append-only for the app: it can read and add entries, but not change or delete them.
+-- The app can read and add entries, and clear the whole log (History → Clear); it can't edit them.
 alter table public.defect_history enable row level security;
 
 drop policy if exists "history anon read"   on public.defect_history;
 drop policy if exists "history anon insert" on public.defect_history;
 create policy "history anon read"   on public.defect_history for select to anon, authenticated using (true);
 create policy "history anon insert" on public.defect_history for insert to anon, authenticated with check (true);
+drop policy if exists "history anon delete" on public.defect_history;
+create policy "history anon delete" on public.defect_history for delete to anon, authenticated using (true);
 
 -- Live updates while the history panel is open.
 do $$

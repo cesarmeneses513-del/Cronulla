@@ -357,6 +357,16 @@ const DICT: Record<string, { en: string; fa: string }> = {
   },
   'Buscar por persona, fila o acción...': { en: 'Search by person, row or action...', fa: 'جستجو بر اساس شخص، ردیف یا عمل...' },
   'Cargar más': { en: 'Load more', fa: 'بارگیری بیشتر' },
+  'Borrar': { en: 'Clear', fa: 'پاک کردن' },
+  'Borrar historial': { en: 'Clear history', fa: 'پاک کردن تاریخچه' },
+  '¿Borrar todo el historial de cambios? Esto no se puede deshacer.': {
+    en: 'Clear the whole change history? This cannot be undone.',
+    fa: 'تمام تاریخچه تغییرات پاک شود؟ این کار قابل برگشت نیست.',
+  },
+  'Para poder borrar el historial ejecuta supabase/history-clear.sql en el SQL Editor de Supabase.': {
+    en: 'To clear the history, run supabase/history-clear.sql in the Supabase SQL Editor.',
+    fa: 'برای پاک کردن تاریخچه، فایل supabase/history-clear.sql را در SQL Editor سوپابیس اجرا کنید.',
+  },
   'subió una foto ({phase})': { en: 'uploaded a photo ({phase})', fa: 'یک عکس بارگذاری کرد ({phase})' },
   'quitó una foto ({phase})': { en: 'removed a photo ({phase})', fa: 'یک عکس را حذف کرد ({phase})' },
   'movió una foto de la fila #{from} a la #{to}': { en: 'moved a photo from row #{from} to #{to}', fa: 'یک عکس را از ردیف #{from} به #{to} منتقل کرد' },

@@ -1,12 +1,13 @@
 /**
- * Glide sheet ("Report of Building CPR 2026") → Cronulla web app. One way.
+ * Glide sheet ("Report of Building CPR 2026") ⇄ Cronulla web app.
  *
  * Paste into THAT spreadsheet's Extensions → Apps Script, then run `setup` once.
  *
  * Every minute it compares the CRONULLA tab with what it saw last time and sends only what
  * changed to Supabase: new photos, status, technicians, dates, comments, new rows, deleted rows.
  * The web app updates live, and the "Cronulla vs Code" sheet (sync.gs) then fills itself.
- * Nothing is ever written back here except the ID of new rows.
+ * The other direction (web → this tab: photos uploaded in the web, status…) is off until turned
+ * on from the menu Web Cronulla → Activar web → Glide.
  *
  * Only changes are sent, so edits made in the web app are not overwritten unless the same
  * cell changes here afterwards. The first run just takes a baseline (and adds rows the web
@@ -88,6 +89,9 @@ function onOpen() {
     .addItem('Completar en la web fotos y datos que faltan', 'fillGapsFromMenu')
     .addItem('Agregar a la web las filas que faltan', 'addMissingFromMenu')
     .addItem('Enviar TODO a la web (sobrescribe)', 'pushEverythingFromMenu')
+    .addSeparator()
+    .addItem('Activar web → Glide (fotos y cambios de la web)', 'webToSheetFromMenu')
+    .addItem('Desactivar web → Glide', 'stopWebToSheetFromMenu')
     .addToUi();
 }
 
@@ -148,6 +152,7 @@ function describeResult_(r) {
     'Actualizadas: ' + r.updated,
     'Borradas: ' + r.deleted,
   ];
+  if (r.toSheetCells || r.toSheetRows) parts.push('Web → Glide: ' + (r.toSheetCells || 0) + ' celdas actualizadas, ' + (r.toSheetRows || 0) + ' filas agregadas.');
   if (r.missing) parts.push('Filas que no están en la web (no se agregaron): ' + r.missing + '. Usa el menú Web Cronulla → Agregar a la web las filas que faltan si quieres crearlas.');
   if (r.skippedDeletes) parts.push('No se borraron ' + r.skippedDeletes + ' filas desaparecidas (demasiadas a la vez; revisa filtros).');
   return parts.join('\n');
@@ -272,9 +277,25 @@ function syncLocked_() {
   chunk_(upserts, 200).forEach(c => post_('defects', c, 'resolution=merge-duplicates,return=minimal'));
   logHistory_(history);
 
+  // Web → this tab, when turned on. Skipped when nothing changed in the web since last time.
+  let wroteSheet = false;
+  if (props.getProperty('webToSheet') === 'on' && !baseline) {
+    const sig = webSignature_();
+    if (sig !== props.getProperty('webSig')) {
+      const w = pushWebToSheet_(sheet, headers, gone, readWebSnapshot_(), false);
+      result.toSheetCells = w.cells;
+      result.toSheetRows = w.appended;
+      wroteSheet = w.cells + w.appended > 0;
+      // Our own writes above changed nothing in the web, so this is still current.
+      props.setProperty('webSig', webSignature_());
+    }
+  }
+  // What we just wrote must not look like a Glide edit next time.
+  const current = wroteSheet ? readRecords_(sheet, headers) : seen;
+
   // Keep the old snapshot for rows whose deletion was skipped, so it's retried/reviewed later.
   const nextSnap = {};
-  ids.forEach(id => (nextSnap[id] = seen[id]));
+  Object.keys(current).forEach(id => (nextSnap[id] = current[id]));
   if (result.skippedDeletes) gone.forEach(id => (nextSnap[id] = snapshot[id]));
   writeSnapshot_(nextSnap);
   props.setProperty('initialized', '1');
@@ -282,6 +303,19 @@ function syncLocked_() {
   props.deleteProperty('addMissing');
   props.deleteProperty('fillGaps');
   return result;
+}
+
+// Tracked cells of every row with an ID, by ID.
+function readRecords_(sheet, headers) {
+  const idIdx = headers.indexOf(ID_HEADER);
+  const out = {};
+  if (sheet.getLastRow() < 2) return out;
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getDisplayValues().forEach(row => {
+    const id = String(row[idIdx]).trim();
+    const rec = rowRecord_(headers, row);
+    if (id && !out[id] && (rec.DEFECT || rec.ORIENTATION || rec['PHOTO 1'])) out[id] = rec;
+  });
+  return out;
 }
 
 // Tracked cells of one sheet row, by header.
@@ -549,4 +583,171 @@ function helperSheet_(name, header) {
     sheet.hideSheet();
   }
   return sheet;
+}
+
+// ───────────────────────────── Web → sheet ─────────────────────────────
+// Turned on from the menu. Every minute, cells that changed in the web app (photos uploaded
+// there, status, comments…) are written into this tab, so Glide shows them too. New web rows
+// are appended. Rows deleted in the web are left here (see "missing" in the summary).
+
+const WEB_SNAPSHOT_SHEET = '_web_to_sheet';
+// Written both ways. Dates/times and "No" are only filled in rows appended from the web,
+// so Glide's own formats and numbering are never touched.
+const WRITE_BACK = [
+  'ORIENTATION', 'DEFECT', 'URGENCY', 'DROP', 'LEVEL', 'STATUS', 'TECHNICIAN START', 'TECHNICIAN COMPLETED',
+  'COMMENT', 'BASE (M)', 'HEIGHT (M)', 'LINEAR METERS', 'QUANTITY',
+].concat(PHOTO_HEADERS);
+const APPEND_ONLY = ['NO', 'NAME PROYECT', 'DATE 1ST PHOTO', 'TIME 1ST PHOTO', 'DATE COMPLETED', 'TIME COMPLETED'];
+
+function webToSheetFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(120000)) return ui.alert(describeResult_(null));
+  let preview;
+  try {
+    const sheet = getSheet_();
+    preview = pushWebToSheet_(sheet, readHeaders_(sheet), [], {}, true);
+  } finally {
+    lock.releaseLock();
+  }
+  const answer = ui.alert(
+    'Web → Glide',
+    'Ahora hay diferencias entre la web y esta planilla en ' + preview.rows + ' filas (' + preview.cells +
+      ' celdas), y ' + preview.appended + ' filas de la web no están aquí.\n\n' +
+      'SÍ = igualar ahora: la web manda (se escriben esas celdas y se agregan esas filas), y desde ahí se envían los cambios de la web cada minuto.\n' +
+      'NO = no tocar nada de lo que hay; solo enviar los cambios que se hagan en la web desde ahora.\n' +
+      'CANCELAR = no activar.',
+    ui.ButtonSet.YES_NO_CANCEL
+  );
+  if (answer === ui.Button.CANCEL || answer === ui.Button.CLOSE) return;
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty('webSig');
+  if (answer === ui.Button.NO) {
+    // Remember the web as it is now, so only later changes are written.
+    const snap = {};
+    fetchAllRows_().forEach(w => (snap[w.id] = desiredCells_(w.data)));
+    writeWebSnapshot_(snap);
+  } else {
+    writeWebSnapshot_({});
+  }
+  props.setProperty('webToSheet', 'on');
+  ui.alert(describeResult_(syncToWeb(120000)) + '\n\nWeb → Glide activado.');
+}
+
+function stopWebToSheetFromMenu() {
+  PropertiesService.getScriptProperties().deleteProperty('webToSheet');
+  SpreadsheetApp.getUi().alert('Web → Glide desactivado. Glide → web sigue funcionando.');
+}
+
+// Cells a web item should show in this tab.
+function desiredCells_(item) {
+  const out = {};
+  Object.keys(FIELDS).forEach(h => {
+    const v = item[FIELDS[h][0]];
+    out[h] = v === undefined || v === null ? '' : String(v);
+  });
+  const photos = (item.photos || []).map((p, i) => (typeof p === 'string' ? { url: p, phase: phaseOfSlot_(i) } : p));
+  [['BEFORE', 0], ['IN PROGRESS', 3], ['COMPLETED', 6]].forEach(([phase, offset]) => {
+    const urls = [];
+    photos.forEach(p => p.phase === phase && urls.indexOf(p.url) < 0 && urls.push(p.url));
+    for (let n = 0; n < 3; n++) out[PHOTO_HEADERS[offset + n]] = urls[n] || '';
+  });
+  return out;
+}
+
+function sameCell_(header, raw, want) {
+  if (raw instanceof Date) return true; // never rewrite real dates
+  const a = String(raw === null || raw === undefined ? '' : raw).trim();
+  const b = String(want === null || want === undefined ? '' : want).trim();
+  if (a === b) return true;
+  const A = a.toUpperCase();
+  const B = b.toUpperCase();
+  if (header === 'URGENCY') return (URGENCY_VALUES[A] || A) === B;
+  if (header === 'STATUS') return (STATUS_VALUES[A] || A) === B;
+  if (['ORIENTATION', 'DEFECT', 'LEVEL'].indexOf(header) >= 0) return A === B;
+  if (a !== '' && b !== '' && !isNaN(Number(a)) && !isNaN(Number(b))) return Number(a) === Number(b);
+  return false;
+}
+
+// Writes web changes into the tab. `exclude`: IDs deleted from the tab this run (not re-added).
+// `webSnap`: how each web row looked last time (only headers that changed since are written;
+// rows without an entry are compared in full). Returns counts; `dryRun` writes nothing.
+function pushWebToSheet_(sheet, headers, exclude, webSnap, dryRun) {
+  const idIdx = headers.indexOf(ID_HEADER);
+  const n = Math.max(sheet.getLastRow() - 1, 0);
+  const range = n > 0 ? sheet.getRange(2, 1, n, headers.length) : null;
+  const raw = range ? range.getValues() : [];
+  const formulas = range ? range.getFormulas() : [];
+  const rowOf = {};
+  raw.forEach((r, i) => {
+    const id = String(r[idIdx]).trim();
+    if (id && rowOf[id] === undefined) rowOf[id] = i;
+  });
+
+  const web = fetchAllRows_();
+  const nextSnap = {};
+  const writes = [];
+  const appends = [];
+  const touchedRows = {};
+
+  web.forEach(w => {
+    const want = desiredCells_(w.data);
+    nextSnap[w.id] = want;
+    const prev = webSnap[w.id];
+    const i = rowOf[w.id];
+    if (i === undefined) {
+      if (prev || exclude.indexOf(w.id) >= 0) return; // deleted here earlier, or known and absent
+      const row = headers.map(() => '');
+      WRITE_BACK.concat(APPEND_ONLY).forEach(h => {
+        const c = headers.indexOf(h);
+        if (c >= 0) row[c] = want[h];
+      });
+      row[idIdx] = w.id;
+      appends.push(row);
+      return;
+    }
+    WRITE_BACK.forEach(h => {
+      const c = headers.indexOf(h);
+      if (c < 0 || formulas[i][c]) return;
+      if (prev && prev[h] === want[h]) return; // unchanged in the web since last time
+      if (sameCell_(h, raw[i][c], want[h])) return;
+      writes.push([i + 2, c + 1, want[h]]);
+      touchedRows[i] = true;
+    });
+  });
+
+  if (!dryRun) {
+    writes.forEach(([r, c, v]) => sheet.getRange(r, c).setValue(v));
+    if (appends.length > 0) sheet.getRange(n + 2, 1, appends.length, headers.length).setValues(appends);
+    writeWebSnapshot_(nextSnap);
+  }
+  return { cells: writes.length, rows: Object.keys(touchedRows).length, appended: appends.length };
+}
+
+function readWebSnapshot_() {
+  const snap = helperSheet_(WEB_SNAPSHOT_SHEET, ['ID', 'CELLS']);
+  const out = {};
+  if (snap.getLastRow() < 2) return out;
+  snap.getRange(2, 1, snap.getLastRow() - 1, 2).getValues().forEach(([id, json]) => {
+    if (id) out[String(id)] = JSON.parse(json);
+  });
+  return out;
+}
+
+function writeWebSnapshot_(byId) {
+  const snap = helperSheet_(WEB_SNAPSHOT_SHEET, ['ID', 'CELLS']);
+  if (snap.getLastRow() > 1) snap.getRange(2, 1, snap.getLastRow() - 1, 2).clearContent();
+  const rows = Object.keys(byId).map(id => [id, JSON.stringify(byId[id])]);
+  if (rows.length > 0) snap.getRange(2, 1, rows.length, 2).setValues(rows);
+}
+
+// Row count + latest update in the web: unchanged means there is nothing to write.
+function webSignature_() {
+  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?select=updated_at&order=updated_at.desc&limit=1', {
+    headers: headers_({ Prefer: 'count=exact' }),
+  });
+  const h = res.getHeaders();
+  const total = String(h['Content-Range'] || h['content-range'] || '').split('/')[1];
+  const rows = JSON.parse(res.getContentText());
+  return total + '|' + (rows[0] ? rows[0].updated_at : '');
 }

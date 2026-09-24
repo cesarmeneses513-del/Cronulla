@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Download, Upload, Plus, RotateCcw, LogOut, Eye, PencilLine, Undo2, History } from 'lucide-react';
+import { Camera, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -11,7 +11,6 @@ interface HeaderProps {
   onNewDefect: () => void;
   onExportCsv: () => void;
   onOpenImportModal: () => void;
-  onResetData: () => void;
   readOnly: boolean;
   onLogout: () => void;
   onUndo: () => void;
@@ -26,7 +25,6 @@ export const Header: React.FC<HeaderProps> = ({
   onNewDefect,
   onExportCsv,
   onOpenImportModal,
-  onResetData,
   readOnly,
   onLogout,
   onUndo,
@@ -127,14 +125,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Undo2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('Deshacer')}</span>
-          </button>
-
-          <button
-            onClick={onResetData}
-            title={t('Restaurar datos iniciales')}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
           </button>
 
           <button

@@ -169,6 +169,15 @@ export async function fetchHistory(limit: number, olderThan?: string): Promise<H
   return data as HistoryRecord[];
 }
 
+// Deletes every entry. Returns how many were deleted: 0 with entries present means the
+// delete policy (supabase/history-clear.sql) hasn't been added yet.
+export async function clearHistory(): Promise<number> {
+  if (!supabase) return 0;
+  const { data, error } = await supabase.from(TABLE).delete().gte('id', 0).select('id');
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 export function subscribeToHistory(onInsert: (record: HistoryRecord) => void): () => void {
   const client = supabase;
   if (!client) return () => {};

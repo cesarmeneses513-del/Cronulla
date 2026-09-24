@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, History, RefreshCw, Search, Loader2, User, AlertTriangle } from 'lucide-react';
+import { X, History, RefreshCw, Search, Loader2, User, AlertTriangle, Trash2 } from 'lucide-react';
 import { useI18n } from '../i18n';
 import {
   HistoryRecord,
   fetchHistory,
+  clearHistory,
   subscribeToHistory,
   describeHistory,
   isHistoryUnavailable,
@@ -37,6 +38,24 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
   const [hasMore, setHasMore] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [query, setQuery] = useState('');
+  const [clearBlocked, setClearBlocked] = useState(false);
+
+  const handleClear = async () => {
+    if (!window.confirm(t('¿Borrar todo el historial de cambios? Esto no se puede deshacer.'))) return;
+    try {
+      const deleted = await clearHistory();
+      if (deleted === 0 && records.length > 0) {
+        setClearBlocked(true);
+        return;
+      }
+      setClearBlocked(false);
+      setRecords([]);
+      setHasMore(false);
+    } catch (e) {
+      console.warn('Failed to clear change history', e);
+      setClearBlocked(true);
+    }
+  };
 
   const load = useCallback(async (olderThan?: string) => {
     setLoading(true);
@@ -102,6 +121,15 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
           </div>
           <div className="flex items-center gap-1">
             <button
+              onClick={handleClear}
+              disabled={records.length === 0 || unavailable}
+              title={t('Borrar historial')}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-40 disabled:hover:bg-transparent rounded-lg transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {t('Borrar')}
+            </button>
+            <button
               onClick={() => load()}
               title={t('Actualizar')}
               className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors"
@@ -132,6 +160,12 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
         </div>
 
         <div className="flex-1 overflow-y-auto">
+          {clearBlocked && (
+            <div className="m-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs flex gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{t('Para poder borrar el historial ejecuta supabase/history-clear.sql en el SQL Editor de Supabase.')}</span>
+            </div>
+          )}
           {unavailable ? (
             <div className="m-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs flex gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
