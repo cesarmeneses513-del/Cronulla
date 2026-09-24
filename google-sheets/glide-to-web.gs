@@ -85,6 +85,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Web Cronulla')
     .addItem('Enviar cambios ahora', 'syncNowFromMenu')
+    .addItem('Completar en la web fotos y datos que faltan', 'fillGapsFromMenu')
     .addItem('Agregar a la web las filas que faltan', 'addMissingFromMenu')
     .addItem('Enviar TODO a la web (sobrescribe)', 'pushEverythingFromMenu')
     .addToUi();
@@ -105,6 +106,23 @@ function pushEverythingFromMenu() {
   );
   if (ok !== ui.Button.YES) return;
   PropertiesService.getScriptProperties().setProperty('forceAll', '1');
+  ui.alert(describeResult_(syncToWeb(120000)));
+}
+
+/**
+ * Adds to the web the photos of this sheet it doesn't have yet, and fills web fields that are
+ * empty. Never overwrites or removes anything. Useful for changes made before the first sync.
+ */
+function fillGapsFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const ok = ui.alert(
+    'Completar lo que falta',
+    'Se agregarán a la web las fotos de esta planilla que no están allí y se llenarán los campos ' +
+      'vacíos. No se borra ni se reemplaza nada. (Si borraste una foto en la web y sigue aquí, volverá.) ¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (ok !== ui.Button.YES) return;
+  PropertiesService.getScriptProperties().setProperty('fillGaps', '1');
   ui.alert(describeResult_(syncToWeb(120000)));
 }
 
@@ -152,6 +170,7 @@ function syncLocked_() {
   const props = PropertiesService.getScriptProperties();
   const forceAll = props.getProperty('forceAll') === '1';
   const addMissing = props.getProperty('addMissing') === '1';
+  const fillGaps = props.getProperty('fillGaps') === '1';
   const sheet = getSheet_();
   const headers = readHeaders_(sheet);
   const idIdx = headers.indexOf(ID_HEADER);
@@ -210,6 +229,17 @@ function syncLocked_() {
       result.added++;
       return;
     }
+    if (fillGaps) {
+      const log = [];
+      const data = JSON.parse(JSON.stringify(current));
+      fillGaps_(data, rec, log);
+      if (log.length > 0) {
+        upserts.push({ id: id, data: data, client_id: CLIENT_ID, updated_at: now });
+        log.forEach(l => history.push(Object.assign({ user_name: user, defect_id: id, row_no: data.rowNo }, l)));
+        result.updated++;
+      }
+      return;
+    }
     if (baseline && !forceAll) return; // first run: just remember how the row looks
 
     const changed = forceAll || !old ? TRACKED : TRACKED.filter(h => (old[h] || '') !== (rec[h] || ''));
@@ -250,6 +280,7 @@ function syncLocked_() {
   props.setProperty('initialized', '1');
   props.deleteProperty('forceAll');
   props.deleteProperty('addMissing');
+  props.deleteProperty('fillGaps');
   return result;
 }
 
@@ -260,6 +291,9 @@ function rowRecord_(headers, row) {
     const i = headers.indexOf(h);
     rec[h] = i >= 0 ? String(row[i]).trim() : '';
   });
+  // Rows added in Glide often leave "No" empty; column "0" holds the same running number.
+  const zero = headers.indexOf('0');
+  if (!rec.NO && zero >= 0) rec.NO = String(row[zero]).trim();
   return rec;
 }
 
@@ -289,6 +323,15 @@ function applyChanges_(item, rec, old, changed, log) {
     log.push({ action: 'edit', details: { key: field, field: FIELDS[h][1], from: from, to: v } });
   });
   if (photosChanged) mergePhotos_(item, rec, old, log);
+}
+
+// Only additions: missing photos, and fields that are empty in the web.
+function fillGaps_(item, rec, log) {
+  const empty = Object.keys(FIELDS).filter(h => {
+    const v = item[FIELDS[h][0]];
+    return rec[h] && (v === undefined || v === null || String(v).trim() === '');
+  });
+  applyChanges_(item, rec, {}, empty.concat(PHOTO_HEADERS), log);
 }
 
 function mergePhotos_(item, rec, old, log) {

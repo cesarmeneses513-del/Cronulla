@@ -6,18 +6,16 @@ import {
   Trash2,
   Edit2,
   Copy,
-  Clock,
   User,
   Ruler,
   MessageSquare,
   AlertCircle,
   CheckCircle2,
-  Timer,
   ChevronRight,
   ExternalLink
 } from 'lucide-react';
 import { DefectItem, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from '../types/inspection';
-import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
 import { PhaseChips } from './PhaseChips';
 
 interface DefectRowCardProps {
@@ -50,7 +48,6 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   onAddPhoto,
   onDeletePhoto,
   onUpdatePhotoPhase,
-  onQuickUpdateStatus,
   onQuickUpdateUrgency,
   readOnly = false,
   selectable = false,
@@ -62,48 +59,12 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Status visual styling
-  const statusConfig = {
-    BEFORE: {
-      label: t(STATUS_LABEL.BEFORE),
-      color: 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300',
-      dot: 'bg-slate-400',
-      icon: Clock,
-    },
-    'IN PROGRESS': {
-      label: t(STATUS_LABEL['IN PROGRESS']),
-      color: 'text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300',
-      dot: 'bg-amber-500',
-      icon: Timer,
-    },
-    COMPLETED: {
-      label: t(STATUS_LABEL.COMPLETED),
-      color: 'text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border-emerald-300',
-      dot: 'bg-emerald-500',
-      icon: CheckCircle2,
-    },
-  }[item.status] || {
-    label: item.status,
-    color: 'text-slate-700 bg-slate-100 border-slate-300',
-    dot: 'bg-slate-400',
-    icon: Clock,
-  };
-
   // Urgency styling
   const urgencyConfig = {
     HIGH: { label: t(URGENCY_LABEL.HIGH), color: 'text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200' },
     MEDIUM: { label: t(URGENCY_LABEL.MEDIUM), color: 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200' },
     LOW: { label: t(URGENCY_LABEL.LOW), color: 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-200' },
   }[item.urgency] || { label: item.urgency, color: 'text-slate-700 bg-slate-100 border-slate-200' };
-
-  // Cycle status on click
-  const cycleStatus = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const cycle: DefectStatus[] = ['BEFORE', 'IN PROGRESS', 'COMPLETED'];
-    const curIdx = cycle.indexOf(item.status);
-    const next = cycle[(curIdx + 1) % cycle.length];
-    onQuickUpdateStatus(item.id, next);
-  };
 
   // Cycle urgency on click
   const cycleUrgency = (e: React.MouseEvent) => {
@@ -239,17 +200,6 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
         {/* Right: phase photo chips, Status & Urgency interactive triggers + Actions */}
         <div className="flex flex-wrap items-center gap-2 ms-auto">
           <PhaseChips item={item} />
-
-          {/* Status badge button */}
-          <button
-            onClick={readOnly ? undefined : cycleStatus}
-            disabled={readOnly}
-            title={readOnly ? undefined : t('Click para cambiar estado')}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all disabled:cursor-default ${statusConfig.color}`}
-          >
-            <span className={`w-2 h-2 rounded-full ${statusConfig.dot}`} />
-            <span>{statusConfig.label}</span>
-          </button>
 
           {/* Urgency badge button */}
           <button
