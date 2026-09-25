@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History } from 'lucide-react';
+import { RefreshCw, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -16,6 +16,8 @@ interface HeaderProps {
   onUndo: () => void;
   undoLabel: string | null;
   onOpenHistory: () => void;
+  onReload?: () => void;
+  reloading?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,6 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
   onUndo,
   undoLabel,
   onOpenHistory,
+  onReload,
+  reloading = false,
 }) => {
   const { t } = useI18n();
   const completedCount = items.filter(i => i.status === 'COMPLETED').length;
@@ -88,6 +92,17 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <span className="tabular-nums font-medium">{completedCount}</span> {t('Completado')}
             </span>
+            {onReload && (
+              <button
+                onClick={onReload}
+                disabled={reloading}
+                title={t('Volver a cargar los datos')}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-60 transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${reloading ? 'animate-spin' : ''}`} />
+                {t('Actualizar')}
+              </button>
+            )}
           </div>
         </div>
 

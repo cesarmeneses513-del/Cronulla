@@ -352,6 +352,8 @@ const DICT: Record<string, { en: string; fa: string }> = {
 
   // History panel
   'Actualizar': { en: 'Refresh', fa: 'تازه‌سازی' },
+  'Volver a cargar los datos': { en: 'Reload the data', fa: 'بارگیری دوباره داده‌ها' },
+  'Datos actualizados: {n} defectos': { en: 'Data refreshed: {n} defects', fa: 'داده‌ها به‌روز شد: {n} نقص' },
   'Cerrar': { en: 'Close', fa: 'بستن' },
   'Cargando…': { en: 'Loading…', fa: 'در حال بارگیری…' },
   'Todavía no hay cambios registrados.': { en: 'No changes recorded yet.', fa: 'هنوز تغییری ثبت نشده است.' },

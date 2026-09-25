@@ -92,6 +92,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Activar web → Glide (fotos y cambios de la web)', 'webToSheetFromMenu')
     .addItem('Desactivar web → Glide', 'stopWebToSheetFromMenu')
+    .addSeparator()
+    .addItem('Quitar de aquí las filas borradas en la web', 'removeWebDeletedFromMenu')
     .addToUi();
 }
 
@@ -750,4 +752,64 @@ function webSignature_() {
   const total = String(h['Content-Range'] || h['content-range'] || '').split('/')[1];
   const rows = JSON.parse(res.getContentText());
   return total + '|' + (rows[0] ? rows[0].updated_at : '');
+}
+
+// ─────────────────── Rows deleted in the web → remove here ───────────────────
+
+const GLIDE_TRASH_SHEET = '_glide_papelera';
+
+/**
+ * Menu action: removes from this tab the rows whose defect no longer exists in the web app
+ * (deleted there). They are copied first to the hidden tab "_glide_papelera".
+ */
+function removeWebDeletedFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(120000)) return ui.alert(describeResult_(null));
+  try {
+    const sheet = getSheet_();
+    const headers = readHeaders_(sheet);
+    const idIdx = headers.indexOf(ID_HEADER);
+    const n = sheet.getLastRow() - 1;
+    if (idIdx < 0 || n < 1) return ui.alert('No hay filas.');
+    const values = sheet.getRange(2, 1, n, headers.length).getValues();
+    const webIds = new Set(fetchAllRows_().map(r => r.id));
+    const doomed = [];
+    values.forEach((row, i) => {
+      const id = String(row[idIdx]).trim();
+      if (id && !webIds.has(id)) doomed.push(i);
+    });
+    if (doomed.length === 0) return ui.alert('Todas las filas de esta planilla existen en la web. No hay nada que quitar.');
+
+    const col = h => headers.indexOf(h);
+    const describe = i => {
+      const r = values[i];
+      const v = h => (col(h) >= 0 ? String(r[col(h)]).trim() : '');
+      return 'No ' + v('NO') + ' · ' + v('ORIENTATION') + ' · ' + v('DEFECT') + ' · D' + v('DROP') + ' L' + v('LEVEL');
+    };
+    const list = doomed.slice(0, 15).map(describe).join('\n') + (doomed.length > 15 ? '\n… y ' + (doomed.length - 15) + ' más' : '');
+    const ok = ui.alert(
+      'Quitar filas borradas en la web',
+      doomed.length + ' filas de esta planilla ya no existen en la web (se borraron allí):\n\n' + list +
+        '\n\nSe copiarán a la pestaña oculta "' + GLIDE_TRASH_SHEET + '" y se quitarán de aquí. ¿Continuar?',
+      ui.ButtonSet.YES_NO
+    );
+    if (ok !== ui.Button.YES) return;
+
+    const trash = helperSheet_(GLIDE_TRASH_SHEET, ['BORRADO'].concat(headers));
+    const stamp = new Date().toISOString();
+    trash.getRange(trash.getLastRow() + 1, 1, doomed.length, headers.length + 1)
+      .setValues(doomed.map(i => [stamp].concat(values[i])));
+    // Bottom to top so row numbers stay valid.
+    doomed.slice().reverse().forEach(i => sheet.deleteRow(i + 2));
+
+    // Forget them, so the next sync doesn't treat the removal as a deletion to send to the web.
+    const gone = new Set(doomed.map(i => String(values[i][idIdx]).trim()));
+    const snap = readSnapshot_();
+    gone.forEach(id => delete snap[id]);
+    writeSnapshot_(snap);
+    ui.alert(doomed.length + ' filas quitadas. Quedan guardadas en "' + GLIDE_TRASH_SHEET + '".');
+  } finally {
+    lock.releaseLock();
+  }
 }

@@ -223,6 +223,31 @@ export default function App() {
   itemsRef.current = items;
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
+  // Reload everything from the database. Pending local edits are saved first so none are lost.
+  const [reloading, setReloading] = useState(false);
+  const handleReload = useCallback(async () => {
+    if (!supabase || reloading) return;
+    setReloading(true);
+    try {
+      await saveQueueRef.current;
+      const synced = syncedRef.current;
+      if (!readOnly && synced && itemsRef.current !== synced) {
+        await syncDefects(synced, itemsRef.current);
+      }
+      const normalized = normalizeItems(await fetchDefects());
+      syncedRef.current = normalized;
+      itemsRef.current = normalized;
+      setItems(normalized);
+      setSyncStatus('synced');
+      showToast(t('Datos actualizados: {n} defectos', { n: normalized.length }));
+    } catch (e) {
+      console.error('Failed to reload defects', e);
+      setSyncStatus('error');
+    } finally {
+      setReloading(false);
+    }
+  }, [reloading, readOnly, showToast, t]);
+
   const updateItems = useCallback((updater: (prev: DefectItem[]) => DefectItem[], label: string) => {
     const before = itemsRef.current;
     const after = updater(before);
@@ -776,6 +801,8 @@ export default function App() {
         onUndo={handleUndo}
         undoLabel={history.length > 0 ? history[history.length - 1].label : null}
         onOpenHistory={() => setIsHistoryOpen(true)}
+        onReload={supabase ? handleReload : undefined}
+        reloading={reloading}
       />
 
       {/* Filter and View Mode Controller */}
