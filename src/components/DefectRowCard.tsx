@@ -17,6 +17,8 @@ import {
 import { DefectItem, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from '../types/inspection';
 import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
 import { PhaseChips } from './PhaseChips';
+import { StageImageViewer } from './StageImageViewer';
+import { stageImageFor } from '../data/stageImages';
 
 interface DefectRowCardProps {
   item: DefectItem;
@@ -56,6 +58,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 }) => {
   const { t } = useI18n();
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showStageImage, setShowStageImage] = useState(false);
+  const stageImage = stageImageFor(item.orientation);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -285,8 +289,24 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
           {/* Photo slots container */}
           <div className="flex flex-wrap items-start gap-3 min-h-[110px] bg-slate-50/60 p-3 rounded-lg border border-slate-200/80">
+            {/* Stage reference drawing (FCRS), before the photos */}
+            {stageImage && (
+              <div className="flex flex-col items-center">
+                <span className="w-24 sm:w-28 mb-1.5 py-0.5 px-1.5 rounded text-[10px] font-black uppercase tracking-wider text-center border bg-indigo-50 text-indigo-700 border-indigo-200">
+                  FCRS
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowStageImage(true)}
+                  title={`FCRS · ${item.orientation}`}
+                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden border border-indigo-200 bg-white hover:border-indigo-400 hover:shadow-sm transition-all"
+                >
+                  <img loading="lazy" decoding="async" src={stageImage.thumb} alt={`FCRS ${item.orientation}`} className="w-full h-full object-cover" />
+                </button>
+              </div>
+            )}
             {item.photos.length === 0 ? (
-              <div className="w-full py-5 text-center text-xs text-slate-400 border border-dashed border-slate-300 rounded-md bg-white">
+              <div className="flex-1 min-w-[12rem] self-stretch flex items-center justify-center py-5 text-center text-xs text-slate-400 border border-dashed border-slate-300 rounded-md bg-white">
                 {readOnly
                   ? t('No hay fotografías registradas en esta fila.')
                   : `${t('No hay fotografías registradas en esta fila.')} ${t('Arrastra una foto aquí o haz clic en Subir.')}`}
@@ -492,6 +512,9 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
           </div>
         </div>
       </div>
+      {showStageImage && stageImage && (
+        <StageImageViewer src={stageImage.full} title={item.orientation} onClose={() => setShowStageImage(false)} />
+      )}
     </div>
   );
 };
