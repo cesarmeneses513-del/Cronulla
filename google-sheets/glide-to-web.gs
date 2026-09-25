@@ -154,7 +154,8 @@ function describeResult_(r) {
     'Actualizadas: ' + r.updated,
     'Borradas: ' + r.deleted,
   ];
-  if (r.toSheetCells || r.toSheetRows) parts.push('Web → Glide: ' + (r.toSheetCells || 0) + ' celdas actualizadas, ' + (r.toSheetRows || 0) + ' filas agregadas.');
+  if (r.toSheetCells || r.toSheetRows || r.toSheetRemoved) parts.push('Web → Glide: ' + (r.toSheetCells || 0) + ' celdas actualizadas, ' + (r.toSheetRows || 0) + ' filas agregadas, ' + (r.toSheetRemoved || 0) + ' filas quitadas (borradas en la web).');
+  if (r.toSheetRemoveSkipped) parts.push('No se quitaron ' + r.toSheetRemoveSkipped + ' filas que no están en la web (demasiadas a la vez). Usa Web Cronulla → Quitar de aquí las filas borradas en la web.');
   if (r.missing) parts.push('Filas que no están en la web (no se agregaron): ' + r.missing + '. Usa el menú Web Cronulla → Agregar a la web las filas que faltan si quieres crearlas.');
   if (r.skippedDeletes) parts.push('No se borraron ' + r.skippedDeletes + ' filas desaparecidas (demasiadas a la vez; revisa filtros).');
   return parts.join('\n');
@@ -287,7 +288,9 @@ function syncLocked_() {
       const w = pushWebToSheet_(sheet, headers, gone, readWebSnapshot_(), false);
       result.toSheetCells = w.cells;
       result.toSheetRows = w.appended;
-      wroteSheet = w.cells + w.appended > 0;
+      result.toSheetRemoved = w.removed;
+      result.toSheetRemoveSkipped = w.removeSkipped;
+      wroteSheet = w.cells + w.appended + w.removed > 0;
       // Our own writes above changed nothing in the web, so this is still current.
       props.setProperty('webSig', webSignature_());
     }
@@ -590,7 +593,8 @@ function helperSheet_(name, header) {
 // ───────────────────────────── Web → sheet ─────────────────────────────
 // Turned on from the menu. Every minute, cells that changed in the web app (photos uploaded
 // there, status, comments…) are written into this tab, so Glide shows them too. New web rows
-// are appended. Rows deleted in the web are left here (see "missing" in the summary).
+// are appended, and rows deleted in the web are removed (copied first to "_glide_papelera"),
+// so both lists have the same rows.
 
 const WEB_SNAPSHOT_SHEET = '_web_to_sheet';
 // Written both ways. Dates/times and "No" are only filled in rows appended from the web,
@@ -600,6 +604,9 @@ const WRITE_BACK = [
   'COMMENT', 'BASE (M)', 'HEIGHT (M)', 'LINEAR METERS', 'QUANTITY',
 ].concat(PHOTO_HEADERS);
 const APPEND_ONLY = ['NO', 'NAME PROYECT', 'DATE 1ST PHOTO', 'TIME 1ST PHOTO', 'DATE COMPLETED', 'TIME COMPLETED'];
+// Rows deleted in the web are removed here automatically, unless more than this disappear at
+// once (then nothing is removed and the summary says so; the menu action can do it).
+const MAX_AUTO_REMOVE = 50;
 
 function webToSheetFromMenu() {
   const ui = SpreadsheetApp.getUi();
@@ -615,9 +622,10 @@ function webToSheetFromMenu() {
   const answer = ui.alert(
     'Web → Glide',
     'Ahora hay diferencias entre la web y esta planilla en ' + preview.rows + ' filas (' + preview.cells +
-      ' celdas), y ' + preview.appended + ' filas de la web no están aquí.\n\n' +
-      'SÍ = igualar ahora: la web manda (se escriben esas celdas y se agregan esas filas), y desde ahí se envían los cambios de la web cada minuto.\n' +
-      'NO = no tocar nada de lo que hay; solo enviar los cambios que se hagan en la web desde ahora.\n' +
+      ' celdas), ' + preview.appended + ' filas de la web no están aquí y ' + (preview.removed + preview.removeSkipped) +
+      ' filas de aquí ya no existen en la web.\n\n' +
+      'SÍ = igualar ahora: la web manda (se escriben esas celdas, se agregan esas filas y se quitan las borradas en la web), y desde ahí se mantiene igual cada minuto.\n' +
+      'NO = no cambiar las celdas que ya hay; solo enviar los cambios que se hagan en la web desde ahora (las filas borradas en la web igual se quitan, para que ambas tengan las mismas filas).\n' +
       'CANCELAR = no activar.',
     ui.ButtonSet.YES_NO_CANCEL
   );
@@ -718,12 +726,35 @@ function pushWebToSheet_(sheet, headers, exclude, webSnap, dryRun) {
     });
   });
 
+  // Rows whose defect no longer exists in the web were deleted there: remove them here too.
+  const webIds = new Set(web.map(w => w.id));
+  const removals = [];
+  raw.forEach((r, i) => {
+    const id = String(r[idIdx]).trim();
+    if (id && !webIds.has(id)) removals.push(i);
+  });
+  const tooMany = removals.length > MAX_AUTO_REMOVE;
+
   if (!dryRun) {
     writes.forEach(([r, c, v]) => sheet.getRange(r, c).setValue(v));
     if (appends.length > 0) sheet.getRange(n + 2, 1, appends.length, headers.length).setValues(appends);
+    if (removals.length > 0 && !tooMany) {
+      const trash = helperSheet_(GLIDE_TRASH_SHEET, ['BORRADO'].concat(headers));
+      const stamp = new Date().toISOString();
+      trash.getRange(trash.getLastRow() + 1, 1, removals.length, headers.length + 1)
+        .setValues(removals.map(i => [stamp].concat(raw[i])));
+      // Bottom to top so row numbers stay valid (appended rows are below all of these).
+      removals.slice().reverse().forEach(i => sheet.deleteRow(i + 2));
+    }
     writeWebSnapshot_(nextSnap);
   }
-  return { cells: writes.length, rows: Object.keys(touchedRows).length, appended: appends.length };
+  return {
+    cells: writes.length,
+    rows: Object.keys(touchedRows).length,
+    appended: appends.length,
+    removed: tooMany ? 0 : removals.length,
+    removeSkipped: tooMany ? removals.length : 0,
+  };
 }
 
 function readWebSnapshot_() {
