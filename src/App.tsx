@@ -12,7 +12,7 @@ import { RoleSelectScreen, AppRole, getStoredUserName } from './components/RoleS
 import { HistoryPanel } from './components/HistoryPanel';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
-import { SortBar, SortMode, SortDirection, sortDefects } from './components/SortBar';
+import { SortBar, SortState, sortDefects, parseStoredSort } from './components/SortBar';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
@@ -340,23 +340,23 @@ export default function App() {
   }, [items, filters]);
 
   // Display-only ordering; the stored order (and the Google Sheet) are untouched.
-  const [sort, setSort] = useState<{ mode: SortMode; direction: SortDirection }>(() => {
+  const [sort, setSort] = useState<SortState>(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
-      if (stored && stored.mode && stored.direction) return stored;
+      const stored = parseStoredSort(JSON.parse(localStorage.getItem(SORT_KEY) || 'null'));
+      if (stored) return stored;
     } catch {}
-    return { mode: 'original', direction: 'asc' };
+    return { keys: [], direction: 'asc' };
   });
 
-  const handleSortChange = useCallback((mode: SortMode, direction: SortDirection) => {
-    setSort({ mode, direction });
+  const handleSortChange = useCallback((next: SortState) => {
+    setSort(next);
     try {
-      localStorage.setItem(SORT_KEY, JSON.stringify({ mode, direction }));
+      localStorage.setItem(SORT_KEY, JSON.stringify(next));
     } catch {}
   }, []);
 
   const sortedItems = useMemo(
-    () => sortDefects(filteredItems, sort.mode, sort.direction),
+    () => sortDefects(filteredItems, sort),
     [filteredItems, sort]
   );
 
@@ -823,8 +823,7 @@ export default function App() {
           /* View Mode 1: Detailed Rows with Drag and Drop Photo Reordering */
           <div className="space-y-4">
             <SortBar
-              mode={sort.mode}
-              direction={sort.direction}
+              sort={sort}
               onChange={handleSortChange}
               actions={
                 !readOnly && (
@@ -867,7 +866,7 @@ export default function App() {
         ) : viewMode === 'photos' ? (
           /* View Mode 2: Photo Mosaic Grid */
           <>
-          <SortBar mode={sort.mode} direction={sort.direction} onChange={handleSortChange} />
+          <SortBar sort={sort} onChange={handleSortChange} />
           <PhotoMosaicView
             items={sortedItems}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
@@ -891,8 +890,7 @@ export default function App() {
           /* View Mode 4: Table View */
           <>
           <SortBar
-            mode={sort.mode}
-            direction={sort.direction}
+            sort={sort}
             onChange={handleSortChange}
             actions={
               !readOnly && (

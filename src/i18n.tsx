@@ -89,6 +89,10 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Descendente (clic para invertir)': { en: 'Descending (click to reverse)', fa: 'نزولی (برای برعکس کردن کلیک کنید)' },
   'Ascendente': { en: 'Ascending', fa: 'صعودی' },
   'Descendente': { en: 'Descending', fa: 'نزولی' },
+  'Puedes marcar varios: se ordena en el orden en que los marcas': {
+    en: 'You can pick several: they sort in the order you pick them',
+    fa: 'می‌توانید چند مورد را انتخاب کنید: به ترتیب انتخاب مرتب می‌شود',
+  },
 
   // Row card
   'Mover fotografía a la fila #{row} ({defect})': { en: 'Move photo to row #{row} ({defect})', fa: 'انتقال عکس به ردیف #{row} ({defect})' },
