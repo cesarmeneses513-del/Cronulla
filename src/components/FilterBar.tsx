@@ -440,7 +440,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {t('Mostrando {n} de {total} registros de inspección', { n: filteredCount, total: items.length })}
           </div>
           {!readOnly && (
-            <div className="text-[11px] text-slate-400">
+            <div className="hidden sm:block text-[11px] text-slate-400">
               {t('Arrastra las fotos entre filas o casillas para reordenar o cambiar de defecto')}
             </div>
           )}

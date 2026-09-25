@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+/* iPhone Safari zooms into any text field under 16px when it is tapped and doesn't zoom back,
+   which leaves the page wider than the screen. 16px on phones avoids that zoom. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* No horizontal page scroll on phones. */
+html,
+body {
+  overflow-x: clip;
+}

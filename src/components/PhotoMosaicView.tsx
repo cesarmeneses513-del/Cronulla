@@ -176,7 +176,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                   />
 
                   {/* Quick Actions overlay on hover */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                  <div className="absolute inset-0 bg-black/50 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity flex items-center justify-center gap-2 p-2">
                     <button
                       onClick={() => onOpenPhotoLightbox(item, pIdx)}
                       title={t('Ampliar fotografía')}

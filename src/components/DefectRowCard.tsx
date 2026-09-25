@@ -218,7 +218,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
           {/* Action buttons */}
           {!readOnly && (
-          <div className="flex items-center border-s border-slate-200 ps-2 gap-1">
+          <div className="flex items-center sm:border-s border-slate-200 sm:ps-2 gap-1">
             <button
               onClick={() => onEdit(item)}
               title={t('Editar todos los datos del defecto')}
@@ -255,7 +255,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
               <span>{t('Fotografías ({n})', { n: item.photos.length })}</span>
               {!readOnly && (
-                <span className="text-[11px] font-normal text-slate-400">
+                <span className="hidden sm:inline text-[11px] font-normal text-slate-400">
                   {t('Arrastra para ordenar o mover a otra fila')}
                 </span>
               )}
@@ -402,7 +402,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                       />
 
                       {/* Actions overlay on hover */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
+                      {/* Only on devices with a mouse: on touch screens the buttons would be invisible but still tappable, so a tap on the photo could delete it. Touch opens the photo instead. */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity flex items-center justify-center gap-1.5 p-1">
                         <button
                           onClick={() => onOpenPhotoLightbox(item, pIdx)}
                           title={t('Ver en pantalla completa')}
