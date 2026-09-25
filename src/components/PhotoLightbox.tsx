@@ -239,7 +239,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
       </div>
 
       {/* Right Sidebar: Details & Reassigning */}
-      <div className="w-full md:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-white/10 p-5 flex flex-col justify-between overflow-y-auto max-h-[45vh] md:max-h-none text-slate-200">
+      <div className="w-full md:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-white/10 p-4 md:p-5 flex flex-col md:justify-between overflow-y-auto overflow-x-hidden max-h-[45vh] md:max-h-none text-slate-200">
         <div className="space-y-4">
           {/* Header info */}
           <div>
@@ -348,7 +348,8 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         {/* Move Photo to Another Row Form */}
         {!readOnly && (
         <div className="pt-4 border-t border-white/10 space-y-3 mt-4">
-          <form onSubmit={handleMovePhotoSubmit} className="space-y-2">
+          {/* Moving to another row needs a long list of rows: desktop only. On phones, drag isn't available either. */}
+          <form onSubmit={handleMovePhotoSubmit} className="hidden md:block space-y-2">
             <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
               <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-400" />
               <span>{t('Mover foto a otra fila:')}</span>
@@ -357,7 +358,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
               <select
                 value={targetRowId}
                 onChange={e => setTargetRowId(e.target.value)}
-                className="flex-1 bg-white/10 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden"
+                className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden"
               >
                 <option value="" className="bg-slate-800 text-white">{t('Seleccionar fila destino...')}</option>
                 {allItems
