@@ -1020,9 +1020,9 @@ export default function App() {
           allItems={items}
           onClose={() => setLightboxItem(null)}
           onNavigatePhoto={handleNavigatePhoto}
-          onMovePhoto={handleMovePhoto}
           onDeletePhoto={handleDeletePhoto}
           onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
+          onSaveItem={readOnly ? undefined : handleSaveDefect}
           readOnly={readOnly}
         />
       )}

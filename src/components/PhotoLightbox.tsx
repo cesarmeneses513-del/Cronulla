@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   ChevronLeft,
@@ -7,7 +7,6 @@ import {
   ZoomOut,
   RotateCw,
   Download,
-  ArrowRightLeft,
   Trash2,
   MapPin,
   Calendar,
@@ -18,7 +17,7 @@ import {
   Clock,
   Tag
 } from 'lucide-react';
-import { DefectItem, DragPhotoPayload, PhotoPhase } from '../types/inspection';
+import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 
@@ -28,7 +27,7 @@ interface PhotoLightboxProps {
   allItems: DefectItem[];
   onClose: () => void;
   onNavigatePhoto: (item: DefectItem, newPhotoIndex: number) => void;
-  onMovePhoto: (payload: DragPhotoPayload, targetItemId: string) => void;
+  onSaveItem?: (item: DefectItem) => void;
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
   readOnly?: boolean;
@@ -40,7 +39,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   allItems,
   onClose,
   onNavigatePhoto,
-  onMovePhoto,
+  onSaveItem,
   onDeletePhoto,
   onUpdatePhotoPhase,
   readOnly = false,
@@ -48,7 +47,6 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   const { t } = useI18n();
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [targetRowId, setTargetRowId] = useState<string>('');
 
   const currentPhoto = item.photos[photoIndex];
   const currentPhotoUrl = typeof currentPhoto === 'string' ? currentPhoto : currentPhoto?.url || '';
@@ -67,6 +65,9 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Typing in the edit fields must not close the viewer or change photo.
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return;
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowLeft' && hasPrev) onNavigatePhoto(item, photoIndex - 1);
       if (e.key === 'ArrowRight' && hasNext) onNavigatePhoto(item, photoIndex + 1);
@@ -93,19 +94,6 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  };
-
-  const handleMovePhotoSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetRowId || targetRowId === item.id) return;
-    const payload: DragPhotoPayload = {
-      sourceItemId: item.id,
-      photoUrl: currentPhotoUrl,
-      photoIndex,
-      phase: currentPhase,
-    };
-    onMovePhoto(payload, targetRowId);
-    onClose();
   };
 
   const phaseBadgeStyles = {
@@ -248,7 +236,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
               <span className="font-mono font-bold text-amber-400">{t('Fila #{row}', { row: item.rowNo })}</span>
               <span className="font-semibold text-slate-300">{item.projectName}</span>
             </div>
-            <h3 className="text-base font-bold text-white mt-1">{item.defect}</h3>
+            {!onSaveItem && <h3 className="text-base font-bold text-white mt-1">{item.defect}</h3>}
             <p className="text-xs text-slate-400 mt-0.5">{item.orientation}</p>
           </div>
 
@@ -265,14 +253,19 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             </div>
           </div>
 
+          {/* Editable details (editor only) */}
+          {onSaveItem && <LightboxEditForm item={item} allItems={allItems} onSave={onSaveItem} />}
+
           {/* Quick Metrics */}
           <div className="grid grid-cols-2 gap-2 text-xs">
+            {!onSaveItem && (
             <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
               <span className="text-slate-400 block text-[11px]">{t('Ubicación')}</span>
               <span className="font-semibold text-white font-mono">
                 {t('Drop:')} {item.drop || '—'} · {t('Piso:')} {item.level || '—'}
               </span>
             </div>
+            )}
 
             <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
               <span className="text-slate-400 block text-[11px]">{t('Estado & Urgencia')}</span>
@@ -283,7 +276,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           </div>
 
           {/* Dimensions */}
-          {(item.linearMeters || item.baseM || item.heightM || item.quantity) && (
+          {!onSaveItem && (item.linearMeters || item.baseM || item.heightM || item.quantity) && (
             <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 text-xs space-y-1">
               <span className="text-slate-400 block text-[11px] font-semibold flex items-center gap-1">
                 <Ruler className="w-3 h-3 text-slate-400" /> {t('Dimensiones')}
@@ -349,38 +342,6 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         {/* Move Photo to Another Row Form */}
         {!readOnly && (
         <div className="pt-4 border-t border-white/10 space-y-3 mt-4">
-          {/* Moving to another row needs a long list of rows: desktop only. On phones, drag isn't available either. */}
-          <form onSubmit={handleMovePhotoSubmit} className="hidden md:block space-y-2">
-            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-400" />
-              <span>{t('Mover foto a otra fila:')}</span>
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={targetRowId}
-                onChange={e => setTargetRowId(e.target.value)}
-                className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden"
-              >
-                <option value="" className="bg-slate-800 text-white">{t('Seleccionar fila destino...')}</option>
-                {allItems
-                  .filter(i => i.id !== item.id)
-                  .map(target => (
-                    <option key={target.id} value={target.id} className="bg-slate-800 text-white">
-                      #{target.rowNo} - {target.defect} ({target.drop || '—'}/{target.level || '—'})
-                    </option>
-                  ))}
-              </select>
-
-              <button
-                type="submit"
-                disabled={!targetRowId}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
-              >
-                {t('Mover')}
-              </button>
-            </div>
-          </form>
-
           {/* Delete Photo Button */}
           <button
             onClick={() => {
@@ -398,5 +359,98 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         )}
       </div>
     </div>
+  );
+};
+
+// Inline editing of the row's main details from the photo viewer.
+const EDIT_FIELDS = ['defect', 'drop', 'level', 'baseM', 'heightM', 'linearMeters', 'quantity'] as const;
+type EditField = (typeof EDIT_FIELDS)[number];
+type Draft = Record<EditField, string>;
+const draftOf = (item: DefectItem): Draft =>
+  Object.fromEntries(EDIT_FIELDS.map(f => [f, String(item[f] ?? '')])) as Draft;
+
+const LightboxEditForm: React.FC<{
+  item: DefectItem;
+  allItems: DefectItem[];
+  onSave: (item: DefectItem) => void;
+}> = ({ item, allItems, onSave }) => {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState<Draft>(() => draftOf(item));
+  // Start over whenever the row itself changes (saved, or edited elsewhere).
+  useEffect(() => setDraft(draftOf(item)), [item]);
+
+  const defectNames = useMemo(
+    () => Array.from(new Set(allItems.map(i => i.defect).filter(Boolean))).sort(),
+    [allItems]
+  );
+  const dirty = EDIT_FIELDS.some(f => draft[f] !== String(item[f] ?? ''));
+  const set = (f: EditField) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDraft(d => ({ ...d, [f]: value }));
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dirty) return;
+    const clean = Object.fromEntries(EDIT_FIELDS.map(f => [f, draft[f].trim()])) as Draft;
+    onSave({ ...item, ...clean, defect: clean.defect.toUpperCase(), level: clean.level.toUpperCase() });
+  };
+
+  const input =
+    'w-full min-w-0 bg-white/10 border border-white/20 rounded-md px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400';
+  const label = 'block text-[11px] text-slate-400 mb-1';
+
+  return (
+    <form onSubmit={submit} className="p-3 bg-white/5 rounded-lg border border-white/10 space-y-2.5">
+      <div>
+        <label className={label}>{t('Defecto')}</label>
+        <input list="lightbox-defects" value={draft.defect} onChange={set('defect')} className={`${input} font-bold uppercase`} />
+        <datalist id="lightbox-defects">
+          {defectNames.map(d => (
+            <option key={d} value={d} />
+          ))}
+        </datalist>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>{t('Drop')}</label>
+          <input value={draft.drop} onChange={set('drop')} inputMode="numeric" className={`${input} font-mono`} />
+        </div>
+        <div>
+          <label className={label}>{t('Nivel')}</label>
+          <input value={draft.level} onChange={set('level')} placeholder="G, 1, 2… R" className={`${input} font-mono uppercase`} />
+        </div>
+        <div>
+          <label className={label}>{t('Ancho (m)')}</label>
+          <input value={draft.baseM} onChange={set('baseM')} inputMode="decimal" className={`${input} font-mono`} />
+        </div>
+        <div>
+          <label className={label}>{t('Alto (m)')}</label>
+          <input value={draft.heightM} onChange={set('heightM')} inputMode="decimal" className={`${input} font-mono`} />
+        </div>
+        <div>
+          <label className={label}>{t('Metros Lineales (m)')}</label>
+          <input value={draft.linearMeters} onChange={set('linearMeters')} inputMode="decimal" className={`${input} font-mono`} />
+        </div>
+        <div>
+          <label className={label}>{t('Cantidad')}</label>
+          <input value={draft.quantity} onChange={set('quantity')} inputMode="decimal" className={`${input} font-mono`} />
+        </div>
+      </div>
+      {dirty && (
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setDraft(draftOf(item))}
+            className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white rounded-md"
+          >
+            {t('Cancelar')}
+          </button>
+          <button type="submit" className="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-md">
+            {t('Guardar Cambios')}
+          </button>
+        </div>
+      )}
+    </form>
   );
 };
