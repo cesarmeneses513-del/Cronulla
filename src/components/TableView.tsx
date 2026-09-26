@@ -3,6 +3,7 @@ import { Edit2, Trash2, Camera, ExternalLink } from 'lucide-react';
 import { DefectItem, DefectStatus } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { PhaseChips } from './PhaseChips';
+import { thumbUrl, fallbackTo } from '../lib/thumb';
 
 interface TableViewProps {
   items: DefectItem[];
@@ -104,7 +105,7 @@ export const TableView: React.FC<TableViewProps> = ({
                             <img
                               loading="lazy"
                               decoding="async"
-                              src={pUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                              src={thumbUrl(pUrl, 160)} onError={fallbackTo(pUrl)} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                           </button>
                         </div>
                       );

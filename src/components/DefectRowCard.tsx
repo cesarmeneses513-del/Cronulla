@@ -19,6 +19,7 @@ import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
 import { PhaseChips } from './PhaseChips';
 import { StageImageViewer } from './StageImageViewer';
 import { stageImageFor } from '../data/stageImages';
+import { thumbUrl, fallbackTo } from '../lib/thumb';
 
 interface DefectRowCardProps {
   item: DefectItem;
@@ -394,7 +395,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                       <img
                         loading="lazy"
                         decoding="async"
-                        src={photoUrl}
+                        src={thumbUrl(photoUrl, 320)}
+                        onError={fallbackTo(photoUrl)}
                         alt={`Foto ${pIdx + 1} - ${item.defect}`}
                         referrerPolicy="no-referrer"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ExternalLink, ArrowRightLeft, Trash2, MapPin, Tag } from 'lucide-react';
 import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
+import { thumbUrl, fallbackTo } from '../lib/thumb';
 
 interface PhotoMosaicViewProps {
   items: DefectItem[];
@@ -168,7 +169,8 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                   <img
                     loading="lazy"
                     decoding="async"
-                    src={url}
+                    src={thumbUrl(url, 480)}
+                    onError={fallbackTo(url)}
                     alt={`${item.defect} - Drop ${item.drop} Lvl ${item.level}`}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

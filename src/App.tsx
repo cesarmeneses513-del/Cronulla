@@ -13,6 +13,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
 import { SortBar, SortState, sortDefects, parseStoredSort } from './components/SortBar';
+import { Pagination } from './components/Pagination';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
@@ -383,6 +384,26 @@ export default function App() {
   const sortedItems = useMemo(
     () => sortDefects(filteredItems, sort),
     [filteredItems, sort]
+  );
+
+  // The list is shown a page at a time: rendering ~1,500 rows with their photos at once is slow.
+  const pageSize = viewMode === 'rows' ? 25 : viewMode === 'photos' ? 20 : 50;
+  const pageCount = Math.max(1, Math.ceil(sortedItems.length / pageSize));
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [filters, sort, viewMode]);
+  const currentPage = Math.min(page, pageCount);
+  const pagedItems = useMemo(
+    () => sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [sortedItems, currentPage, pageSize]
+  );
+  const mainRef = useRef<HTMLElement>(null);
+  const goToPage = useCallback((next: number) => {
+    setPage(next);
+    const top = (mainRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY - 120;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }, []);
+  const pager = (
+    <Pagination page={currentPage} pageCount={pageCount} total={sortedItems.length} pageSize={pageSize} onChange={goToPage} />
   );
 
   // Multi-select for bulk delete (editor only).
@@ -817,7 +838,7 @@ export default function App() {
       />
 
       {/* Main View Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main ref={mainRef} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {filteredItems.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
@@ -868,7 +889,8 @@ export default function App() {
                 )
               }
             />
-            {sortedItems.map((item, idx) => (
+            {pager}
+            {pagedItems.map((item, idx) => (
               <DefectRowCard
                 key={item.id}
                 item={item}
@@ -889,19 +911,22 @@ export default function App() {
                 onToggleSelect={handleToggleSelect}
               />
             ))}
+            {pager}
           </div>
         ) : viewMode === 'photos' ? (
           /* View Mode 2: Photo Mosaic Grid */
           <>
           <SortBar sort={sort} onChange={handleSortChange} />
+          {pager}
           <PhotoMosaicView
-            items={sortedItems}
+            items={pagedItems}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onDeletePhoto={handleDeletePhoto}
             onMovePhotoPrompt={handlePromptMovePhoto}
             onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
             readOnly={readOnly}
           />
+          {pager}
           </>
         ) : viewMode === 'matrix' ? (
           /* View Mode 3: Elevation Matrix (Drop vs Level) */
@@ -935,8 +960,9 @@ export default function App() {
               )
             }
           />
+          {pager}
           <TableView
-            items={sortedItems}
+            items={pagedItems}
             onEdit={handleOpenEdit}
             onDelete={handleDeleteDefect}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
@@ -946,6 +972,7 @@ export default function App() {
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
           />
+          {pager}
           </>
         )}
       </main>

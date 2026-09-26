@@ -2,6 +2,7 @@ import React from 'react';
 import { Camera, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
+import { thumbUrl, fallbackTo } from '../lib/thumb';
 
 interface ElevationMatrixViewProps {
   items: DefectItem[];
@@ -179,7 +180,8 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                                       loading="lazy"
                                       decoding="async"
                                       key={pIdx}
-                                      src={photoUrl}
+                                      src={thumbUrl(photoUrl, 160)}
+                                      onError={fallbackTo(photoUrl)}
                                       alt="Foto"
                                       referrerPolicy="no-referrer"
                                       className="w-7 h-7 object-cover rounded border border-slate-200"

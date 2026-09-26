@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { DefectItem, DragPhotoPayload, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { thumbUrl, fallbackTo } from '../lib/thumb';
 
 interface PhotoLightboxProps {
   item: DefectItem;
@@ -336,7 +337,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
                   >
                     <span className="text-[8px] font-bold text-slate-300 mb-0.5 uppercase">{t(PHASE_LABEL[ph])}</span>
                     <div className="w-12 h-12 rounded overflow-hidden border border-white/20">
-                      <img src={url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                      <img src={thumbUrl(url, 160)} onError={fallbackTo(url)} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                     </div>
                   </button>
                 );

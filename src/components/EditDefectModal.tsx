@@ -3,6 +3,7 @@ import { X, Plus, Trash2, ArrowUp, ArrowDown, Save, Camera, Ruler, User } from '
 import { DefectItem, UrgencyLevel, DefectStatus, PhotoPhase, DefectPhoto } from '../types/inspection';
 import { uploadPhoto } from '../lib/supabase';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { thumbUrl, fallbackTo } from '../lib/thumb';
 
 interface EditDefectModalProps {
   item: DefectItem | null;
@@ -443,7 +444,8 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                     {/* Photo thumbnail */}
                     <div className="relative group border border-slate-200 rounded-lg overflow-hidden bg-slate-900">
                       <img
-                        src={photoUrl}
+                        src={thumbUrl(photoUrl, 320)}
+                        onError={fallbackTo(photoUrl)}
                         alt={`Foto ${pIdx + 1}`}
                         referrerPolicy="no-referrer"
                         className="w-full h-24 object-cover"

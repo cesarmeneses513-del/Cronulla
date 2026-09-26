@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { X, History, RefreshCw, Search, Loader2, User, AlertTriangle, Trash2 } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { thumbUrl, fallbackTo } from '../lib/thumb';
 import {
   HistoryRecord,
   fetchHistory,
@@ -219,7 +220,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
                       {url && (
                         <a href={url} target="_blank" rel="noreferrer" className="shrink-0">
                           <img
-                            src={url}
+                            src={thumbUrl(url, 160)}
+                            onError={fallbackTo(url)}
                             alt=""
                             loading="lazy"
                             referrerPolicy="no-referrer"

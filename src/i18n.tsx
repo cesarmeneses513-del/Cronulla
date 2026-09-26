@@ -349,6 +349,10 @@ const DICT: Record<string, { en: string; fa: string }> = {
   '{n} filas registradas': { en: '{n} rows recorded', fa: '{n} ردیف ثبت شده' },
   'Solo lectura': { en: 'Read only', fa: 'فقط خواندنی' },
   'Creado por': { en: 'Created by', fa: 'ساخته شده توسط' },
+  'Páginas': { en: 'Pages', fa: 'صفحه‌ها' },
+  '{from}–{to} de {total}': { en: '{from}–{to} of {total}', fa: '{from}–{to} از {total}' },
+  'Anterior': { en: 'Previous', fa: 'قبلی' },
+  'Siguiente': { en: 'Next', fa: 'بعدی' },
   'Drag & Drop habilitado': { en: 'Drag & drop enabled', fa: 'کشیدن و رها کردن فعال است' },
 
   // History panel
