@@ -402,6 +402,27 @@ export default function App() {
     const top = (mainRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY - 120;
     window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, []);
+  // Previous / next defect inside the photo viewer, following the list as filtered and sorted.
+  const lightboxNav = useMemo(() => {
+    if (!lightboxItem) return undefined;
+    const inList = sortedItems.some(i => i.id === lightboxItem.id);
+    const list = inList ? sortedItems : items;
+    const idx = list.findIndex(i => i.id === lightboxItem.id);
+    if (idx < 0) return undefined;
+    const open = (n: number) => () => {
+      setLightboxItem(list[n]);
+      setLightboxPhotoIndex(0);
+      // Keep the list on the page of the defect being viewed, for when the viewer closes.
+      if (inList) setPage(Math.floor(n / pageSize) + 1);
+    };
+    return {
+      index: idx,
+      total: list.length,
+      onPrev: idx > 0 ? open(idx - 1) : undefined,
+      onNext: idx < list.length - 1 ? open(idx + 1) : undefined,
+    };
+  }, [lightboxItem, sortedItems, items, pageSize]);
+
   const pager = (
     <Pagination page={currentPage} pageCount={pageCount} total={sortedItems.length} pageSize={pageSize} onChange={goToPage} />
   );
@@ -1023,6 +1044,7 @@ export default function App() {
           onDeletePhoto={handleDeletePhoto}
           onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
           onSaveItem={readOnly ? undefined : handleSaveDefect}
+          defectNav={lightboxNav}
           readOnly={readOnly}
         />
       )}

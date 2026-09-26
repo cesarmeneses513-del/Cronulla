@@ -355,6 +355,8 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Páginas': { en: 'Pages', fa: 'صفحه‌ها' },
   '{from}–{to} de {total}': { en: '{from}–{to} of {total}', fa: '{from}–{to} از {total}' },
   'Anterior': { en: 'Previous', fa: 'قبلی' },
+  'Defecto anterior': { en: 'Previous defect', fa: 'نقص قبلی' },
+  'Siguiente defecto': { en: 'Next defect', fa: 'نقص بعدی' },
   'Siguiente': { en: 'Next', fa: 'بعدی' },
   'Drag & Drop habilitado': { en: 'Drag & drop enabled', fa: 'کشیدن و رها کردن فعال است' },
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   ChevronLeft,
@@ -28,6 +28,8 @@ interface PhotoLightboxProps {
   onClose: () => void;
   onNavigatePhoto: (item: DefectItem, newPhotoIndex: number) => void;
   onSaveItem?: (item: DefectItem) => void;
+  // Previous / next defect in the list being viewed (to edit rows one after another).
+  defectNav?: { index: number; total: number; onPrev?: () => void; onNext?: () => void };
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
   readOnly?: boolean;
@@ -40,6 +42,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   onClose,
   onNavigatePhoto,
   onSaveItem,
+  defectNav,
   onDeletePhoto,
   onUpdatePhotoPhase,
   readOnly = false,
@@ -59,6 +62,15 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         : 'BEFORE'
       : currentPhoto?.phase || 'BEFORE';
 
+  const hasPhoto = item.photos.length > 0;
+  // Saves pending edits before moving to another defect, so nothing typed is lost.
+  const flushRef = useRef<(() => void) | null>(null);
+  const goDefect = (go?: () => void) => {
+    if (!go) return;
+    flushRef.current?.();
+    go();
+  };
+
   const hasPrev = photoIndex > 0;
   const hasNext = photoIndex < item.photos.length - 1;
 
@@ -71,10 +83,18 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowLeft' && hasPrev) onNavigatePhoto(item, photoIndex - 1);
       if (e.key === 'ArrowRight' && hasNext) onNavigatePhoto(item, photoIndex + 1);
+      if (e.key === 'ArrowUp' && defectNav?.onPrev) {
+        e.preventDefault();
+        defectNav.onPrev();
+      }
+      if (e.key === 'ArrowDown' && defectNav?.onNext) {
+        e.preventDefault();
+        defectNav.onNext();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasPrev, hasNext, item, photoIndex, onClose, onNavigatePhoto]);
+  }, [hasPrev, hasNext, item, photoIndex, onClose, onNavigatePhoto, defectNav]);
 
   // Reset zoom & rotation when photo changes
   useEffect(() => {
@@ -111,7 +131,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             {t(PHASE_LABEL[currentPhase])}
           </span>
           <span className="text-xs font-mono font-bold">
-            #{item.rowNo} · {t('Foto {i}/{n}', { i: photoIndex + 1, n: item.photos.length })}
+            #{item.rowNo}{hasPhoto && <> · {t('Foto {i}/{n}', { i: photoIndex + 1, n: item.photos.length })}</>}
           </span>
         </div>
         <button onClick={onClose} className="p-1 rounded-full bg-white/10 text-white">
@@ -164,6 +184,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         </div>
 
         {/* PROMINENT LABEL DIRECTLY ABOVE PHOTO */}
+        {hasPhoto && (
         <div className="z-20 mb-3 flex items-center gap-2 bg-black/80 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-lg">
           <span className="text-xs text-white/70 font-medium">{t('Fase:')}</span>
           <div className="flex items-center gap-1">
@@ -186,6 +207,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             ))}
           </div>
         </div>
+        )}
 
         {/* Navigation Arrows */}
         {hasPrev && (
@@ -207,6 +229,11 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         )}
 
         {/* The Image */}
+        {!hasPhoto ? (
+          <div className="z-10 px-6 py-10 rounded-xl border border-dashed border-white/20 text-center text-sm text-white/60 max-w-sm">
+            {t('No hay fotografías registradas en esta fila.')}
+          </div>
+        ) : (
         <div
           className="max-w-full max-h-[75vh] flex items-center justify-center transition-transform duration-150 ease-out"
           style={{
@@ -220,16 +247,44 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             className="max-h-[75vh] max-w-[85vw] object-contain rounded-lg shadow-2xl border border-white/10"
           />
         </div>
+        )}
 
         {/* Footer info below image */}
         <div className="z-10 mt-3 text-center text-xs text-white/70 font-mono">
-          {t('Foto {i} de {n} · Fila #{row}', { i: photoIndex + 1, n: item.photos.length, row: item.rowNo })} · {item.orientation}
+          {hasPhoto ? t('Foto {i} de {n} · Fila #{row}', { i: photoIndex + 1, n: item.photos.length, row: item.rowNo }) : t('Fila #{row}', { row: item.rowNo })} · {item.orientation}
         </div>
       </div>
 
       {/* Right Sidebar: Details & Reassigning */}
       <div className="w-full md:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-white/10 p-4 md:p-5 flex flex-col md:justify-between overflow-y-auto overflow-x-hidden max-h-[45vh] md:max-h-none text-slate-200">
         <div className="space-y-4">
+          {/* Previous / next defect */}
+          {defectNav && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => goDefect(defectNav.onPrev)}
+                disabled={!defectNav.onPrev}
+                title={t('Defecto anterior') + ' (↑)'}
+                className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-xs font-semibold text-white transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+                {t('Anterior')}
+              </button>
+              <span className="text-[11px] font-mono text-slate-400 tabular-nums whitespace-nowrap">
+                {defectNav.index + 1} / {defectNav.total}
+              </span>
+              <button
+                onClick={() => goDefect(defectNav.onNext)}
+                disabled={!defectNav.onNext}
+                title={t('Siguiente defecto') + ' (↓)'}
+                className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-xs font-semibold text-white transition-colors"
+              >
+                {t('Siguiente')}
+                <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+              </button>
+            </div>
+          )}
+
           {/* Header info */}
           <div>
             <div className="flex items-center justify-between text-xs text-slate-400">
@@ -241,6 +296,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           </div>
 
           {/* Phase Badge in Sidebar */}
+          {hasPhoto && (
           <div className="p-3 bg-white/5 rounded-lg border border-white/10">
             <span className="text-slate-400 block text-[11px] mb-1">{t('Fase de esta fotografía:')}</span>
             <div className="flex items-center gap-1.5">
@@ -252,9 +308,10 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
               </span>
             </div>
           </div>
+          )}
 
           {/* Editable details (editor only) */}
-          {onSaveItem && <LightboxEditForm item={item} allItems={allItems} onSave={onSaveItem} />}
+          {onSaveItem && <LightboxEditForm item={item} allItems={allItems} onSave={onSaveItem} flushRef={flushRef} />}
 
           {/* Quick Metrics */}
           <div className="grid grid-cols-2 gap-2 text-xs">
@@ -340,7 +397,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         </div>
 
         {/* Move Photo to Another Row Form */}
-        {!readOnly && (
+        {!readOnly && hasPhoto && (
         <div className="pt-4 border-t border-white/10 space-y-3 mt-4">
           {/* Delete Photo Button */}
           <button
@@ -373,7 +430,8 @@ const LightboxEditForm: React.FC<{
   item: DefectItem;
   allItems: DefectItem[];
   onSave: (item: DefectItem) => void;
-}> = ({ item, allItems, onSave }) => {
+  flushRef?: React.MutableRefObject<(() => void) | null>;
+}> = ({ item, allItems, onSave, flushRef }) => {
   const { t } = useI18n();
   const [draft, setDraft] = useState<Draft>(() => draftOf(item));
   // Start over whenever the row itself changes (saved, or edited elsewhere).
@@ -389,12 +447,23 @@ const LightboxEditForm: React.FC<{
     setDraft(d => ({ ...d, [f]: value }));
   };
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const save = () => {
     if (!dirty) return;
     const clean = Object.fromEntries(EDIT_FIELDS.map(f => [f, draft[f].trim()])) as Draft;
     onSave({ ...item, ...clean, defect: clean.defect.toUpperCase(), level: clean.level.toUpperCase() });
   };
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    save();
+  };
+  // Lets the viewer save pending edits when moving to another defect.
+  useEffect(() => {
+    if (!flushRef) return;
+    flushRef.current = save;
+    return () => {
+      flushRef.current = null;
+    };
+  });
 
   const input =
     'w-full min-w-0 bg-white/10 border border-white/20 rounded-md px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400';
