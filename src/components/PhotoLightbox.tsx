@@ -150,7 +150,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         </button>
 
         {/* Toolbar (Zoom, Rotate, Download) */}
-        <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 p-1 bg-black/70 backdrop-blur-md rounded-lg border border-white/10 text-white">
+        <div className="absolute bottom-3 left-3 md:bottom-auto md:top-4 md:left-4 z-20 flex items-center gap-1.5 p-1 bg-black/70 backdrop-blur-md rounded-lg border border-white/10 text-white">
           <button
             onClick={handleZoomOut}
             title={t('Alejar')}
@@ -186,7 +186,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         {/* PROMINENT LABEL DIRECTLY ABOVE PHOTO */}
         {hasPhoto && (
         <div className="z-20 mb-3 flex items-center gap-2 bg-black/80 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-lg">
-          <span className="text-xs text-white/70 font-medium">{t('Fase:')}</span>
+          <span className="hidden md:inline text-xs text-white/70 font-medium">{t('Fase:')}</span>
           <div className="flex items-center gap-1">
             {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as PhotoPhase[]).map(ph => (
               <button
@@ -235,7 +235,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           </div>
         ) : (
         <div
-          className="max-w-full max-h-[75vh] flex items-center justify-center transition-transform duration-150 ease-out"
+          className="max-w-full max-h-[40vh] md:max-h-[75vh] flex items-center justify-center transition-transform duration-150 ease-out"
           style={{
             transform: `scale(${zoom}) rotate(${rotation}deg)`,
           }}
@@ -244,13 +244,13 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             src={currentPhotoUrl}
             alt={`Fotografía ${photoIndex + 1} (${currentPhase}) de defecto ${item.defect}`}
             referrerPolicy="no-referrer"
-            className="max-h-[75vh] max-w-[85vw] object-contain rounded-lg shadow-2xl border border-white/10"
+            className="max-h-[40vh] md:max-h-[75vh] max-w-[85vw] object-contain rounded-lg shadow-2xl border border-white/10"
           />
         </div>
         )}
 
         {/* Footer info below image */}
-        <div className="z-10 mt-3 text-center text-xs text-white/70 font-mono">
+        <div className="hidden md:block z-10 mt-3 text-center text-xs text-white/70 font-mono">
           {hasPhoto ? t('Foto {i} de {n} · Fila #{row}', { i: photoIndex + 1, n: item.photos.length, row: item.rowNo }) : t('Fila #{row}', { row: item.rowNo })} · {item.orientation}
         </div>
       </div>
@@ -260,7 +260,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         <div className="space-y-4">
           {/* Previous / next defect */}
           {defectNav && (
-            <div className="flex items-center gap-2">
+            <div className="sticky -top-4 z-10 -mx-4 px-4 py-2 bg-slate-900 border-b border-white/10 md:static md:mx-0 md:px-0 md:py-0 md:border-0 flex items-center gap-2">
               <button
                 onClick={() => goDefect(defectNav.onPrev)}
                 disabled={!defectNav.onPrev}
@@ -297,7 +297,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
 
           {/* Phase Badge in Sidebar */}
           {hasPhoto && (
-          <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+          <div className="hidden md:block p-3 bg-white/5 rounded-lg border border-white/10">
             <span className="text-slate-400 block text-[11px] mb-1">{t('Fase de esta fotografía:')}</span>
             <div className="flex items-center gap-1.5">
               <span className={`inline-block px-2.5 py-1 rounded text-xs font-black uppercase tracking-wider ${phaseBadgeStyles}`}>
@@ -324,7 +324,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             </div>
             )}
 
-            <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
+            <div className="hidden md:block p-2.5 bg-white/5 rounded-lg border border-white/10">
               <span className="text-slate-400 block text-[11px]">{t('Estado & Urgencia')}</span>
               <span className="font-semibold text-white">
                 {t(STATUS_LABEL[item.status] || item.status)} ({t(URGENCY_LABEL[item.urgency] || item.urgency)})
@@ -466,11 +466,11 @@ const LightboxEditForm: React.FC<{
   });
 
   const input =
-    'w-full min-w-0 bg-white/10 border border-white/20 rounded-md px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400';
-  const label = 'block text-[11px] text-slate-400 mb-1';
+    'w-full min-w-0 bg-white/10 border border-white/20 rounded-md px-2 md:px-2.5 py-1 md:py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400';
+  const label = 'block text-[11px] text-slate-400 mb-0.5 md:mb-1 truncate';
 
   return (
-    <form onSubmit={submit} className="p-3 bg-white/5 rounded-lg border border-white/10 space-y-2.5">
+    <form onSubmit={submit} className="p-2.5 md:p-3 bg-white/5 rounded-lg border border-white/10 space-y-2 md:space-y-2.5">
       <div>
         <label className={label}>{t('Defecto')}</label>
         <input list="lightbox-defects" value={draft.defect} onChange={set('defect')} className={`${input} font-bold uppercase`} />
@@ -480,7 +480,7 @@ const LightboxEditForm: React.FC<{
           ))}
         </datalist>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 md:grid-cols-2 gap-x-2 gap-y-1.5 md:gap-2">
         <div>
           <label className={label}>{t('Drop')}</label>
           <input value={draft.drop} onChange={set('drop')} inputMode="numeric" className={`${input} font-mono`} />
