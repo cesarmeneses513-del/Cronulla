@@ -162,6 +162,10 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
             </div>
           </form>
         )}
+
+        <p className="text-center text-[11px] text-slate-400">
+          {t('Creado por')} <span className="font-semibold text-slate-600">CIMA &amp; Daniel Vidal</span> · CPR 2026
+        </p>
       </div>
     </div>
   );

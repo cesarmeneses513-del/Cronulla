@@ -1027,6 +1027,9 @@ export default function App() {
             {t('{n} filas registradas', { n: items.length })} · {readOnly ? t('Solo lectura') : t('Drag & Drop habilitado')}
           </span>
         </div>
+        <p className="max-w-7xl mx-auto px-4 mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
+          {t('Creado por')} <span className="font-semibold text-slate-600">CIMA &amp; Daniel Vidal</span> · CPR 2026
+        </p>
       </footer>
     </div>
   );
