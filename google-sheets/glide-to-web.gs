@@ -31,6 +31,11 @@ const SNAPSHOT_SHEET = '_web_sync';
 const TRASH_SHEET = '_web_papelera';
 // More rows than this disappearing at once is treated as a mistake (filter, bad paste) and ignored.
 const MAX_DELETES_PER_RUN = 15;
+// More rows than this changing in one minute (e.g. columns pasted in the wrong order) are held
+// until confirmed from the menu, instead of being sent to the web automatically.
+const MAX_AUTO_ROWS = 40;
+// Measurement columns are read as plain numbers, not as Sheets displays them ("2.0", 0.15 → "0.2").
+const NUMERIC_HEADERS = ['BASE (M)', 'HEIGHT (M)', 'LINEAR METERS', 'QUANTITY'];
 
 // Sheet header (trimmed, upper-case) → web field, and the label used in the web's history.
 const FIELDS = {
@@ -98,7 +103,19 @@ function onOpen() {
 }
 
 function syncNowFromMenu() {
-  SpreadsheetApp.getUi().alert(describeResult_(syncToWeb(120000)));
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getScriptProperties();
+  const held = props.getProperty('bulkHeld');
+  if (held) {
+    const send = ui.alert(
+      'Muchos cambios a la vez',
+      held + '\n\n¿Enviarlos a la web?\n\nSÍ = enviarlos (reemplazan los valores de la web).\nNO = no enviarlos y devolver esas filas de esta planilla a los valores de la web.',
+      ui.ButtonSet.YES_NO_CANCEL
+    );
+    if (send === ui.Button.CANCEL || send === ui.Button.CLOSE) return;
+    props.setProperty(send === ui.Button.YES ? 'confirmBulk' : 'restoreHeld', '1');
+  }
+  ui.alert(describeResult_(syncToWeb(120000)));
 }
 
 /** Sends every row as if all its cells had changed. Web edits to those cells are replaced. */
@@ -157,6 +174,7 @@ function describeResult_(r) {
   if (r.toSheetCells || r.toSheetRows || r.toSheetRemoved) parts.push('Web → Glide: ' + (r.toSheetCells || 0) + ' celdas actualizadas, ' + (r.toSheetRows || 0) + ' filas agregadas, ' + (r.toSheetRemoved || 0) + ' filas quitadas (borradas en la web).');
   if (r.toSheetRemoveSkipped) parts.push('No se quitaron ' + r.toSheetRemoveSkipped + ' filas que no están en la web (demasiadas a la vez). Usa Web Cronulla → Quitar de aquí las filas borradas en la web.');
   if (r.missing) parts.push('Filas que no están en la web (no se agregaron): ' + r.missing + '. Usa el menú Web Cronulla → Agregar a la web las filas que faltan si quieres crearlas.');
+  if (r.bulkHeld) parts.push('RETENIDOS: ' + r.bulkHeld + ' filas cambiaron de golpe y NO se enviaron. Usa Web Cronulla → Enviar cambios ahora para revisarlos.');
   if (r.skippedDeletes) parts.push('No se borraron ' + r.skippedDeletes + ' filas desaparecidas (demasiadas a la vez; revisa filtros).');
   return parts.join('\n');
 }
@@ -183,7 +201,7 @@ function syncLocked_() {
   const headers = readHeaders_(sheet);
   const idIdx = headers.indexOf(ID_HEADER);
   const lastRow = sheet.getLastRow();
-  const values = lastRow < 2 ? [] : sheet.getRange(2, 1, lastRow - 1, headers.length).getDisplayValues();
+  const values = readSheetRows_(sheet, headers);
 
   const snapshot = readSnapshot_();
   const baseline = !props.getProperty('initialized');
@@ -213,6 +231,7 @@ function syncLocked_() {
   const now = new Date().toISOString();
   const upserts = [];
   const inserts = [];
+  const candidates = []; // rows changed here since last time (not forced from the menu)
   const history = [];
   let position = null;
 
@@ -250,12 +269,13 @@ function syncLocked_() {
     }
     if (baseline && !forceAll) return; // first run: just remember how the row looks
 
-    const changed = forceAll || !old ? TRACKED : TRACKED.filter(h => (old[h] || '') !== (rec[h] || ''));
+    const changed = forceAll || !old ? TRACKED : TRACKED.filter(h => !sameValue_(old[h], rec[h]));
     if (changed.length === 0) return;
     const log = [];
     const data = JSON.parse(JSON.stringify(current));
     applyChanges_(data, rec, forceAll ? {} : old || {}, changed, log);
     if (log.length === 0) return; // the web already had these values
+    if (!forceAll) candidates.push(id);
     upserts.push({ id: id, data: data, client_id: CLIENT_ID, updated_at: now });
     log.forEach(l => history.push(Object.assign({ user_name: user, defect_id: id, row_no: data.rowNo }, l)));
     result.updated++;
@@ -273,6 +293,40 @@ function syncLocked_() {
       history.push({ user_name: 'Glide · planilla', action: 'delete', defect_id: r.id, row_no: r.data.rowNo, details: { defect: r.data.defect } })
     );
     result.deleted = rows.length;
+  }
+
+  // Too many rows changed at once: hold them (and their history) until confirmed or undone.
+  const confirmBulk = props.getProperty('confirmBulk') === '1';
+  const restoreHeld = props.getProperty('restoreHeld') === '1';
+  const held = new Set();
+  if ((candidates.length > MAX_AUTO_ROWS && !confirmBulk) || restoreHeld) {
+    candidates.forEach(id => held.add(id));
+    const kept = upserts.filter(u => !held.has(u.id));
+    upserts.length = 0;
+    kept.forEach(u => upserts.push(u));
+    const keptHistory = history.filter(h => !held.has(h.defect_id));
+    history.length = 0;
+    keptHistory.forEach(h => history.push(h));
+    result.updated -= held.size;
+    if (!restoreHeld) {
+      result.bulkHeld = held.size;
+      const sample = candidates.slice(0, 8).map(id => 'No ' + (seen[id].NO || '—')).join(', ');
+      props.setProperty(
+        'bulkHeld',
+        held.size + ' filas de esta planilla cambiaron de golpe (' + sample + (held.size > 8 ? ', …' : '') +
+          '). Puede ser que se hayan pegado columnas en otro orden.'
+      );
+    }
+  } else {
+    props.deleteProperty('bulkHeld');
+  }
+  if (restoreHeld) {
+    // Rewrite those rows here with the web values (web → sheet compares them in full).
+    const snap = readWebSnapshot_();
+    held.forEach(id => delete snap[id]);
+    writeWebSnapshot_(snap);
+    props.deleteProperty('webSig');
+    props.deleteProperty('bulkHeld');
   }
 
   chunk_(inserts, 200).forEach(c => post_('defects', c, 'resolution=merge-duplicates,return=minimal'));
@@ -301,13 +355,41 @@ function syncLocked_() {
   // Keep the old snapshot for rows whose deletion was skipped, so it's retried/reviewed later.
   const nextSnap = {};
   Object.keys(current).forEach(id => (nextSnap[id] = current[id]));
+  // Held rows keep their previous snapshot, so they still count as changed next time.
+  if (!restoreHeld) held.forEach(id => snapshot[id] && (nextSnap[id] = snapshot[id]));
   if (result.skippedDeletes) gone.forEach(id => (nextSnap[id] = snapshot[id]));
   writeSnapshot_(nextSnap);
   props.setProperty('initialized', '1');
   props.deleteProperty('forceAll');
   props.deleteProperty('addMissing');
   props.deleteProperty('fillGaps');
+  props.deleteProperty('confirmBulk');
+  props.deleteProperty('restoreHeld');
   return result;
+}
+
+// All data rows as displayed, except measurement columns, which are taken as plain numbers.
+function readSheetRows_(sheet, headers) {
+  const n = sheet.getLastRow() - 1;
+  if (n < 1) return [];
+  const range = sheet.getRange(2, 1, n, headers.length);
+  const shown = range.getDisplayValues();
+  const raw = range.getValues();
+  const cols = NUMERIC_HEADERS.map(h => headers.indexOf(h)).filter(c => c >= 0);
+  shown.forEach((row, i) =>
+    cols.forEach(c => {
+      if (typeof raw[i][c] === 'number') row[c] = String(Math.round(raw[i][c] * 1000) / 1000);
+    })
+  );
+  return shown;
+}
+
+// Same value, ignoring number formatting ("2" = "2.0").
+function sameValue_(a, b) {
+  a = String(a || '').trim();
+  b = String(b || '').trim();
+  if (a === b) return true;
+  return a !== '' && b !== '' && !isNaN(Number(a)) && !isNaN(Number(b)) && Number(a) === Number(b);
 }
 
 // Tracked cells of every row with an ID, by ID.
@@ -315,7 +397,7 @@ function readRecords_(sheet, headers) {
   const idIdx = headers.indexOf(ID_HEADER);
   const out = {};
   if (sheet.getLastRow() < 2) return out;
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getDisplayValues().forEach(row => {
+  readSheetRows_(sheet, headers).forEach(row => {
     const id = String(row[idIdx]).trim();
     const rec = rowRecord_(headers, row);
     if (id && !out[id] && (rec.DEFECT || rec.ORIENTATION || rec['PHOTO 1'])) out[id] = rec;
@@ -357,7 +439,7 @@ function applyChanges_(item, rec, old, changed, log) {
       v = v.toUpperCase();
     }
     const from = String(item[field] === undefined || item[field] === null ? '' : item[field]);
-    if (from === v) return;
+    if (sameValue_(from, v)) return;
     item[field] = v;
     log.push({ action: 'edit', details: { key: field, field: FIELDS[h][1], from: from, to: v } });
   });
