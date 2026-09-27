@@ -794,7 +794,7 @@ function pushWebToSheet_(sheet, headers, exclude, webSnap, dryRun) {
       const row = headers.map(() => '');
       WRITE_BACK.concat(APPEND_ONLY).forEach(h => {
         const c = headers.indexOf(h);
-        if (c >= 0) row[c] = want[h];
+        if (c >= 0) row[c] = sheetValue_(h, want[h]);
       });
       row[idIdx] = w.id;
       appends.push(row);
@@ -933,6 +933,44 @@ function removeWebDeletedFromMenu() {
 
 // Columns written as numbers (when the value is a number), so Glide keeps treating them as numbers.
 const NUMBER_COLUMNS = ['NO', 'DROP', 'LEVEL', 'BASE (M)', 'HEIGHT (M)', 'LINEAR METERS', 'QUANTITY'];
+// Glide keeps real dates and times in these columns. Text like "17/08/2026" is read by Sheets in
+// its own locale (month/day swapped, or not a date at all), so they are written as ISO text that
+// every locale reads the same way, with the display format Glide uses.
+const DATE_COLUMNS = ['DATE 1ST PHOTO', 'DATE COMPLETED'];
+const TIME_COLUMNS = ['TIME 1ST PHOTO', 'TIME COMPLETED'];
+
+// "17/08/2026" → "2026-08-17"; anything else unchanged.
+function isoDate_(v) {
+  const m = String(v || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : v;
+}
+
+// "2:04:48 PM" / "14:04:48" → "14:04:48"; anything else unchanged.
+function isoTime_(v) {
+  const m = String(v || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
+  if (!m) return v;
+  let h = Number(m[1]);
+  if (m[4] && /p/i.test(m[4]) && h < 12) h += 12;
+  if (m[4] && /a/i.test(m[4]) && h === 12) h = 0;
+  return ('0' + h).slice(-2) + ':' + m[2] + ':' + (m[3] || '00');
+}
+
+// Value for a sheet cell, in the type Glide expects for that column.
+function sheetValue_(h, v) {
+  if (v === '' || v === null || v === undefined) return '';
+  if (DATE_COLUMNS.indexOf(h) >= 0) return isoDate_(v);
+  if (TIME_COLUMNS.indexOf(h) >= 0) return isoTime_(v);
+  if (NUMBER_COLUMNS.indexOf(h) >= 0 && !isNaN(Number(v))) return Number(v);
+  return v;
+}
+
+function formatDateTimeColumns_(sheet, headers, rowCount) {
+  if (rowCount < 1) return;
+  headers.forEach((h, c) => {
+    if (DATE_COLUMNS.indexOf(h) >= 0) sheet.getRange(2, c + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy');
+    if (TIME_COLUMNS.indexOf(h) >= 0) sheet.getRange(2, c + 1, rowCount, 1).setNumberFormat('HH:mm:ss');
+  });
+}
 
 // Same order as the "Cronulla vs Code" sheet: by "No" (1, 2, … 10, 11), blanks last.
 function sortByRowNo_(items) {
@@ -982,7 +1020,6 @@ function copyAllFromWebFromMenu() {
       if (id && !oldById[id]) oldById[id] = row;
     });
     const hasFormula = headers.map((h, c) => oldFormulas.some(r => r[c]));
-    const asNumber = (h, v) => (NUMBER_COLUMNS.indexOf(h) >= 0 && v !== '' && !isNaN(Number(v)) ? Number(v) : v);
 
     const rows = items.map((item, n) => {
       const want = desiredCells_(item);
@@ -991,7 +1028,7 @@ function copyAllFromWebFromMenu() {
         if (h === ID_HEADER) return item.id;
         if (h === '0') return n + 1;
         if (h === 'NAME PROJECT:') return item.projectName || '';
-        if (Object.prototype.hasOwnProperty.call(want, h)) return asNumber(h, want[h]);
+        if (Object.prototype.hasOwnProperty.call(want, h)) return sheetValue_(h, want[h]);
         return old ? old[c] : ''; // column the web doesn't know: keep this row's own value
       });
     });
@@ -1002,6 +1039,7 @@ function copyAllFromWebFromMenu() {
       sheet.getRange(2, c + 1, rows.length, 1).setValues(rows.map(r => [r[c]]));
     });
     if (oldCount > items.length) sheet.deleteRows(items.length + 2, oldCount - items.length);
+    formatDateTimeColumns_(sheet, headers, rows.length);
 
     // Both directions now start from this state: nothing here counts as a change to send.
     const props = PropertiesService.getScriptProperties();
