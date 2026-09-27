@@ -173,7 +173,22 @@ function columnValue_(header, item, slots) {
   return field ? item[field] : '';
 }
 
+// The sheet is always written in "No" order (1, 2, … 10, 11; blanks last), whatever order the
+// web keeps internally, so it doesn't look shuffled after each update.
+function sortByRowNo_(items) {
+  return items
+    .map((item, i) => ({ item: item, i: i }))
+    .sort((a, b) => {
+      const x = String(a.item.rowNo || '').trim();
+      const y = String(b.item.rowNo || '').trim();
+      if (!x || !y) return x ? -1 : y ? 1 : a.i - b.i;
+      return x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' }) || a.i - b.i;
+    })
+    .map(x => x.item);
+}
+
 function writeRows_(items) {
+  items = sortByRowNo_(items);
   const sheet = getSheet_();
   ensureIdColumn_(sheet);
   const headers = readHeaders_(sheet);

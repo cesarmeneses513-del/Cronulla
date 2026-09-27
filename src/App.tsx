@@ -371,7 +371,8 @@ export default function App() {
       const stored = parseStoredSort(JSON.parse(localStorage.getItem(SORT_KEY) || 'null'));
       if (stored) return stored;
     } catch {}
-    return { keys: [], direction: 'asc' };
+    // Default: by row number, the same order as the Google Sheet.
+    return { keys: ['number'], direction: 'asc' };
   });
 
   const handleSortChange = useCallback((next: SortState) => {
