@@ -8,6 +8,8 @@ interface PaginationProps {
   total: number;
   pageSize: number;
   onChange: (page: number) => void;
+  // Shown at the start of the same row (e.g. the sort button), even when there is one page.
+  leading?: React.ReactNode;
 }
 
 // Page numbers to show: first, last, and a window around the current one, with gaps as null.
@@ -20,19 +22,25 @@ function pageList(page: number, count: number): (number | null)[] {
   return out;
 }
 
-export const Pagination: React.FC<PaginationProps> = ({ page, pageCount, total, pageSize, onChange }) => {
+export const Pagination: React.FC<PaginationProps> = ({ page, pageCount, total, pageSize, onChange, leading }) => {
   const { t } = useI18n();
-  if (pageCount <= 1) return null;
+  if (pageCount <= 1 && !leading) return null;
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
-  const btn = 'min-w-8 h-8 px-2 inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors';
+  const btn = 'min-w-7 h-7 sm:min-w-8 sm:h-8 px-1.5 sm:px-2 inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors';
 
   return (
-    <nav className="flex flex-wrap items-center justify-between gap-2 py-3" aria-label={t('Páginas')}>
-      <span className="text-xs text-slate-500 tabular-nums">
-        {t('{from}–{to} de {total}', { from, to, total })}
-      </span>
-      <div className="flex items-center gap-1">
+    <nav className="flex items-center justify-between gap-2 py-2" aria-label={t('Páginas')}>
+      <div className="flex items-center gap-2 min-w-0">
+        {leading}
+        {pageCount > 1 && (
+          <span className={`text-xs text-slate-500 tabular-nums whitespace-nowrap ${leading ? 'hidden md:inline' : ''}`}>
+            {t('{from}–{to} de {total}', { from, to, total })}
+          </span>
+        )}
+      </div>
+      {pageCount > 1 && (
+      <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={() => onChange(page - 1)}
           disabled={page === 1}
@@ -65,6 +73,7 @@ export const Pagination: React.FC<PaginationProps> = ({ page, pageCount, total, 
           <ChevronRight className="w-4 h-4 rtl:rotate-180" />
         </button>
       </div>
+      )}
     </nav>
   );
 };

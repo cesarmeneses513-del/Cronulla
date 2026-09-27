@@ -193,91 +193,53 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
         </div>
 
-        {/* Advanced Filters Panel */}
+        {/* Filters panel: Stage, Defect, Drop & Level, Status, Technician, Urgency */}
         {showAdvanced && (
-          <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            {/* Status & Urgency (inside Filters) */}
-            <div className="md:col-span-4 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-                {t('Estado:')}
-              </span>
-              {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
-                const isSelected = filters.statuses.includes(st);
-                const label = t(STATUS_LABEL[st]);
-                const count = items.filter(i => i.status === st).length;
-                return (
+          <div className="pt-3 border-t border-slate-100 space-y-4 text-xs">
+            {/* Stage (larger buttons, as before) */}
+            {uniqueStages.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">{t('Stage')}</label>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
-                    key={st}
-                    onClick={() => toggleFilterItem('statuses', st)}
+                    onClick={() => onFilterChange({ ...filters, orientations: [] })}
                     className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
-                      isSelected
+                      filters.orientations.length === 0
                         ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
                         : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    {isSelected && <Check className="w-3 h-3" />}
-                    <span>{label}</span>
-                    <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                      ({count})
+                    <span>{t('Todos')}</span>
+                    <span className={`text-[10px] tabular-nums ${filters.orientations.length === 0 ? 'text-slate-300' : 'text-slate-500'}`}>
+                      ({items.length})
                     </span>
                   </button>
-                );
-              })}
-
-              <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-                {t('Urgencia:')}
-              </span>
-              {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
-                const isSelected = filters.urgencies.includes(ug);
-                const label = t(URGENCY_LABEL[ug]);
-                const count = items.filter(i => i.urgency === ug).length;
-                return (
-                  <button
-                    key={ug}
-                    onClick={() => toggleFilterItem('urgencies', ug)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
-                      isSelected
-                        ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {isSelected && <Check className="w-3 h-3" />}
-                    <span>{label}</span>
-                    <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                      ({count})
-                    </span>
-                  </button>
-                );
-              })}
-
-            </div>
-
-            {/* Stage / Orientation */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">{t('Etapa / Orientación')}</label>
-              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
-                {uniqueStages.map(stg => {
-                  const isSelected = filters.orientations.includes(stg);
-                  const count = items.filter(i => i.orientation === stg).length;
-                  return (
-                    <button
-                      key={stg}
-                      onClick={() => toggleFilterItem('orientations', stg)}
-                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${
-                        isSelected
-                          ? 'bg-slate-800 text-white border-slate-800 font-medium'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {stg} ({count})
-                    </button>
-                  );
-                })}
+                  {uniqueStages.map(stg => {
+                    const isSelected = filters.orientations.includes(stg);
+                    const count = items.filter(i => i.orientation === stg).length;
+                    return (
+                      <button
+                        key={stg}
+                        onClick={() => toggleFilterItem('orientations', stg)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
+                          isSelected
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3" />}
+                        <span>{stg}</span>
+                        <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Defect Type */}
             <div className="space-y-1.5">
               <label className="font-semibold text-slate-700 block">{t('Tipo de Defecto')}</label>
@@ -349,6 +311,30 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               </div>
             </div>
 
+            {/* Status: the three on one line */}
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 block">{t('Estado')}</label>
+              <div className="flex flex-nowrap gap-1 overflow-x-auto pr-1">
+                {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
+                  const isSelected = filters.statuses.includes(st);
+                  const count = items.filter(i => i.status === st).length;
+                  return (
+                    <button
+                      key={st}
+                      onClick={() => toggleFilterItem('statuses', st)}
+                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {t(STATUS_LABEL[st])} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Technicians */}
             <div className="space-y-1.5">
               <label className="font-semibold text-slate-700 block">{t('Técnico Asignado')}</label>
@@ -370,6 +356,30 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   );
                 })}
               </div>
+            </div>
+            {/* Urgency (last, small) */}
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 block">{t('Urgencia')}</label>
+              <div className="flex flex-wrap gap-1 pr-1">
+                {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
+                  const isSelected = filters.urgencies.includes(ug);
+                  const count = items.filter(i => i.urgency === ug).length;
+                  return (
+                    <button
+                      key={ug}
+                      onClick={() => toggleFilterItem('urgencies', ug)}
+                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {t(URGENCY_LABEL[ug])} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             </div>
           </div>
         )}

@@ -20,6 +20,7 @@ import { PhaseChips } from './PhaseChips';
 import { StageImageViewer } from './StageImageViewer';
 import { stageImageFor } from '../data/stageImages';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
+import { useLongPress } from '../lib/useLongPress';
 
 interface DefectRowCardProps {
   item: DefectItem;
@@ -38,6 +39,8 @@ interface DefectRowCardProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
+  // Touch long-press on the card (phones): starts selecting this defect.
+  onLongPress?: (id: string) => void;
 }
 
 export const DefectRowCard: React.FC<DefectRowCardProps> = ({
@@ -56,8 +59,10 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   selectable = false,
   selected = false,
   onToggleSelect,
+  onLongPress,
 }) => {
   const { t } = useI18n();
+  const longPress = useLongPress(onLongPress ? () => onLongPress(item.id) : undefined);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showStageImage, setShowStageImage] = useState(false);
   const stageImage = stageImageFor(item.orientation);
@@ -143,10 +148,11 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
   return (
     <div
+      {...longPress}
       onDragOver={readOnly ? undefined : handleRowDragOver}
       onDragLeave={readOnly ? undefined : handleRowDragLeave}
       onDrop={readOnly ? undefined : e => handleRowDrop(e)}
-      className={`relative bg-white border rounded-xl transition-all duration-200 shadow-xs ${
+      className={`relative bg-white border rounded-xl transition-all duration-200 shadow-xs [-webkit-touch-callout:none] ${
         isDragOver
           ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-400/30'
           : selected

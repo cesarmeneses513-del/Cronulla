@@ -471,6 +471,46 @@ export default function App() {
     lastSelectedRef.current = null;
   }, []);
 
+  // Top of the list: compact sort button and page numbers on one row. The select button is only
+  // shown on larger screens; on phones selection starts by long-pressing a defect.
+  const handleLongPressSelect = useCallback(
+    (id: string) => {
+      if (readOnly) return;
+      setSelecting(true);
+      setSelectedIds(prev => new Set(prev).add(id));
+      lastSelectedRef.current = id;
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+    },
+    [readOnly]
+  );
+  const topBar = (
+    <Pagination
+      page={currentPage}
+      pageCount={pageCount}
+      total={sortedItems.length}
+      pageSize={pageSize}
+      onChange={goToPage}
+      leading={
+        <>
+          <SortBar sort={sort} onChange={handleSortChange} compact />
+          {!readOnly && viewMode !== 'photos' && (
+            <button
+              onClick={() => (selecting ? exitSelection() : setSelecting(true))}
+              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap ${
+                selecting
+                  ? 'border-rose-600 bg-rose-600 text-white hover:bg-rose-700'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {selecting ? <X className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+              {selecting ? t('Cancelar selección') : t('Seleccionar')}
+            </button>
+          )}
+        </>
+      }
+    />
+  );
+
   const stageCounts = useMemo(() => {
     const counts = new Map<string, number>();
     items.forEach(i => {
@@ -892,26 +932,7 @@ export default function App() {
         ) : viewMode === 'rows' ? (
           /* View Mode 1: Detailed Rows with Drag and Drop Photo Reordering */
           <div className="space-y-4">
-            <SortBar
-              sort={sort}
-              onChange={handleSortChange}
-              actions={
-                !readOnly && (
-                  <button
-                    onClick={() => (selecting ? exitSelection() : setSelecting(true))}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                      selecting
-                        ? 'border-rose-600 bg-rose-600 text-white hover:bg-rose-700'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {selecting ? <X className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
-                    {selecting ? t('Cancelar selección') : t('Seleccionar')}
-                  </button>
-                )
-              }
-            />
-            {pager}
+            {topBar}
             {pagedItems.map((item, idx) => (
               <DefectRowCard
                 key={item.id}
@@ -931,6 +952,7 @@ export default function App() {
                 selectable={selectionActive}
                 selected={selectionActive && selectedIds.has(item.id)}
                 onToggleSelect={handleToggleSelect}
+                onLongPress={readOnly ? undefined : handleLongPressSelect}
               />
             ))}
             {pager}
@@ -938,8 +960,7 @@ export default function App() {
         ) : viewMode === 'photos' ? (
           /* View Mode 2: Photo Mosaic Grid */
           <>
-          <SortBar sort={sort} onChange={handleSortChange} />
-          {pager}
+          {topBar}
           <PhotoMosaicView
             items={pagedItems}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
@@ -963,26 +984,7 @@ export default function App() {
         ) : (
           /* View Mode 4: Table View */
           <>
-          <SortBar
-            sort={sort}
-            onChange={handleSortChange}
-            actions={
-              !readOnly && (
-              <button
-                onClick={() => (selecting ? exitSelection() : setSelecting(true))}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                  selecting
-                    ? 'border-rose-600 bg-rose-600 text-white hover:bg-rose-700'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {selecting ? <X className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
-                {selecting ? t('Cancelar selección') : t('Seleccionar')}
-              </button>
-              )
-            }
-          />
-          {pager}
+          {topBar}
           <TableView
             items={pagedItems}
             onEdit={handleOpenEdit}

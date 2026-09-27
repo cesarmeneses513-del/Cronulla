@@ -78,9 +78,11 @@ interface SortBarProps {
   sort: SortState;
   onChange: (sort: SortState) => void;
   actions?: React.ReactNode;
+  // Small inline version, for the pagination row.
+  compact?: boolean;
 }
 
-export const SortBar: React.FC<SortBarProps> = ({ sort, onChange, actions }) => {
+export const SortBar: React.FC<SortBarProps> = ({ sort, onChange, actions, compact = false }) => {
   const { t } = useI18n();
   const { keys, direction } = sort;
   const [open, setOpen] = useState(false);
@@ -113,20 +115,20 @@ export const SortBar: React.FC<SortBarProps> = ({ sort, onChange, actions }) => 
     }`;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4">
+    <div className={`flex flex-wrap items-center gap-2 ${actions === undefined && compact ? '' : 'mb-4'}`}>
       <div ref={boxRef} className="relative">
         <button
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-colors ${
+          className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium border rounded-lg transition-colors ${
             open || keys.length > 0
               ? 'border-slate-900 bg-slate-900 text-white'
               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
           }`}
         >
           <ArrowDownUp className="w-3.5 h-3.5" />
-          <span>{t('Ordenar por:')}</span>
-          <span className="font-semibold max-w-[12rem] truncate">{summary}</span>
+          <span className={compact ? 'hidden md:inline' : ''}>{t('Ordenar por:')}</span>
+          <span className="font-semibold max-w-[7rem] sm:max-w-[12rem] truncate">{summary}</span>
           {direction === 'asc' ? <ArrowDown01 className="w-3.5 h-3.5 opacity-80" /> : <ArrowUp10 className="w-3.5 h-3.5 opacity-80" />}
           <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
