@@ -176,7 +176,38 @@ function columnValue_(header, item, slots) {
   if (header === ID_HEADER) return item.id;
   if (header === 'CUSTOM TAGS') return (item.customTags || []).join(';');
   const field = FIELDS[header];
-  return field ? item[field] : '';
+  if (!field) return '';
+  if (DATE_HEADERS.indexOf(header) >= 0) return isoDate_(item[field]);
+  if (TIME_HEADERS.indexOf(header) >= 0) return isoTime_(item[field]);
+  return item[field];
+}
+
+// Dates and times are written as ISO text ("2026-08-17", "14:04:48"), which Sheets reads the same
+// way in every locale, and shown as dd/MM/yyyy and HH:mm:ss. Text like "08/09/2026" would be read
+// as 9 August or 8 September depending on the spreadsheet's locale.
+const DATE_HEADERS = ['DATE 1ST PHOTO', 'DATE COMPLETED'];
+const TIME_HEADERS = ['TIME 1ST PHOTO', 'TIME COMPLETED'];
+
+function isoDate_(v) {
+  const m = String(v || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : v === undefined || v === null ? '' : v;
+}
+
+function isoTime_(v) {
+  const m = String(v || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
+  if (!m) return v === undefined || v === null ? '' : v;
+  let h = Number(m[1]);
+  if (m[4] && /p/i.test(m[4]) && h < 12) h += 12;
+  if (m[4] && /a/i.test(m[4]) && h === 12) h = 0;
+  return ('0' + h).slice(-2) + ':' + m[2] + ':' + (m[3] || '00');
+}
+
+function formatDateTimeColumns_(sheet, headers, rowCount) {
+  if (rowCount < 1) return;
+  headers.forEach((h, c) => {
+    if (DATE_HEADERS.indexOf(h) >= 0) sheet.getRange(2, c + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy');
+    if (TIME_HEADERS.indexOf(h) >= 0) sheet.getRange(2, c + 1, rowCount, 1).setNumberFormat('HH:mm:ss');
+  });
 }
 
 // The sheet is always written in "No" order (1, 2, … 10, 11; blanks last), whatever order the
@@ -209,7 +240,10 @@ function writeRows_(items) {
   });
 
   const oldRows = Math.max(sheet.getLastRow() - 1, 0);
-  if (values.length > 0) sheet.getRange(2, 1, values.length, width).setValues(values);
+  if (values.length > 0) {
+    sheet.getRange(2, 1, values.length, width).setValues(values);
+    formatDateTimeColumns_(sheet, headers, values.length);
+  }
   writeSnapshot_(items.map(i => i.id));
 
   // Clear leftover app rows (the app now has fewer). Rows without an ID are someone typing
