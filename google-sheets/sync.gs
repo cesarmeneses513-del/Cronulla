@@ -103,18 +103,24 @@ function syncNowFromMenu() {
 
 /** Always rewrites, ignoring the change check. */
 function syncNow() {
-  PropertiesService.getScriptProperties().deleteProperty('signature');
-  syncIfChanged();
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty('signature');
+  props.deleteProperty('pushFailed');
+  syncIfChanged(true);
 }
 
 // ───────────────────────────── App → sheet ─────────────────────────────
 
-function syncIfChanged() {
+// `force === true` only from the menu (the time trigger passes an event object).
+function syncIfChanged(force) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return; // an edit push or previous run is in progress
   try {
-    const signature = fetchSignature_();
     const props = PropertiesService.getScriptProperties();
+    // An edit here didn't reach the web: rewriting now would erase it. Wait until it's sent
+    // (Cronulla → Enviar la planilla a la web) or the user chooses "Traer datos de la web".
+    if (force !== true && props.getProperty('pushFailed')) return;
+    const signature = fetchSignature_();
     if (signature === props.getProperty('signature')) return;
 
     writeRows_(fetchAllDefects_());
@@ -244,10 +250,33 @@ function onSheetEdit(e) {
   // app → sheet rewrite can't replace what the user just typed.
   const rows = sheet.getRange(firstRow, 1, lastRow - firstRow + 1, headers.length).getDisplayValues();
 
+  // A row copied together with its ID repeats another defect's ID. The copy (the row just
+  // edited or pasted) becomes a new defect instead of overwriting the original.
+  const allIds = sheet.getRange(2, idIdx + 1, Math.max(sheet.getLastRow() - 1, 1), 1).getDisplayValues().map(r => String(r[0]).trim());
+  const where = {};
+  allIds.forEach((id, k) => id && (where[id] = (where[id] || []).concat(k + 2)));
+  rows.forEach((row, k) => {
+    const id = String(row[idIdx]).trim();
+    const at = where[id];
+    if (!id || !at || at.length < 2) return;
+    const outside = at.filter(r => r < firstRow || r > lastRow);
+    const original = outside.length > 0 ? outside[0] : at[0];
+    if (firstRow + k === original) return;
+    row[idIdx] = '';
+    sheet.getRange(firstRow + k, idIdx + 1).setValue('');
+  });
+
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     pushRows_(sheet, firstRow, rows, headers, editedHeaders);
+  } catch (err) {
+    PropertiesService.getScriptProperties().setProperty('pushFailed', String(err).slice(0, 300));
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      'Este cambio no llegó a la web. La planilla no se actualizará hasta que uses Cronulla → Enviar la planilla a la web.',
+      'Cronulla',
+      20
+    );
   } finally {
     lock.releaseLock();
   }
@@ -298,6 +327,10 @@ function pushRows_(sheet, firstRow, rows, headers, editedHeaders) {
 
 // Every object in one bulk request must have the same keys, so callers batch by shape.
 function upsert_(rows) {
+  // The same ID twice in one request makes the database reject all of it: keep the last one.
+  const byId = {};
+  rows.forEach(r => (byId[r.id] = r));
+  rows = Object.keys(byId).map(id => byId[id]);
   for (let i = 0; i < rows.length; i += 300) {
     UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects', {
       method: 'post',
@@ -577,6 +610,15 @@ function sendSheetToWeb() {
     const updates = [];
     const examples = [];
     const fresh = [];
+    // Rows sharing an ID: there's no telling which one is the original, so none are sent.
+    const rowsOf = {};
+    rows.forEach((row, i) => {
+      const id = String(row[idIdx]).trim();
+      if (id) (rowsOf[id] = rowsOf[id] || []).push(i + 2);
+    });
+    const repeated = Object.keys(rowsOf)
+      .filter(id => rowsOf[id].length > 1)
+      .map(id => 'Filas ' + rowsOf[id].join(', ') + ' tienen el mismo ID');
 
     rows.forEach((row, i) => {
       const id = String(row[idIdx]).trim();
@@ -585,6 +627,7 @@ function sendSheetToWeb() {
         if (value('DEFECT') || value('ORIENTATION')) fresh.push(i);
         return;
       }
+      if (rowsOf[id].length > 1) return;
       const current = web[id];
       if (!current) return; // deleted in the web
       const data = JSON.parse(JSON.stringify(current));
@@ -605,12 +648,19 @@ function sendSheetToWeb() {
       }
     });
 
-    if (updates.length === 0 && fresh.length === 0) return ui.alert('La web ya tiene todo lo que hay en la planilla. No hay nada que enviar.');
+    const repeatedNote = repeated.length
+      ? '\n\nNo se enviaron filas con ID repetido. En la copia (el defecto nuevo) borra el ID de la última columna y vuelve a enviar:\n' +
+        repeated.slice(0, 10).join('\n') + (repeated.length > 10 ? '\n…' : '')
+      : '';
+    if (updates.length === 0 && fresh.length === 0) {
+      if (!repeated.length) PropertiesService.getScriptProperties().deleteProperty('pushFailed');
+      return ui.alert('La web ya tiene todo lo que hay en la planilla. No hay nada que enviar.' + repeatedNote);
+    }
     const ok = ui.alert(
       'Enviar la planilla a la web',
       updates.length + ' filas tienen cambios que la web no tiene' + (fresh.length ? ' y hay ' + fresh.length + ' filas nuevas' : '') + ':\n\n' +
         examples.join('\n') + (updates.length > examples.length ? '\n…' : '') +
-        '\n\nLos valores de la planilla reemplazarán a los de la web. ¿Enviar?',
+        '\n\nLos valores de la planilla reemplazarán a los de la web. ¿Enviar?' + repeatedNote,
       ui.ButtonSet.YES_NO
     );
     if (ok !== ui.Button.YES) return;
@@ -618,7 +668,8 @@ function sendSheetToWeb() {
     upsert_(updates);
     // New rows (no ID yet) are created the same way as when typed one by one.
     fresh.forEach(i => pushRows_(sheet, i + 2, [rows[i]], headers, headers));
-    ui.alert(updates.length + ' filas actualizadas' + (fresh.length ? ' y ' + fresh.length + ' creadas' : '') + ' en la web.');
+    if (!repeated.length) PropertiesService.getScriptProperties().deleteProperty('pushFailed');
+    ui.alert(updates.length + ' filas actualizadas' + (fresh.length ? ' y ' + fresh.length + ' creadas' : '') + ' en la web.' + repeatedNote);
   } finally {
     lock.releaseLock();
   }
