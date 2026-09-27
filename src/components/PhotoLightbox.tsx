@@ -20,6 +20,7 @@ import {
 import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
+import { PhaseChips } from './PhaseChips';
 
 interface PhotoLightboxProps {
   item: DefectItem;
@@ -295,25 +296,16 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             <p className="text-xs text-slate-400 mt-0.5">{item.orientation}</p>
           </div>
 
-          {/* Phase Badge in Sidebar */}
-          {hasPhoto && (
-          <div className="hidden md:block p-3 bg-white/5 rounded-lg border border-white/10">
-            <span className="text-slate-400 block text-[11px] mb-1">{t('Fase de esta fotografía:')}</span>
-            <div className="flex items-center gap-1.5">
-              <span className={`inline-block px-2.5 py-1 rounded text-xs font-black uppercase tracking-wider ${phaseBadgeStyles}`}>
-                {t(PHASE_LABEL[currentPhase])}
-              </span>
-              <span className="text-xs text-slate-400 font-mono">
-                (Slot {currentPhoto && typeof currentPhoto === 'object' && currentPhoto.slot ? currentPhoto.slot : photoIndex + 1})
-              </span>
-            </div>
+          {/* Which phases have photos (blue) and which are missing (gray) */}
+          <div className="hidden md:block">
+            <PhaseChips item={item} />
           </div>
-          )}
 
           {/* Editable details (editor only) */}
           {onSaveItem && <LightboxEditForm item={item} allItems={allItems} onSave={onSaveItem} flushRef={flushRef} />}
 
           {/* Quick Metrics */}
+          {!onSaveItem && (
           <div className="grid grid-cols-2 gap-2 text-xs">
             {!onSaveItem && (
             <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
@@ -323,14 +315,8 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
               </span>
             </div>
             )}
-
-            <div className="hidden md:block p-2.5 bg-white/5 rounded-lg border border-white/10">
-              <span className="text-slate-400 block text-[11px]">{t('Estado & Urgencia')}</span>
-              <span className="font-semibold text-white">
-                {t(STATUS_LABEL[item.status] || item.status)} ({t(URGENCY_LABEL[item.urgency] || item.urgency)})
-              </span>
-            </div>
           </div>
+          )}
 
           {/* Dimensions */}
           {!onSaveItem && (item.linearMeters || item.baseM || item.heightM || item.quantity) && (
@@ -481,27 +467,27 @@ const LightboxEditForm: React.FC<{
         </datalist>
       </div>
       <div className="grid grid-cols-3 md:grid-cols-2 gap-x-2 gap-y-1.5 md:gap-2">
-        <div>
+        <div className="md:order-1">
           <label className={label}>{t('Drop')}</label>
           <input value={draft.drop} onChange={set('drop')} inputMode="numeric" className={`${input} font-mono`} />
         </div>
-        <div>
+        <div className="md:order-2">
           <label className={label}>{t('Nivel')}</label>
           <input value={draft.level} onChange={set('level')} placeholder="G, 1, 2… R" className={`${input} font-mono uppercase`} />
         </div>
-        <div>
-          <label className={label}>{t('Ancho (m)')}</label>
-          <input value={draft.baseM} onChange={set('baseM')} inputMode="decimal" className={`${input} font-mono`} />
-        </div>
-        <div>
-          <label className={label}>{t('Alto (m)')}</label>
-          <input value={draft.heightM} onChange={set('heightM')} inputMode="decimal" className={`${input} font-mono`} />
-        </div>
-        <div>
+        <div className="md:order-5">
           <label className={label}>{t('Metros Lineales (m)')}</label>
           <input value={draft.linearMeters} onChange={set('linearMeters')} inputMode="decimal" className={`${input} font-mono`} />
         </div>
-        <div>
+        <div className="md:order-3">
+          <label className={label}>{t('Ancho (m)')}</label>
+          <input value={draft.baseM} onChange={set('baseM')} inputMode="decimal" className={`${input} font-mono`} />
+        </div>
+        <div className="md:order-4">
+          <label className={label}>{t('Alto (m)')}</label>
+          <input value={draft.heightM} onChange={set('heightM')} inputMode="decimal" className={`${input} font-mono`} />
+        </div>
+        <div className="md:order-6">
           <label className={label}>{t('Cantidad')}</label>
           <input value={draft.quantity} onChange={set('quantity')} inputMode="decimal" className={`${input} font-mono`} />
         </div>
