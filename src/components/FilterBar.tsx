@@ -240,80 +240,67 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
         )}
 
-        {/* Quick Filter Bar: Status & Urgency */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-            {t('Estado:')}
-          </span>
-          {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
-            const isSelected = filters.statuses.includes(st);
-            const label = t(STATUS_LABEL[st]);
-            const count = items.filter(i => i.status === st).length;
-            return (
-              <button
-                key={st}
-                onClick={() => toggleFilterItem('statuses', st)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
-                  isSelected
-                    ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                {isSelected && <Check className="w-3 h-3" />}
-                <span>{label}</span>
-                <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                  ({count})
-                </span>
-              </button>
-            );
-          })}
-
-          <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-            {t('Urgencia:')}
-          </span>
-          {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
-            const isSelected = filters.urgencies.includes(ug);
-            const label = t(URGENCY_LABEL[ug]);
-            const count = items.filter(i => i.urgency === ug).length;
-            return (
-              <button
-                key={ug}
-                onClick={() => toggleFilterItem('urgencies', ug)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
-                  isSelected
-                    ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                {isSelected && <Check className="w-3 h-3" />}
-                <span>{label}</span>
-                <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                  ({count})
-                </span>
-              </button>
-            );
-          })}
-
-          <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-          <button
-            onClick={() => onFilterChange({ ...filters, hasPhotosOnly: !filters.hasPhotosOnly })}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
-              filters.hasPhotosOnly
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-semibold'
-                : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            {filters.hasPhotosOnly && <Check className="w-3 h-3 text-indigo-600" />}
-            <span>{t('Solo con fotografías')}</span>
-          </button>
-        </div>
-
         {/* Advanced Filters Panel */}
         {showAdvanced && (
           <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            {/* Status & Urgency (inside Filters) */}
+            <div className="md:col-span-4 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
+                {t('Estado:')}
+              </span>
+              {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
+                const isSelected = filters.statuses.includes(st);
+                const label = t(STATUS_LABEL[st]);
+                const count = items.filter(i => i.status === st).length;
+                return (
+                  <button
+                    key={st}
+                    onClick={() => toggleFilterItem('statuses', st)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
+                      isSelected
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3" />}
+                    <span>{label}</span>
+                    <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                      ({count})
+                    </span>
+                  </button>
+                );
+              })}
+
+              <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
+                {t('Urgencia:')}
+              </span>
+              {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
+                const isSelected = filters.urgencies.includes(ug);
+                const label = t(URGENCY_LABEL[ug]);
+                const count = items.filter(i => i.urgency === ug).length;
+                return (
+                  <button
+                    key={ug}
+                    onClick={() => toggleFilterItem('urgencies', ug)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
+                      isSelected
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3" />}
+                    <span>{label}</span>
+                    <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                      ({count})
+                    </span>
+                  </button>
+                );
+              })}
+
+            </div>
+
             {/* Stage / Orientation */}
             <div className="space-y-1.5">
               <label className="font-semibold text-slate-700 block">{t('Etapa / Orientación')}</label>
