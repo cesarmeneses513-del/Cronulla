@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   ZoomIn,
   ZoomOut,
@@ -128,9 +129,31 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
       {/* Top Mobile Bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-black/70 border-b border-white/10 text-white z-20">
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${phaseBadgeStyles}`}>
-            {t(PHASE_LABEL[currentPhase])}
-          </span>
+          {/* Phone: this badge is where the photo's phase is changed */}
+          {hasPhoto && onUpdatePhotoPhase ? (
+            <label className={`relative inline-flex items-center gap-1 text-[11px] font-black uppercase px-2.5 py-1 rounded border ${phaseBadgeStyles}`}>
+              {t(PHASE_LABEL[currentPhase])}
+              <ChevronDown className="w-3.5 h-3.5" />
+              <select
+                value={currentPhase}
+                onChange={e => onUpdatePhotoPhase(item.id, photoIndex, e.target.value as PhotoPhase)}
+                aria-label={t('Fase:')}
+                className="absolute inset-0 opacity-0"
+              >
+                {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as PhotoPhase[]).map(ph => (
+                  <option key={ph} value={ph}>
+                    {t(PHASE_LABEL[ph])}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            hasPhoto && (
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${phaseBadgeStyles}`}>
+                {t(PHASE_LABEL[currentPhase])}
+              </span>
+            )
+          )}
           <span className="text-xs font-mono font-bold">
             #{item.rowNo}{hasPhoto && <> · {t('Foto {i}/{n}', { i: photoIndex + 1, n: item.photos.length })}</>}
           </span>
@@ -184,9 +207,14 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           </button>
         </div>
 
-        {/* PROMINENT LABEL DIRECTLY ABOVE PHOTO */}
+        {/* Phone: which phases this row has photos for (blue) and which are missing (gray) */}
+        <div className="md:hidden z-20 mb-3">
+          <PhaseChips item={item} />
+        </div>
+
+        {/* PROMINENT LABEL DIRECTLY ABOVE PHOTO (desktop) */}
         {hasPhoto && (
-        <div className="z-20 mb-3 flex items-center gap-2 bg-black/80 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-lg">
+        <div className="hidden md:flex z-20 mb-3 items-center gap-2 bg-black/80 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-lg">
           <span className="hidden md:inline text-xs text-white/70 font-medium">{t('Fase:')}</span>
           <div className="flex items-center gap-1">
             {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as PhotoPhase[]).map(ph => (
