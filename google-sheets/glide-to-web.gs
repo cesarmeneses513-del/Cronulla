@@ -99,6 +99,8 @@ function onOpen() {
     .addItem('Desactivar web → Glide', 'stopWebToSheetFromMenu')
     .addSeparator()
     .addItem('Quitar de aquí las filas borradas en la web', 'removeWebDeletedFromMenu')
+    .addSeparator()
+    .addItem('Copiar todo desde la web (igual a Cronulla vs Code)', 'copyAllFromWebFromMenu')
     .addToUi();
 }
 
@@ -922,6 +924,96 @@ function removeWebDeletedFromMenu() {
     gone.forEach(id => delete snap[id]);
     writeSnapshot_(snap);
     ui.alert(doomed.length + ' filas quitadas. Quedan guardadas en "' + GLIDE_TRASH_SHEET + '".');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ─────────────── Whole tab ← web (same rows and order as Cronulla vs Code) ───────────────
+
+// Columns written as numbers (when the value is a number), so Glide keeps treating them as numbers.
+const NUMBER_COLUMNS = ['NO', 'DROP', 'LEVEL', 'BASE (M)', 'HEIGHT (M)', 'LINEAR METERS', 'QUANTITY'];
+
+// Same order as the "Cronulla vs Code" sheet: by "No" (1, 2, … 10, 11), blanks last.
+function sortByRowNo_(items) {
+  return items
+    .map((item, i) => ({ item: item, i: i }))
+    .sort((a, b) => {
+      const x = String(a.item.rowNo || '').trim();
+      const y = String(b.item.rowNo || '').trim();
+      if (!x || !y) return x ? -1 : y ? 1 : a.i - b.i;
+      return x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' }) || a.i - b.i;
+    })
+    .map(x => x.item);
+}
+
+/**
+ * Menu action: rewrites this whole tab from the web (which is what Cronulla vs Code shows):
+ * same rows, same values, ordered by "No". Columns the web doesn't have move with their row (by
+ * ID); columns with formulas are left alone.
+ */
+function copyAllFromWebFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(120000)) return ui.alert(describeResult_(null));
+  try {
+    const sheet = getSheet_();
+    const headers = readHeaders_(sheet);
+    const idIdx = headers.indexOf(ID_HEADER);
+    const items = sortByRowNo_(fetchAllRows_().map(r => r.data));
+    const oldCount = Math.max(sheet.getLastRow() - 1, 0);
+
+    const ok = ui.alert(
+      'Copiar todo desde la web',
+      'La pestaña "' + sheet.getName() + '" (' + oldCount + ' filas) se reemplazará por las ' + items.length +
+        ' filas de la web, iguales a Cronulla vs Code y ordenadas por "No".\n\n' +
+        'Recomendado: haz antes una copia (Archivo → Hacer una copia). ¿Continuar?',
+      ui.ButtonSet.YES_NO
+    );
+    if (ok !== ui.Button.YES) return;
+
+    const width = headers.length;
+    const oldRange = oldCount > 0 ? sheet.getRange(2, 1, oldCount, width) : null;
+    const oldValues = oldRange ? oldRange.getValues() : [];
+    const oldFormulas = oldRange ? oldRange.getFormulas() : [];
+    const oldById = {};
+    oldValues.forEach(row => {
+      const id = String(row[idIdx]).trim();
+      if (id && !oldById[id]) oldById[id] = row;
+    });
+    const hasFormula = headers.map((h, c) => oldFormulas.some(r => r[c]));
+    const asNumber = (h, v) => (NUMBER_COLUMNS.indexOf(h) >= 0 && v !== '' && !isNaN(Number(v)) ? Number(v) : v);
+
+    const rows = items.map((item, n) => {
+      const want = desiredCells_(item);
+      const old = oldById[item.id];
+      return headers.map((h, c) => {
+        if (h === ID_HEADER) return item.id;
+        if (h === '0') return n + 1;
+        if (h === 'NAME PROJECT:') return item.projectName || '';
+        if (Object.prototype.hasOwnProperty.call(want, h)) return asNumber(h, want[h]);
+        return old ? old[c] : ''; // column the web doesn't know: keep this row's own value
+      });
+    });
+
+    // Column by column, skipping formula columns.
+    headers.forEach((h, c) => {
+      if (hasFormula[c] || rows.length === 0) return;
+      sheet.getRange(2, c + 1, rows.length, 1).setValues(rows.map(r => [r[c]]));
+    });
+    if (oldCount > items.length) sheet.deleteRows(items.length + 2, oldCount - items.length);
+
+    // Both directions now start from this state: nothing here counts as a change to send.
+    const props = PropertiesService.getScriptProperties();
+    writeSnapshot_(readRecords_(sheet, headers));
+    const webSnap = {};
+    items.forEach(item => (webSnap[item.id] = desiredCells_(item)));
+    writeWebSnapshot_(webSnap);
+    props.setProperty('webSig', webSignature_());
+    props.setProperty('initialized', '1');
+    ['bulkHeld', 'confirmBulk', 'restoreHeld', 'forceAll', 'addMissing', 'fillGaps'].forEach(k => props.deleteProperty(k));
+
+    ui.alert('Listo: ' + items.length + ' filas copiadas desde la web, en el mismo orden que Cronulla vs Code.');
   } finally {
     lock.releaseLock();
   }
