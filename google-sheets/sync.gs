@@ -82,12 +82,26 @@ function setup() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Cronulla')
-    .addItem('Actualizar ahora', 'syncNow')
+    .addItem('Enviar la planilla a la web', 'sendSheetToWeb')
+    .addItem('Traer datos de la web (reemplaza la planilla)', 'syncNowFromMenu')
+    .addSeparator()
     .addItem('Restaurar último borrado', 'restoreLastDeletion')
     .addToUi();
 }
 
-/** Menu action: always rewrites, ignoring the change check. */
+/** Menu action: rewrites the sheet from the web, after a warning. */
+function syncNowFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const ok = ui.alert(
+    'Traer datos de la web',
+    'La planilla se reemplazará con lo que tiene la web. Si hiciste cambios aquí que aún no llegaron a la web, ' +
+      'usa primero "Enviar la planilla a la web". ¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (ok === ui.Button.YES) syncNow();
+}
+
+/** Always rewrites, ignoring the change check. */
 function syncNow() {
   PropertiesService.getScriptProperties().deleteProperty('signature');
   syncIfChanged();
@@ -269,13 +283,14 @@ function pushRows_(sheet, firstRow, rows, headers, editedHeaders) {
 
 // Every object in one bulk request must have the same keys, so callers batch by shape.
 function upsert_(rows) {
-  if (rows.length === 0) return;
-  UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: headers_({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
-    payload: JSON.stringify(rows),
-  });
+  for (let i = 0; i < rows.length; i += 300) {
+    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: headers_({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+      payload: JSON.stringify(rows.slice(i, i + 300)),
+    });
+  }
 }
 
 function applyRow_(item, row, headers, editedHeaders) {
@@ -332,11 +347,19 @@ function fetchByIds_(ids) {
   return byId;
 }
 
+// Apps Script caps URL length (~2 KB): ID lists go in small batches, and for many IDs the whole
+// table is read page by page instead. (Batches of 100 made multi-row edits fail silently.)
+const ID_BATCH = 30;
+
 function fetchRowsByIds_(ids) {
+  if (ids.length > 300) {
+    const wanted = new Set(ids);
+    return fetchAllRows_().filter(r => wanted.has(r.id));
+  }
   const rows = [];
-  for (let i = 0; i < ids.length; i += 100) {
+  for (let i = 0; i < ids.length; i += ID_BATCH) {
     const res = UrlFetchApp.fetch(
-      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&id=in.(' + idList_(ids.slice(i, i + 100)) + ')',
+      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&id=in.(' + idList_(ids.slice(i, i + ID_BATCH)) + ')',
       { headers: headers_() }
     );
     JSON.parse(res.getContentText()).forEach(r => rows.push(r));
@@ -344,9 +367,23 @@ function fetchRowsByIds_(ids) {
   return rows;
 }
 
+function fetchAllRows_() {
+  const rows = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const res = UrlFetchApp.fetch(
+      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&order=position.asc,id.asc&offset=' + from + '&limit=' + PAGE_SIZE,
+      { headers: headers_() }
+    );
+    const page = JSON.parse(res.getContentText());
+    page.forEach(r => rows.push(r));
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 function deleteByIds_(ids) {
-  for (let i = 0; i < ids.length; i += 100) {
-    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?id=in.(' + idList_(ids.slice(i, i + 100)) + ')', {
+  for (let i = 0; i < ids.length; i += ID_BATCH) {
+    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?id=in.(' + idList_(ids.slice(i, i + ID_BATCH)) + ')', {
       method: 'delete',
       headers: headers_(),
     });
@@ -493,4 +530,81 @@ function ensureIdColumn_(sheet) {
 
 function headers_(extra) {
   return Object.assign({ apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }, extra || {});
+}
+
+// ─────────────────────── Whole sheet → app (menu) ───────────────────────
+
+// Dates and times are left out of the bulk comparison: Sheets reformats them on its own
+// (e.g. 17/08/2026 shown as 8/17/2026), which would look like edits.
+const BULK_SKIP = ['DATE 1ST PHOTO', 'TIME 1ST PHOTO', 'DATE COMPLETED', 'TIME COMPLETED'];
+
+/**
+ * Menu action: compares every row of the sheet with the web and sends what differs (the sheet
+ * wins). Use it after pasting or editing many rows, or if edits did not reach the web.
+ */
+function sendSheetToWeb() {
+  const ui = SpreadsheetApp.getUi();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(60000)) return ui.alert('Hay otra sincronización en curso. Intenta en un minuto.');
+  try {
+    const sheet = getSheet_();
+    const headers = readHeaders_(sheet);
+    const idIdx = headers.indexOf(ID_HEADER);
+    const n = sheet.getLastRow() - 1;
+    if (idIdx < 0 || n < 1) return ui.alert('No hay filas.');
+    const rows = sheet.getRange(2, 1, n, headers.length).getDisplayValues();
+    const web = {};
+    fetchAllRows_().forEach(r => (web[r.id] = r.data));
+
+    const tracked = headers.filter(h => h && h !== ID_HEADER && BULK_SKIP.indexOf(h) < 0 && (FIELDS[h] || /^PHOTO\s*\d$/.test(h) || h === 'CUSTOM TAGS'));
+    const photoKey = item => normalizePhotos_(item.photos).map(p => p.phase + '|' + p.url).sort().join(',');
+    const now = new Date().toISOString();
+    const updates = [];
+    const examples = [];
+    const fresh = [];
+
+    rows.forEach((row, i) => {
+      const id = String(row[idIdx]).trim();
+      if (!id) {
+        const value = h => String(row[headers.indexOf(h)] || '').trim();
+        if (value('DEFECT') || value('ORIENTATION')) fresh.push(i);
+        return;
+      }
+      const current = web[id];
+      if (!current) return; // deleted in the web
+      const data = JSON.parse(JSON.stringify(current));
+      applyRow_(data, row, headers, tracked);
+      const photosChanged = photoKey(data) !== photoKey(current);
+      if (!photosChanged) data.photos = current.photos;
+      const changed = tracked.filter(h => {
+        if (/^PHOTO/.test(h)) return photosChanged;
+        if (h === 'CUSTOM TAGS') return (data.customTags || []).join(';') !== (current.customTags || []).join(';');
+        const f = FIELDS[h];
+        return String(data[f] === undefined ? '' : data[f]) !== String(current[f] === undefined ? '' : current[f]);
+      });
+      if (changed.length === 0) return;
+      updates.push({ id: id, data: data, client_id: 'google-sheet', updated_at: now });
+      if (examples.length < 12) {
+        const names = changed.map(h => (/^PHOTO/.test(h) ? 'FOTOS' : h)).filter((h, k, a) => a.indexOf(h) === k);
+        examples.push('Fila ' + (i + 2) + ' (No ' + (data.rowNo || '—') + '): ' + names.slice(0, 4).join(', '));
+      }
+    });
+
+    if (updates.length === 0 && fresh.length === 0) return ui.alert('La web ya tiene todo lo que hay en la planilla. No hay nada que enviar.');
+    const ok = ui.alert(
+      'Enviar la planilla a la web',
+      updates.length + ' filas tienen cambios que la web no tiene' + (fresh.length ? ' y hay ' + fresh.length + ' filas nuevas' : '') + ':\n\n' +
+        examples.join('\n') + (updates.length > examples.length ? '\n…' : '') +
+        '\n\nLos valores de la planilla reemplazarán a los de la web. ¿Enviar?',
+      ui.ButtonSet.YES_NO
+    );
+    if (ok !== ui.Button.YES) return;
+
+    upsert_(updates);
+    // New rows (no ID yet) are created the same way as when typed one by one.
+    fresh.forEach(i => pushRows_(sheet, i + 2, [rows[i]], headers, headers));
+    ui.alert(updates.length + ' filas actualizadas' + (fresh.length ? ' y ' + fresh.length + ' creadas' : '') + ' en la web.');
+  } finally {
+    lock.releaseLock();
+  }
 }
