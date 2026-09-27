@@ -316,7 +316,9 @@ function onSheetEdit(e) {
   }
 }
 
-function pushRows_(sheet, firstRow, rows, headers, editedHeaders) {
+const MAX_NEW_ROWS_PER_EDIT = 10;
+
+function pushRows_(sheet, firstRow, rows, headers, editedHeaders, allowManyNew) {
   const idIdx = headers.indexOf(ID_HEADER);
   const cell = (row, header) => {
     const i = headers.indexOf(header);
@@ -343,6 +345,19 @@ function pushRows_(sheet, firstRow, rows, headers, editedHeaders) {
     });
     // Upsert only touches the columns sent, so `position` of existing rows is kept.
     upsert_(updates);
+  }
+
+  // Many rows without ID at once is almost always a paste without the ID column, which would
+  // duplicate every defect. Those are not created from an edit; the menu send asks first.
+  if (fresh.length > MAX_NEW_ROWS_PER_EDIT && !allowManyNew) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      fresh.length + ' filas sin ID no se crearon en la web (¿se pegaron sin la columna ID?). ' +
+        'Si de verdad son defectos nuevos, usa Cronulla → Enviar la planilla a la web.',
+      'Cronulla',
+      30
+    );
+    PropertiesService.getScriptProperties().setProperty('pushFailed', 'filas sin ID');
+    return;
   }
 
   // New rows: create defects at the end of the list and write their IDs back.
@@ -701,7 +716,7 @@ function sendSheetToWeb() {
 
     upsert_(updates);
     // New rows (no ID yet) are created the same way as when typed one by one.
-    fresh.forEach(i => pushRows_(sheet, i + 2, [rows[i]], headers, headers));
+    fresh.forEach(i => pushRows_(sheet, i + 2, [rows[i]], headers, headers, true));
     if (!repeated.length) PropertiesService.getScriptProperties().deleteProperty('pushFailed');
     ui.alert(updates.length + ' filas actualizadas' + (fresh.length ? ' y ' + fresh.length + ' creadas' : '') + ' en la web.' + repeatedNote);
   } finally {
