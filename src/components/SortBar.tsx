@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowDownUp, ArrowDown01, ArrowUp10 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowDownUp, ArrowDown01, ArrowUp10, Check, ChevronDown } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 
@@ -83,57 +83,93 @@ interface SortBarProps {
 export const SortBar: React.FC<SortBarProps> = ({ sort, onChange, actions }) => {
   const { t } = useI18n();
   const { keys, direction } = sort;
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
   // Clicking adds a key after the ones already chosen, or removes it.
   const toggle = (key: SortKey) =>
     onChange({ keys: keys.includes(key) ? keys.filter(k => k !== key) : [...keys, key], direction });
 
+  // Close the menu when clicking anywhere else.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+    };
+  }, [open]);
+
+  const summary =
+    keys.length === 0
+      ? t('Original')
+      : keys.map(k => t(SORT_OPTIONS.find(o => o.key === k)!.label)).join(' › ');
+  const item = (active: boolean) =>
+    `w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md text-start transition-colors ${
+      active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+    }`;
+
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
-      <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider me-1">
-        <ArrowDownUp className="w-3.5 h-3.5" />
-        {t('Ordenar por:')}
-      </span>
-      <div
-        className="flex flex-wrap items-center gap-1 p-1 bg-white rounded-lg border border-slate-200"
-        title={t('Puedes marcar varios: se ordena en el orden en que los marcas')}
-      >
+      <div ref={boxRef} className="relative">
         <button
-          onClick={() => onChange({ keys: [], direction })}
-          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-            keys.length === 0 ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-colors ${
+            open || keys.length > 0
+              ? 'border-slate-900 bg-slate-900 text-white'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {t('Original')}
+          <ArrowDownUp className="w-3.5 h-3.5" />
+          <span>{t('Ordenar por:')}</span>
+          <span className="font-semibold max-w-[12rem] truncate">{summary}</span>
+          {direction === 'asc' ? <ArrowDown01 className="w-3.5 h-3.5 opacity-80" /> : <ArrowUp10 className="w-3.5 h-3.5 opacity-80" />}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-        {SORT_OPTIONS.map(opt => {
-          const pos = keys.indexOf(opt.key);
-          const active = pos >= 0;
-          return (
-            <button
-              key={opt.key}
-              onClick={() => toggle(opt.key)}
-              className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              {active && keys.length > 1 && (
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold">
-                  {pos + 1}
-                </span>
-              )}
-              {t(opt.label)}
+
+        {open && (
+          <div className="absolute start-0 top-full mt-1.5 z-30 w-64 p-1.5 bg-white border border-slate-200 rounded-xl shadow-xl">
+            <p className="px-3 pt-1 pb-2 text-[11px] text-slate-400">
+              {t('Puedes marcar varios: se ordena en el orden en que los marcas')}
+            </p>
+            <button onClick={() => onChange({ keys: [], direction })} className={item(keys.length === 0)}>
+              {t('Original')}
             </button>
-          );
-        })}
+            {SORT_OPTIONS.map(opt => {
+              const pos = keys.indexOf(opt.key);
+              const active = pos >= 0;
+              return (
+                <button key={opt.key} onClick={() => toggle(opt.key)} className={item(active)}>
+                  <span className="flex-1">{t(opt.label)}</span>
+                  {active && keys.length > 1 && (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-bold">
+                      {pos + 1}
+                    </span>
+                  )}
+                  {active && keys.length === 1 && <Check className="w-4 h-4" />}
+                </button>
+              );
+            })}
+            <div className="my-1.5 border-t border-slate-100" />
+            <div className="grid grid-cols-2 gap-1">
+              {(['asc', 'desc'] as SortDirection[]).map(d => (
+                <button
+                  key={d}
+                  onClick={() => onChange({ keys, direction: d })}
+                  className={`${item(direction === d)} justify-center text-xs`}
+                >
+                  {d === 'asc' ? <ArrowDown01 className="w-3.5 h-3.5" /> : <ArrowUp10 className="w-3.5 h-3.5" />}
+                  {t(d === 'asc' ? 'Ascendente' : 'Descendente')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-      <button
-        onClick={() => onChange({ keys, direction: direction === 'asc' ? 'desc' : 'asc' })}
-        title={t(direction === 'asc' ? 'Ascendente (clic para invertir)' : 'Descendente (clic para invertir)')}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
-      >
-        {direction === 'asc' ? <ArrowDown01 className="w-3.5 h-3.5" /> : <ArrowUp10 className="w-3.5 h-3.5" />}
-        {t(direction === 'asc' ? 'Ascendente' : 'Descendente')}
-      </button>
       {actions && <div className="ms-auto flex items-center gap-2">{actions}</div>}
     </div>
   );
