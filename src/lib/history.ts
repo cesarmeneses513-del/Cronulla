@@ -157,16 +157,71 @@ export async function logHistory(userName: string, records: NewRecord[]): Promis
   }
 }
 
-export async function fetchHistory(limit: number, olderThan?: string): Promise<HistoryRecord[]> {
+// Kinds of change the History panel can show on their own.
+export const HISTORY_KINDS: Record<string, string[]> = {
+  newDefects: ['add', 'sheet_add'],
+  newPhotos: ['photo_add'],
+  edits: ['edit', 'sheet_edit', 'photo_phase', 'photo_move', 'photo_reorder'],
+  deleted: ['delete', 'photo_remove'],
+};
+
+export interface HistoryFilter {
+  kind?: keyof typeof HISTORY_KINDS | '';
+  user?: string;
+  day?: string; // yyyy-mm-dd, in local time
+  rowNo?: string;
+}
+
+// Local calendar day → UTC range, so "today" means the viewer's today.
+const dayRange = (day: string) => {
+  const [y, m, d] = day.split('-').map(Number);
+  const start = new Date(y, m - 1, d);
+  const end = new Date(y, m - 1, d + 1);
+  return [start.toISOString(), end.toISOString()];
+};
+
+export function matchesHistoryFilter(r: HistoryRecord, f: HistoryFilter): boolean {
+  if (f.kind && !HISTORY_KINDS[f.kind].includes(r.action)) return false;
+  if (f.user && r.user_name !== f.user) return false;
+  if (f.rowNo && String(r.row_no || '') !== f.rowNo.trim()) return false;
+  if (f.day && r.created_at) {
+    const [from, to] = dayRange(f.day);
+    if (r.created_at < from || r.created_at >= to) return false;
+  }
+  return true;
+}
+
+export async function fetchHistory(limit: number, olderThan?: string, filter: HistoryFilter = {}): Promise<HistoryRecord[]> {
   if (!supabase) return [];
   let query = supabase.from(TABLE).select('*').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(limit);
   if (olderThan) query = query.lt('created_at', olderThan);
+  if (filter.kind) query = query.in('action', HISTORY_KINDS[filter.kind]);
+  if (filter.user) query = query.eq('user_name', filter.user);
+  if (filter.rowNo && filter.rowNo.trim()) query = query.eq('row_no', filter.rowNo.trim());
+  if (filter.day) {
+    const [from, to] = dayRange(filter.day);
+    query = query.gte('created_at', from).lt('created_at', to);
+  }
   const { data, error } = await query;
   if (error) {
     if (isMissingTable(error)) historyUnavailable = true;
     throw error;
   }
   return data as HistoryRecord[];
+}
+
+// Names that appear in the history, most recent first (for the person filter).
+export async function fetchHistoryPeople(): Promise<string[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('user_name')
+    .order('created_at', { ascending: false })
+    .limit(3000);
+  if (error) return [];
+  const names: string[] = [];
+  (data as { user_name: string }[]).forEach(r => r.user_name && !names.includes(r.user_name) && names.push(r.user_name));
+  return names;
 }
 
 // Deletes every entry. Returns how many were deleted: 0 with entries present means the

@@ -761,6 +761,21 @@ export default function App() {
     setLightboxPhotoIndex(photoIndex);
   }, []);
 
+  // From the History panel: open the changed defect in the photo viewer (at the photo that
+  // changed, when there is one). Returns false if the defect no longer exists.
+  const handleOpenDefectFromHistory = useCallback(
+    (defectId: string, photoUrl?: string) => {
+      const item = itemsRef.current.find(i => i.id === defectId);
+      if (!item) return false;
+      const photoIndex = photoUrl ? item.photos.findIndex(p => (typeof p === 'string' ? p : p.url) === photoUrl) : -1;
+      setIsHistoryOpen(false);
+      setLightboxItem(item);
+      setLightboxPhotoIndex(Math.max(0, photoIndex));
+      return true;
+    },
+    []
+  );
+
   // Handler: Navigate Photo in Lightbox
   const handleNavigatePhoto = useCallback((item: DefectItem, newIndex: number) => {
     setLightboxItem(item);
@@ -1069,7 +1084,9 @@ export default function App() {
       />
 
       {/* Change history */}
-      {isHistoryOpen && !readOnly && <HistoryPanel onClose={() => setIsHistoryOpen(false)} />}
+      {isHistoryOpen && !readOnly && (
+        <HistoryPanel onClose={() => setIsHistoryOpen(false)} onOpenDefect={handleOpenDefectFromHistory} />
+      )}
 
       {/* Quiet footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">

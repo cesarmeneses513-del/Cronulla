@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, History, RefreshCw, Search, Loader2, User, AlertTriangle, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { X, History, RefreshCw, Search, Loader2, User, AlertTriangle, Trash2, ChevronRight } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import {
   HistoryRecord,
   fetchHistory,
+  fetchHistoryPeople,
+  matchesHistoryFilter,
+  HistoryFilter,
   clearHistory,
   subscribeToHistory,
   describeHistory,
@@ -30,9 +33,19 @@ const ACTION_COLOR: Record<string, string> = {
 
 interface HistoryPanelProps {
   onClose: () => void;
+  // Opens the defect of an entry (and its photo, for photo changes). False if it no longer exists.
+  onOpenDefect?: (defectId: string, photoUrl?: string) => boolean;
 }
 
-export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
+const KIND_TABS: { kind: HistoryFilter['kind']; label: string; dot?: string }[] = [
+  { kind: '', label: 'Todo' },
+  { kind: 'newDefects', label: 'Defectos nuevos', dot: 'bg-emerald-500' },
+  { kind: 'newPhotos', label: 'Fotos nuevas', dot: 'bg-blue-500' },
+  { kind: 'edits', label: 'Cambios', dot: 'bg-amber-500' },
+  { kind: 'deleted', label: 'Borrados', dot: 'bg-rose-500' },
+];
+
+export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefect }) => {
   const { t, lang } = useI18n();
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +53,24 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
   const [unavailable, setUnavailable] = useState(false);
   const [query, setQuery] = useState('');
   const [clearBlocked, setClearBlocked] = useState(false);
+  const [filter, setFilter] = useState<HistoryFilter>({ kind: '', user: '', day: '', rowNo: '' });
+  const [rowNoInput, setRowNoInput] = useState('');
+  const [people, setPeople] = useState<string[]>([]);
+  const [missing, setMissing] = useState<number | null>(null);
+  const filterRef = useRef(filter);
+  filterRef.current = filter;
+
+  // Defect number: applied a moment after typing stops.
+  useEffect(() => {
+    const id = window.setTimeout(() => setFilter(f => (f.rowNo === rowNoInput ? f : { ...f, rowNo: rowNoInput })), 350);
+    return () => window.clearTimeout(id);
+  }, [rowNoInput]);
+
+  useEffect(() => {
+    fetchHistoryPeople().then(setPeople);
+  }, []);
+
+  const hasFilter = !!(filter.kind || filter.user || filter.day || filter.rowNo);
 
   const handleClear = async () => {
     if (!window.confirm(t('¿Borrar todo el historial de cambios? Esto no se puede deshacer.'))) return;
@@ -61,7 +92,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
   const load = useCallback(async (olderThan?: string) => {
     setLoading(true);
     try {
-      const page = await fetchHistory(PAGE, olderThan);
+      const page = await fetchHistory(PAGE, olderThan, filterRef.current);
       setRecords(prev => (olderThan ? [...prev, ...page] : page));
       setHasMore(page.length === PAGE);
       setUnavailable(false);
@@ -73,10 +104,19 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
     }
   }, []);
 
+  // Reload whenever the filters change.
   useEffect(() => {
     load();
-    return subscribeToHistory(record => setRecords(prev => (prev.some(r => r.id === record.id) ? prev : [record, ...prev])));
-  }, [load]);
+  }, [load, filter]);
+
+  useEffect(
+    () =>
+      subscribeToHistory(record => {
+        if (!matchesHistoryFilter(record, filterRef.current)) return;
+        setRecords(prev => (prev.some(r => r.id === record.id) ? prev : [record, ...prev]));
+      }),
+    []
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -147,6 +187,67 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
           </div>
         </div>
 
+        {/* Filters: kind of change, person, day, defect number */}
+        <div className="px-3 pt-3 space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {KIND_TABS.map(tab => {
+              const active = (filter.kind || '') === (tab.kind || '');
+              return (
+                <button
+                  key={tab.label}
+                  onClick={() => setFilter(f => ({ ...f, kind: tab.kind }))}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                    active ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {tab.dot && <span className={`w-2 h-2 rounded-full ${tab.dot}`} />}
+                  {t(tab.label)}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            <select
+              value={filter.user}
+              onChange={e => setFilter(f => ({ ...f, user: e.target.value }))}
+              className="min-w-0 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-slate-400"
+            >
+              <option value="">{t('Todas las personas')}</option>
+              {people.map(n => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={filter.day}
+              onChange={e => setFilter(f => ({ ...f, day: e.target.value }))}
+              title={t('Día')}
+              className="min-w-0 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-slate-400"
+            />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={rowNoInput}
+              onChange={e => setRowNoInput(e.target.value)}
+              placeholder={t('Nº de defecto')}
+              className="min-w-0 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-slate-400"
+            />
+          </div>
+          {hasFilter && (
+            <button
+              onClick={() => {
+                setFilter({ kind: '', user: '', day: '', rowNo: '' });
+                setRowNoInput('');
+              }}
+              className="text-xs text-rose-600 hover:text-rose-700 font-medium"
+            >
+              {t('Quitar filtros')}
+            </button>
+          )}
+        </div>
+
         <div className="p-3 border-b border-slate-100">
           <div className="relative">
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -178,7 +279,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
               {t('Cargando…')}
             </div>
           ) : visible.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">{t('Todavía no hay cambios registrados.')}</div>
+            <div className="p-8 text-center text-xs text-slate-500">
+              {hasFilter ? t('No hay cambios con estos filtros.') : t('Todavía no hay cambios registrados.')}
+            </div>
           ) : (
             <ul className="divide-y divide-slate-100">
               {visible.map(({ record, text }) => {
@@ -193,7 +296,18 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
                         {day}
                       </li>
                     )}
-                    <li className="px-4 py-2.5 flex items-start gap-3 text-xs">
+                    <li
+                      onClick={
+                        record.defect_id && onOpenDefect
+                          ? () => {
+                              if (!onOpenDefect(record.defect_id!, url)) setMissing(record.id ?? null);
+                            }
+                          : undefined
+                      }
+                      className={`px-4 py-2.5 flex items-start gap-3 text-xs ${
+                        record.defect_id && onOpenDefect ? 'cursor-pointer hover:bg-slate-50 active:bg-slate-100' : ''
+                      }`}
+                    >
                       <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${ACTION_COLOR[record.action] || 'bg-slate-400'}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -216,9 +330,12 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
                           </span>
                         </div>
                         <p className="text-slate-600 mt-0.5 break-words">{text}</p>
+                        {missing !== null && missing === record.id && (
+                          <p className="mt-1 text-[11px] text-rose-600">{t('Este defecto ya no existe.')}</p>
+                        )}
                       </div>
                       {url && (
-                        <a href={url} target="_blank" rel="noreferrer" className="shrink-0">
+                        <span className="shrink-0">
                           <img
                             src={thumbUrl(url, 160)}
                             onError={fallbackTo(url)}
@@ -227,8 +344,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose }) => {
                             referrerPolicy="no-referrer"
                             className="w-10 h-10 rounded object-cover border border-slate-200"
                           />
-                        </a>
+                        </span>
                       )}
+                      {record.defect_id && onOpenDefect && <ChevronRight className="w-4 h-4 text-slate-300 self-center shrink-0 rtl:rotate-180" />}
                     </li>
                   </React.Fragment>
                 );
