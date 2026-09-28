@@ -18,6 +18,7 @@ import { DefectItem, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, D
 import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
 import { PhaseChips } from './PhaseChips';
 import { StageImageViewer } from './StageImageViewer';
+import { PhasePicker } from './PhasePicker';
 import { stageImageFor } from '../data/stageImages';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { useLongPress } from '../lib/useLongPress';
@@ -135,18 +136,32 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   };
 
   // File upload handler
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // A new photo (file or URL) waits here until its phase is chosen.
+  const [pending, setPending] = useState<{ file?: File; url?: string; preview: string } | null>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    onAddPhoto(item.id, await uploadPhoto(file));
+    setPending({ file, preview: URL.createObjectURL(file) });
   };
 
   const handlePromptAddPhoto = () => {
     const url = window.prompt(t('Ingrese la URL de la fotografía o use el selector de archivos:'));
-    if (url && url.trim().length > 0) {
-      onAddPhoto(item.id, url.trim());
-    }
+    if (url && url.trim().length > 0) setPending({ url: url.trim(), preview: url.trim() });
+  };
+
+  const closePending = () => {
+    if (pending?.file) URL.revokeObjectURL(pending.preview);
+    setPending(null);
+  };
+
+  const addPendingPhoto = async (phase: PhotoPhase) => {
+    const p = pending;
+    closePending();
+    if (!p) return;
+    const url = p.file ? await uploadPhoto(p.file) : p.url!;
+    onAddPhoto(item.id, url, phase);
   };
 
   return (
@@ -529,6 +544,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
       {showStageImage && stageImage && (
         <StageImageViewer src={stageImage.full} title={item.orientation} onClose={() => setShowStageImage(false)} />
       )}
+      {pending && <PhasePicker preview={pending.preview} onPick={addPendingPhoto} onCancel={closePending} />}
     </div>
   );
 };

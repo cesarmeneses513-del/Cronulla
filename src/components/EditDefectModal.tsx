@@ -6,6 +6,7 @@ import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { stageImageFor } from '../data/stageImages';
 import { StageImageViewer } from './StageImageViewer';
+import { PhasePicker } from './PhasePicker';
 
 interface EditDefectModalProps {
   item: DefectItem | null;
@@ -54,6 +55,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   const [formData, setFormData] = useState<DefectItem>({ ...item });
   const [newTagInput, setNewTagInput] = useState('');
   const [showStageImage, setShowStageImage] = useState(false);
+  const [pending, setPending] = useState<{ file?: File; url?: string; preview: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -108,34 +110,33 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
     setFormData({ ...formData, photos });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // A new photo (file or URL) waits here until its phase is chosen.
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    const url = await uploadPhoto(file);
-    setFormData(prev => {
-      const newPhoto: DefectPhoto = {
-        url,
-        phase: 'BEFORE',
-        slot: prev.photos.length + 1,
-      };
-      return { ...prev, photos: [...prev.photos, newPhoto] };
-    });
+    setPending({ file, preview: URL.createObjectURL(file) });
   };
 
   const handleAddPhotoByUrl = () => {
     const url = window.prompt(t('Pegar enlace URL de la fotografía:'));
-    if (url && url.trim()) {
-      const newPhoto: DefectPhoto = {
-        url: url.trim(),
-        phase: 'BEFORE',
-        slot: formData.photos.length + 1,
-      };
-      setFormData({
-        ...formData,
-        photos: [...formData.photos, newPhoto],
-      });
-    }
+    if (url && url.trim()) setPending({ url: url.trim(), preview: url.trim() });
+  };
+
+  const closePending = () => {
+    if (pending?.file) URL.revokeObjectURL(pending.preview);
+    setPending(null);
+  };
+
+  const addPendingPhoto = async (phase: PhotoPhase) => {
+    const p = pending;
+    closePending();
+    if (!p) return;
+    const url = p.file ? await uploadPhoto(p.file) : p.url!;
+    setFormData(prev => {
+      const newPhoto: DefectPhoto = { url, phase, slot: prev.photos.length + 1 };
+      return { ...prev, photos: [...prev.photos, newPhoto] };
+    });
   };
 
   return (
@@ -529,62 +530,8 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
             </div>
           </div>
 
-          {/* Technicians & Dates */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 text-xs">
-            <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span className="font-semibold text-slate-800 block">{t('Técnico de Inicio')}</span>
-              <input
-                type="text"
-                value={formData.technicianStart}
-                onChange={e => setFormData({ ...formData, technicianStart: e.target.value })}
-                placeholder={t('Nombre del técnico')}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={formData.date1stPhoto}
-                  onChange={e => setFormData({ ...formData, date1stPhoto: e.target.value })}
-                  placeholder={t('Fecha (dd/mm/aaaa)')}
-                  className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
-                />
-                <input
-                  type="text"
-                  value={formData.time1stPhoto}
-                  onChange={e => setFormData({ ...formData, time1stPhoto: e.target.value })}
-                  placeholder={t('Hora')}
-                  className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span className="font-semibold text-slate-800 block">{t('Técnico Finalizado')}</span>
-              <input
-                type="text"
-                value={formData.technicianCompleted}
-                onChange={e => setFormData({ ...formData, technicianCompleted: e.target.value })}
-                placeholder={t('Nombre del técnico')}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={formData.dateCompleted}
-                  onChange={e => setFormData({ ...formData, dateCompleted: e.target.value })}
-                  placeholder={t('Fecha (dd/mm/aaaa)')}
-                  className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
-                />
-                <input
-                  type="text"
-                  value={formData.timeCompleted}
-                  onChange={e => setFormData({ ...formData, timeCompleted: e.target.value })}
-                  placeholder={t('Hora')}
-                  className="w-1/2 px-2.5 py-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden"
-                />
-              </div>
-            </div>
-          </div>
+          {/* Technicians and dates are filled in automatically from who adds each photo */}
+          {pending && <PhasePicker preview={pending.preview} onPick={addPendingPhoto} onCancel={closePending} />}
 
           {/* Modal Footer */}
           <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">

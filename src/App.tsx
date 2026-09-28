@@ -57,6 +57,24 @@ const revertEntry = (current: DefectItem[], { before, after }: HistoryEntry): De
   return result;
 };
 
+// Who added a photo, and when: a Before photo fills the start technician/date/time, a During or
+// After photo fills the completion ones. Uses the name given when signing in as editor.
+const stampTechnician = (item: DefectItem, phases: PhotoPhase[]): DefectItem => {
+  const user = getStoredUserName();
+  if (!user || phases.length === 0) return item;
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  let next = item;
+  if (phases.includes('BEFORE')) next = { ...next, technicianStart: user, date1stPhoto: date, time1stPhoto: time };
+  if (phases.some(p => p !== 'BEFORE')) next = { ...next, technicianCompleted: user, dateCompleted: date, timeCompleted: time };
+  return next;
+};
+
+const photoPhaseKeys = (item?: DefectItem) =>
+  new Set((item?.photos || []).map((p, i) => (typeof p === 'string' ? `${i >= 6 ? 'COMPLETED' : i >= 3 ? 'IN PROGRESS' : 'BEFORE'}|${p}` : `${p.phase}|${p.url}`)));
+
 const normalizeItems = (rawItems: DefectItem[]): DefectItem[] => {
   return rawItems.map(item => ({
     ...item,
@@ -617,7 +635,7 @@ export default function App() {
               phase,
               slot: i.photos.length + 1,
             };
-            return { ...i, photos: [...i.photos, newPhoto] };
+            return stampTechnician({ ...i, photos: [...i.photos, newPhoto] }, [phase]);
           }),
         t('añadir foto')
       );
@@ -693,7 +711,15 @@ export default function App() {
 
   // Handler: Save from Edit Modal
   const handleSaveDefect = useCallback(
-    (updated: DefectItem) => {
+    (edited: DefectItem) => {
+      // New photos stamp who added them; a new defect without photos stamps by its status.
+      const previous = itemsRef.current.find(i => i.id === edited.id);
+      const before = photoPhaseKeys(previous);
+      let phases = Array.from(photoPhaseKeys(edited))
+        .filter(k => !before.has(k))
+        .map(k => k.split('|')[0] as PhotoPhase);
+      if (!previous && phases.length === 0) phases = [edited.status === 'BEFORE' ? 'BEFORE' : 'COMPLETED'];
+      const updated = stampTechnician(edited, phases);
       updateItems(prev => {
         const exists = prev.some(i => i.id === updated.id);
         if (exists) {
@@ -761,8 +787,8 @@ export default function App() {
       photos: [],
       status: 'BEFORE',
       technicianStart: '',
-      date1stPhoto: new Date().toLocaleDateString('es-ES'),
-      time1stPhoto: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      date1stPhoto: '', // filled in on save (who created it / added photos, and when)
+      time1stPhoto: '',
       technicianCompleted: '',
       dateCompleted: '',
       timeCompleted: '',
