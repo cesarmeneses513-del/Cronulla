@@ -12,6 +12,7 @@ interface HeaderProps {
   onExportCsv: () => void;
   onOpenImportModal: () => void;
   readOnly: boolean;
+  isAdmin?: boolean;
   onLogout: () => void;
   onUndo: () => void;
   undoLabel: string | null;
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onExportCsv,
   onOpenImportModal,
   readOnly,
+  isAdmin = false,
   onLogout,
   onUndo,
   undoLabel,
@@ -114,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
-            {readOnly ? t('Cliente') : t('Editor')}
+            {readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}
           </span>
 
           <LanguageSwitcher />

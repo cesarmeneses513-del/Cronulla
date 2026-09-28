@@ -11,6 +11,7 @@ interface PhotoMosaicViewProps {
   onMovePhotoPrompt: (sourceItem: DefectItem, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
   readOnly?: boolean;
+  canDelete?: boolean;
 }
 
 export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
@@ -20,6 +21,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
   onMovePhotoPrompt,
   onUpdatePhotoPhase,
   readOnly = false,
+  canDelete = true,
 }) => {
   const { t } = useI18n();
   const [phaseFilter, setPhaseFilter] = useState<'ALL' | PhotoPhase>('ALL');
@@ -197,6 +199,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                       <ArrowRightLeft className="w-4 h-4" />
                     </button>
 
+                    {canDelete && (
                     <button
                       onClick={() => onDeletePhoto(item.id, pIdx)}
                       title={t('Eliminar foto')}
@@ -204,6 +207,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+                    )}
                     </>
                     )}
                   </div>

@@ -35,6 +35,8 @@ interface HistoryPanelProps {
   onClose: () => void;
   // Opens the defect of an entry (and its photo, for photo changes). False if it no longer exists.
   onOpenDefect?: (defectId: string, photoUrl?: string) => boolean;
+  // Only administrators can clear the history.
+  canClear?: boolean;
 }
 
 const KIND_TABS: { kind: HistoryFilter['kind']; label: string; dot?: string }[] = [
@@ -45,7 +47,7 @@ const KIND_TABS: { kind: HistoryFilter['kind']; label: string; dot?: string }[] 
   { kind: 'deleted', label: 'Borrados', dot: 'bg-rose-500' },
 ];
 
-export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefect }) => {
+export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefect, canClear = true }) => {
   const { t, lang } = useI18n();
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,6 +163,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
             <h2 className="text-base font-bold text-slate-900">{t('Historial de cambios')}</h2>
           </div>
           <div className="flex items-center gap-1">
+            {canClear && (
             <button
               onClick={handleClear}
               disabled={records.length === 0 || unavailable}
@@ -170,6 +173,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
               <Trash2 className="w-3.5 h-3.5" />
               {t('Borrar')}
             </button>
+            )}
             <button
               onClick={() => load()}
               title={t('Actualizar')}

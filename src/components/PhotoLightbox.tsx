@@ -35,6 +35,7 @@ interface PhotoLightboxProps {
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
   readOnly?: boolean;
+  canDelete?: boolean;
 }
 
 export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
@@ -48,6 +49,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   onDeletePhoto,
   onUpdatePhotoPhase,
   readOnly = false,
+  canDelete = true,
 }) => {
   const { t } = useI18n();
   const [zoom, setZoom] = useState(1);
@@ -411,7 +413,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
         </div>
 
         {/* Move Photo to Another Row Form */}
-        {!readOnly && hasPhoto && (
+        {!readOnly && hasPhoto && canDelete && (
         <div className="pt-4 border-t border-white/10 space-y-3 mt-4">
           {/* Delete Photo Button */}
           <button

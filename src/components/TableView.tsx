@@ -15,6 +15,7 @@ interface TableViewProps {
   selectable?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
+  canDelete?: boolean;
 }
 
 export const TableView: React.FC<TableViewProps> = ({
@@ -27,6 +28,7 @@ export const TableView: React.FC<TableViewProps> = ({
   selectable = false,
   selectedIds,
   onToggleSelect,
+  canDelete = true,
 }) => {
   const { t } = useI18n();
   return (
@@ -186,6 +188,7 @@ export const TableView: React.FC<TableViewProps> = ({
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
+                    {canDelete && (
                     <button
                       onClick={() => onDelete(item.id)}
                       className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50"
@@ -193,6 +196,7 @@ export const TableView: React.FC<TableViewProps> = ({
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
+                    )}
                   </div>
                 </td>
                 )}

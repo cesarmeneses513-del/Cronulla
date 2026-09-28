@@ -12,6 +12,7 @@ interface EditDefectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedItem: DefectItem) => void;
+  canDelete?: boolean;
 }
 
 const COMMON_DEFECTS = [
@@ -45,6 +46,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  canDelete = true,
 }) => {
   const { t } = useI18n();
   if (!isOpen || !item) return null;
@@ -509,6 +511,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                         >
                           <ArrowDown className="w-3 h-3" />
                         </button>
+                        {canDelete && (
                         <button
                           type="button"
                           onClick={() => handleRemovePhoto(pIdx)}
@@ -517,6 +520,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
+                        )}
                       </div>
                     </div>
                   </div>

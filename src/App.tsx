@@ -8,7 +8,7 @@ import { TableView } from './components/TableView';
 import { PhotoLightbox } from './components/PhotoLightbox';
 import { EditDefectModal } from './components/EditDefectModal';
 import { ImportCsvModal } from './components/ImportCsvModal';
-import { RoleSelectScreen, AppRole, getStoredUserName } from './components/RoleSelectScreen';
+import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName } from './components/RoleSelectScreen';
 import { HistoryPanel } from './components/HistoryPanel';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
@@ -22,6 +22,7 @@ import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, Chec
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
 const ROLE_KEY = 'cronulla_role';
+const ACCESS_KEY = 'cronulla_access';
 const SORT_KEY = 'cronulla_sort';
 
 type SyncStatus = 'local' | 'loading' | 'synced' | 'saving' | 'error';
@@ -86,12 +87,24 @@ export default function App() {
     }
   });
   const readOnly = role !== 'editor';
+  // Editors signed in with the administrator PIN can delete; the other editor PIN can't.
+  const [access, setAccess] = useState<AccessLevel>(() => {
+    try {
+      return sessionStorage.getItem(ACCESS_KEY) === 'admin' ? 'admin' : 'user';
+    } catch {
+      return 'user';
+    }
+  });
+  const canDelete = !readOnly && access === 'admin';
 
-  const handleSelectRole = useCallback((next: AppRole | null) => {
+  const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user') => {
     setRole(next);
+    setAccess(level);
     try {
       if (next) sessionStorage.setItem(ROLE_KEY, next);
       else sessionStorage.removeItem(ROLE_KEY);
+      if (next === 'editor') sessionStorage.setItem(ACCESS_KEY, level);
+      else sessionStorage.removeItem(ACCESS_KEY);
     } catch {}
   }, []);
 
@@ -438,7 +451,8 @@ export default function App() {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const lastSelectedRef = useRef<string | null>(null);
-  const selectionActive = selecting && !readOnly;
+  // Selecting is for deleting several defects at once: administrators only.
+  const selectionActive = selecting && canDelete;
 
   // Only what is visible counts, so hidden (filtered-out) selections are never deleted.
   const visibleSelected = useMemo(
@@ -481,13 +495,13 @@ export default function App() {
   // shown on larger screens; on phones selection starts by long-pressing a defect.
   const handleLongPressSelect = useCallback(
     (id: string) => {
-      if (readOnly) return;
+      if (!canDelete) return;
       setSelecting(true);
       setSelectedIds(prev => new Set(prev).add(id));
       lastSelectedRef.current = id;
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
     },
-    [readOnly]
+    [canDelete]
   );
   const topBar = (
     <Pagination
@@ -499,7 +513,7 @@ export default function App() {
       leading={
         <>
           <SortBar sort={sort} onChange={handleSortChange} compact />
-          {!readOnly && viewMode !== 'photos' && (
+          {canDelete && viewMode !== 'photos' && (
             <button
               onClick={() => (selecting ? exitSelection() : setSelecting(true))}
               className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap ${
@@ -638,6 +652,7 @@ export default function App() {
   // Handler: Delete photo
   const handleDeletePhoto = useCallback(
     (itemId: string, photoIndex: number) => {
+      if (!canDelete) return;
       updateItems(
         prev =>
           prev.map(i => {
@@ -651,7 +666,7 @@ export default function App() {
       );
       showToast(t('Fotografía eliminada'), true);
     },
-    [showToast, updateItems, t]
+    [showToast, updateItems, t, canDelete]
   );
 
   // Handler: Quick update status
@@ -710,17 +725,19 @@ export default function App() {
   // Handler: Delete defect
   const handleDeleteDefect = useCallback(
     (id: string) => {
+      if (!canDelete) return;
       const target = items.find(i => i.id === id);
       if (window.confirm(t('¿Estás seguro de eliminar el registro #{row} ({defect})?', { row: target?.rowNo || '', defect: target?.defect || '' }))) {
         updateItems(prev => prev.filter(i => i.id !== id), t('eliminar registro #{row}', { row: target?.rowNo || '' }));
         showToast(t('Registro eliminado'), true);
       }
     },
-    [items, showToast, updateItems, t]
+    [items, showToast, updateItems, t, canDelete]
   );
 
   // Handler: Delete all selected (visible) defects
   const handleDeleteSelected = useCallback(() => {
+    if (!canDelete) return;
     const ids = new Set(visibleSelected.map(i => i.id));
     if (ids.size === 0) return;
     if (!window.confirm(t('¿Eliminar {n} registros seleccionados?\n\nPuedes recuperarlos con el botón "Deshacer".', { n: ids.size }))) return;
@@ -728,7 +745,7 @@ export default function App() {
     setSelectedIds(new Set());
     lastSelectedRef.current = null;
     showToast(t('{n} registros eliminados', { n: ids.size }), true);
-  }, [visibleSelected, updateItems, showToast, t]);
+  }, [visibleSelected, updateItems, showToast, t, canDelete]);
 
   // Handler: New Defect
   const handleNewDefect = useCallback(() => {
@@ -864,7 +881,8 @@ export default function App() {
                 selectable={selectionActive}
                 selected={selectionActive && selectedIds.has(item.id)}
                 onToggleSelect={handleToggleSelect}
-                onLongPress={readOnly ? undefined : handleLongPressSelect}
+                onLongPress={canDelete ? handleLongPressSelect : undefined}
+                canDelete={canDelete}
               />
             ))}
             {pager}
@@ -931,6 +949,7 @@ export default function App() {
         onExportCsv={handleExportCsv}
         onOpenImportModal={() => setIsImportModalOpen(true)}
         readOnly={readOnly}
+        isAdmin={canDelete}
         onLogout={() => handleSelectRole(null)}
         onUndo={handleUndo}
         undoLabel={history.length > 0 ? history[history.length - 1].label : null}
@@ -994,6 +1013,7 @@ export default function App() {
             onMovePhotoPrompt={handlePromptMovePhoto}
             onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
             readOnly={readOnly}
+            canDelete={canDelete}
           />
           {pager}
           </>
@@ -1031,6 +1051,7 @@ export default function App() {
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onQuickUpdateStatus={handleQuickUpdateStatus}
             readOnly={readOnly}
+            canDelete={canDelete}
             selectable={selectionActive}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
@@ -1088,6 +1109,7 @@ export default function App() {
           onSaveItem={readOnly ? undefined : handleSaveDefect}
           defectNav={lightboxNav}
           readOnly={readOnly}
+          canDelete={canDelete}
         />
       )}
 
@@ -1097,6 +1119,7 @@ export default function App() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSaveDefect}
+        canDelete={canDelete}
       />
 
       {/* Import CSV Modal */}
@@ -1105,11 +1128,12 @@ export default function App() {
         onClose={() => setIsImportModalOpen(false)}
         onImport={handleImportCsv}
         existingItems={items}
+        allowReplace={canDelete}
       />
 
       {/* Change history */}
       {isHistoryOpen && !readOnly && (
-        <HistoryPanel onClose={() => setIsHistoryOpen(false)} onOpenDefect={handleOpenDefectFromHistory} />
+        <HistoryPanel onClose={() => setIsHistoryOpen(false)} onOpenDefect={handleOpenDefectFromHistory} canClear={canDelete} />
       )}
 
       {/* Quiet footer */}

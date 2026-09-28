@@ -41,6 +41,8 @@ interface DefectRowCardProps {
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
   // Touch long-press on the card (phones): starts selecting this defect.
   onLongPress?: (id: string) => void;
+  // False for editors without delete rights (PIN 1111).
+  canDelete?: boolean;
 }
 
 export const DefectRowCard: React.FC<DefectRowCardProps> = ({
@@ -60,6 +62,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   selected = false,
   onToggleSelect,
   onLongPress,
+  canDelete = true,
 }) => {
   const { t } = useI18n();
   const longPress = useLongPress(onLongPress ? () => onLongPress(item.id) : undefined);
@@ -242,6 +245,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
               <Copy className="w-3.5 h-3.5" />
             </button>
 
+            {canDelete && (
             <button
               onClick={() => onDelete(item.id)}
               title={t('Eliminar registro')}
@@ -249,6 +253,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
+            )}
           </div>
           )}
         </div>
@@ -419,7 +424,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </button>
-                        {!readOnly && (
+                        {!readOnly && canDelete && (
                           <button
                             onClick={() => onDeletePhoto(item.id, pIdx)}
                             title={t('Quitar foto')}

@@ -9,6 +9,8 @@ interface ImportCsvModalProps {
   onClose: () => void;
   onImport: (items: DefectItem[], replace: boolean) => void;
   existingItems: DefectItem[];
+  // Replacing deletes the rows that aren't in the file: administrators only.
+  allowReplace?: boolean;
 }
 
 export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
@@ -16,6 +18,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   onClose,
   onImport,
   existingItems,
+  allowReplace = true,
 }) => {
   if (!isOpen) return null;
 
@@ -58,7 +61,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
 
   const handleExecuteImport = () => {
     if (previewItems.length === 0) return;
-    onImport(previewItems, replaceExisting);
+    onImport(previewItems, allowReplace && replaceExisting);
     onClose();
   };
 
@@ -137,6 +140,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
           )}
 
           {/* Options */}
+          {allowReplace && (
           <div className="flex items-center gap-2 pt-2">
             <input
               type="checkbox"
@@ -149,6 +153,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
               {t('Reemplazar los registros actuales con estos datos nuevos (desmarcar para anexar)')}
             </label>
           </div>
+          )}
         </div>
 
         {/* Footer */}

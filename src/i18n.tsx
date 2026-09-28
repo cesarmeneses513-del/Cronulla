@@ -349,6 +349,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   '{n} filas registradas': { en: '{n} rows recorded', fa: '{n} ردیف ثبت شده' },
   'Solo lectura': { en: 'Read only', fa: 'فقط خواندنی' },
   'Creado por': { en: 'Created by', fa: 'ساخته شده توسط' },
+  'Administrador': { en: 'Admin', fa: 'مدیر' },
   'Verde: todos los defectos tienen foto After': { en: 'Green: every defect has an After photo', fa: 'سبز: همه نواقص عکس «بعد» دارند' },
   'Ancho (m)': { en: 'Width (m)', fa: 'عرض (m)' },
   'Alto (m)': { en: 'Height (m)', fa: 'ارتفاع (m)' },

@@ -6,7 +6,9 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 export type AppRole = 'editor' | 'client';
 
 // Client-side gate only: it hides editing UI, it does not secure the database.
-const EDITOR_PIN = '1111';
+// Editor access by PIN: 1407 = administrator (everything), 1111 = user (everything except deleting).
+export type AccessLevel = 'admin' | 'user';
+const EDITOR_PINS: Record<string, AccessLevel> = { '1407': 'admin', '1111': 'user' };
 const USER_KEY = 'cronulla_user';
 
 export const getStoredUserName = (): string => {
@@ -18,7 +20,7 @@ export const getStoredUserName = (): string => {
 };
 
 interface RoleSelectScreenProps {
-  onSelect: (role: AppRole) => void;
+  onSelect: (role: AppRole, access?: AccessLevel) => void;
 }
 
 export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) => {
@@ -30,11 +32,12 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
 
   const submitPin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === EDITOR_PIN) {
+    const access = EDITOR_PINS[pin];
+    if (access) {
       try {
         localStorage.setItem(USER_KEY, name.trim());
       } catch {}
-      onSelect('editor');
+      onSelect('editor', access);
     } else {
       setError(true);
       setPin('');
