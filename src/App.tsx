@@ -947,7 +947,7 @@ export default function App() {
         totalPhotos={totalPhotos}
         onNewDefect={handleNewDefect}
         onExportCsv={handleExportCsv}
-        onOpenImportModal={() => setIsImportModalOpen(true)}
+        onOpenImportModal={() => canDelete && setIsImportModalOpen(true)}
         readOnly={readOnly}
         isAdmin={canDelete}
         onLogout={() => handleSelectRole(null)}
@@ -1124,7 +1124,7 @@ export default function App() {
 
       {/* Import CSV Modal */}
       <ImportCsvModal
-        isOpen={isImportModalOpen}
+        isOpen={isImportModalOpen && canDelete}
         onClose={() => setIsImportModalOpen(false)}
         onImport={handleImportCsv}
         existingItems={items}
