@@ -224,6 +224,9 @@ function sortByRowNo_(items) {
     .map(x => x.item);
 }
 
+// Filled only by hand in the sheet; the web never writes them.
+const SHEET_ONLY_HEADERS = ['MAPPING'];
+
 function writeRows_(items) {
   items = sortByRowNo_(items);
   const sheet = getSheet_();
@@ -231,9 +234,25 @@ function writeRows_(items) {
   const headers = readHeaders_(sheet);
   const width = headers.length;
 
+  // Columns the web never writes: each row keeps what was typed in the sheet (matched by ID,
+  // since rows can move when the sheet is re-sorted).
+  const oldCount = Math.max(sheet.getLastRow() - 1, 0);
+  const idIdx = headers.indexOf(ID_HEADER);
+  const kept = {};
+  const oldValues = oldCount > 0 ? sheet.getRange(2, 1, oldCount, width).getValues() : [];
+  headers.forEach((h, c) => {
+    if (SHEET_ONLY_HEADERS.indexOf(h) < 0) return;
+    kept[h] = {};
+    oldValues.forEach(r => {
+      const id = String(r[idIdx]).trim();
+      if (id) kept[h][id] = r[c];
+    });
+  });
+
   const values = items.map(item => {
     const slots = photoSlots_(item);
     return headers.map(h => {
+      if (kept[h]) return kept[h][item.id] === undefined ? '' : kept[h][item.id];
       const v = columnValue_(h, item, slots);
       return v === undefined || v === null ? '' : v;
     });
