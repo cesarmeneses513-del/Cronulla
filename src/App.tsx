@@ -297,11 +297,11 @@ export default function App() {
   const [lightboxPhotoIndex, setLightboxPhotoIndex] = useState<number>(0);
 
   // Filter items
-  const filteredItems = useMemo(() => {
+  const applyFilters = useCallback((f: FilterState) => {
     return items.filter(item => {
       // Search query
-      if (filters.searchQuery) {
-        const q = filters.searchQuery.toLowerCase().trim();
+      if (f.searchQuery) {
+        const q = f.searchQuery.toLowerCase().trim();
         const matches =
           item.rowNo.toLowerCase().includes(q) ||
           item.defect.toLowerCase().includes(q) ||
@@ -318,52 +318,58 @@ export default function App() {
       }
 
       // Orientations
-      if (filters.orientations.length > 0 && !filters.orientations.includes(item.orientation)) {
+      if (f.orientations.length > 0 && !f.orientations.includes(item.orientation)) {
         return false;
       }
 
       // Defects
-      if (filters.defects.length > 0 && !filters.defects.includes(item.defect)) {
+      if (f.defects.length > 0 && !f.defects.includes(item.defect)) {
         return false;
       }
 
       // Urgencies
-      if (filters.urgencies.length > 0 && !filters.urgencies.includes(item.urgency)) {
+      if (f.urgencies.length > 0 && !f.urgencies.includes(item.urgency)) {
         return false;
       }
 
       // Statuses
-      if (filters.statuses.length > 0 && !filters.statuses.includes(item.status)) {
+      if (f.statuses.length > 0 && !f.statuses.includes(item.status)) {
         return false;
       }
 
       // Drops
-      if (filters.drops.length > 0 && !filters.drops.includes(item.drop)) {
+      if (f.drops.length > 0 && !f.drops.includes(item.drop)) {
         return false;
       }
 
       // Levels
-      if (filters.levels.length > 0 && !filters.levels.includes(item.level)) {
+      if (f.levels.length > 0 && !f.levels.includes(item.level)) {
         return false;
       }
 
       // Technicians
       if (
-        filters.technicians.length > 0 &&
-        !filters.technicians.includes(item.technicianStart) &&
-        !filters.technicians.includes(item.technicianCompleted)
+        f.technicians.length > 0 &&
+        !f.technicians.includes(item.technicianStart) &&
+        !f.technicians.includes(item.technicianCompleted)
       ) {
         return false;
       }
 
       // Has photos only
-      if (filters.hasPhotosOnly && item.photos.length === 0) {
+      if (f.hasPhotosOnly && item.photos.length === 0) {
         return false;
       }
 
       return true;
     });
-  }, [items, filters]);
+  }, [items]);
+  const filteredItems = useMemo(() => applyFilters(filters), [applyFilters, filters]);
+  // The elevation grid always shows every drop and level; the selected ones are highlighted.
+  const elevationItems = useMemo(
+    () => applyFilters({ ...filters, drops: [], levels: [] }),
+    [applyFilters, filters]
+  );
 
   // Display-only ordering; the stored order (and the Google Sheet) are untouched.
   const [sort, setSort] = useState<SortState>(() => {
@@ -989,7 +995,10 @@ export default function App() {
         ) : viewMode === 'matrix' ? (
           /* View Mode 3: Elevation Matrix (Drop vs Level) */
           <ElevationMatrixView
-            items={filteredItems}
+            items={elevationItems}
+            selectedLevels={filters.levels}
+            selectedDrops={filters.drops}
+            onSelectLevel={level => setFilters(prev => ({ ...prev, levels: level ? [level] : [], drops: [] }))}
             stages={stageCounts}
             selectedStages={filters.orientations}
             onSelectStage={stage => setFilters(prev => ({ ...prev, orientations: stage ? [stage] : [] }))}

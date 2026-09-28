@@ -153,25 +153,7 @@ export const TableView: React.FC<TableViewProps> = ({
                 </td>
 
                 <td className="p-3">
-                  <select
-                    value={item.status}
-                    disabled={readOnly}
-                    onChange={e => onQuickUpdateStatus(item.id, e.target.value as DefectStatus)}
-                    className={`text-xs font-semibold px-2 py-1 rounded border focus:outline-hidden ${
-                      item.status === 'COMPLETED'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                        : item.status === 'IN PROGRESS'
-                        ? 'bg-amber-50 text-amber-800 border-amber-300'
-                        : 'bg-slate-50 text-slate-700 border-slate-300'
-                    }`}
-                  >
-                    <option value="BEFORE">{t(STATUS_LABEL.BEFORE)}</option>
-                    <option value="IN PROGRESS">{t(STATUS_LABEL['IN PROGRESS'])}</option>
-                    <option value="COMPLETED">{t(STATUS_LABEL.COMPLETED)}</option>
-                  </select>
-                  <div className="mt-1.5">
-                    <PhaseChips item={item} size="xs" />
-                  </div>
+                  <PhaseChips item={item} size="xs" />
                 </td>
 
                 <td className="p-3 text-[11px] font-mono">
