@@ -14,6 +14,9 @@ interface ElevationMatrixViewProps {
   selectedLevels?: string[];
   selectedDrops?: string[];
   onSelectLevel?: (level: string | null) => void;
+  onSelectDrop?: (drop: string | null) => void;
+  // Every defect of the chosen stage(s), for the drop / level buttons (the grid shows `items`).
+  allItems?: DefectItem[];
 }
 
 // A defect counts as done in the grid when it has at least one AFTER photo.
@@ -33,21 +36,30 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
   selectedLevels = [],
   selectedDrops = [],
   onSelectLevel,
+  onSelectDrop,
+  allItems,
 }) => {
   const { t } = useI18n();
-  // Extract all drops and levels present in the dataset
-  const drops = Array.from(new Set(items.map(i => i.drop).filter(Boolean))).sort(
-    (a, b) => Number(a) - Number(b)
-  );
-
+  const dropsOf = (list: DefectItem[]) =>
+    Array.from(new Set(list.map(i => i.drop).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
   // Standard architectural levels: R (Roof) down to 1, then G (Ground)
-  const levels = Array.from(new Set(items.map(i => i.level).filter(Boolean))).sort((a, b) => {
-    if (a === 'R') return -1;
-    if (b === 'R') return 1;
-    if (a === 'G') return 1;
-    if (b === 'G') return -1;
-    return Number(b) - Number(a); // High floor at top
-  });
+  const levelsOf = (list: DefectItem[]) =>
+    Array.from(new Set(list.map(i => i.level).filter(Boolean))).sort((a, b) => {
+      if (a === 'R') return -1;
+      if (b === 'R') return 1;
+      if (a === 'G') return 1;
+      if (b === 'G') return -1;
+      return Number(b) - Number(a); // High floor at top
+    });
+  // The grid shows the current selection; the buttons always offer every drop and level.
+  const drops = dropsOf(items);
+  const levels = levelsOf(items);
+  const dropOptions = dropsOf(allItems || items);
+  const levelOptions = levelsOf(allItems || items);
+  const chip = (active: boolean) =>
+    `min-w-8 px-2 py-1 text-xs font-mono font-semibold rounded-md border transition-colors ${
+      active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+    }`;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -103,30 +115,33 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
         </div>
       )}
 
-      {/* Levels: pick one to highlight it (and filter the list); "All" goes back to the whole facade */}
-      {onSelectLevel && levels.length > 0 && (
-        <div className="px-4 py-3 flex flex-wrap items-center gap-1.5 border-b border-slate-100">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider me-1">{t('Nivel')}:</span>
-          <button
-            onClick={() => onSelectLevel(null)}
-            className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
-              selectedLevels.length === 0 && selectedDrops.length === 0
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
+      {/* Drop and level: pick one (or both) to see only that part, with its defects below */}
+      {onSelectDrop && dropOptions.length > 0 && (
+        <div className="px-4 pt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider me-1 w-12">{t('Drop')}:</span>
+          <button onClick={() => onSelectDrop(null)} className={chip(selectedDrops.length === 0)}>
             {t('Todos')}
           </button>
-          {levels.map(lvl => {
+          {dropOptions.map(d => {
+            const active = selectedDrops.includes(d);
+            return (
+              <button key={d} onClick={() => onSelectDrop(active ? null : d)} className={chip(active)}>
+                {d}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {onSelectLevel && levelOptions.length > 0 && (
+        <div className="px-4 py-3 flex flex-wrap items-center gap-1.5 border-b border-slate-100">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider me-1 w-12">{t('Nivel')}:</span>
+          <button onClick={() => onSelectLevel(null)} className={chip(selectedLevels.length === 0)}>
+            {t('Todos')}
+          </button>
+          {levelOptions.map(lvl => {
             const active = selectedLevels.includes(lvl);
             return (
-              <button
-                key={lvl}
-                onClick={() => onSelectLevel(active ? null : lvl)}
-                className={`min-w-8 px-2 py-1 text-xs font-mono font-semibold rounded-md border transition-colors ${
-                  active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
+              <button key={lvl} onClick={() => onSelectLevel(active ? null : lvl)} className={chip(active)}>
                 {lvl}
               </button>
             );
@@ -161,7 +176,6 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                   const cellItems = items.filter(i => i.drop === drp && i.level === lvl);
                   const totalPhotos = cellItems.reduce((acc, cur) => acc + cur.photos.length, 0);
                   const allCompleted = cellItems.length > 0 && cellItems.every(hasAfterPhoto);
-                  const isSelected = selectedLevels.includes(lvl) && (selectedDrops.length === 0 || selectedDrops.includes(drp));
                   const stageCounts = Object.entries(
                     cellItems.reduce<Record<string, number>>((acc, i) => {
                       const key = i.orientation || '—';
@@ -180,7 +194,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
                           : allCompleted
                           ? 'bg-emerald-50/70 hover:bg-emerald-100/70 cursor-pointer'
                           : 'bg-white hover:bg-slate-50 cursor-pointer'
-                      } ${isSelected ? 'ring-2 ring-inset ring-slate-900' : ''}`}
+                      }`}
                     >
                       {cellItems.length > 0 ? (
                         <div className="space-y-1">

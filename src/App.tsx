@@ -394,7 +394,7 @@ export default function App() {
   );
 
   // The list is shown a page at a time: rendering ~1,500 rows with their photos at once is slow.
-  const pageSize = viewMode === 'rows' ? 25 : viewMode === 'photos' ? 20 : 50;
+  const pageSize = viewMode === 'rows' || viewMode === 'matrix' ? 25 : viewMode === 'photos' ? 20 : 50;
   const pageCount = Math.max(1, Math.ceil(sortedItems.length / pageSize));
   const [page, setPage] = useState(1);
   useEffect(() => setPage(1), [filters, sort, viewMode]);
@@ -801,9 +801,9 @@ export default function App() {
       drops: [drop],
       levels: [level],
     }));
-    setViewMode('rows');
-    showToast(t('Filtrado por Drop {drop} y Nivel {level}', { drop, level }));
-  }, [showToast, t]);
+    // Stay on the elevation tab; the defects of that cell appear under the grid.
+    window.setTimeout(() => document.getElementById('elevation-selection')?.scrollIntoView({ behavior: 'smooth' }), 150);
+  }, []);
 
   // Export CSV
   const handleExportCsv = useCallback(() => {
@@ -840,6 +840,36 @@ export default function App() {
   if (!role) {
     return <RoleSelectScreen onSelect={handleSelectRole} />;
   }
+
+  // Defect cards with sort and pages: the Rows view, and under the elevation grid for a selection.
+  const rowsList = (
+          <div className="space-y-4">
+            {topBar}
+            {pagedItems.map((item, idx) => (
+              <DefectRowCard
+                key={item.id}
+                item={item}
+                index={idx}
+                onEdit={handleOpenEdit}
+                onDuplicate={handleDuplicateDefect}
+                onDelete={handleDeleteDefect}
+                onOpenPhotoLightbox={handleOpenPhotoLightbox}
+                onMovePhoto={handleMovePhoto}
+                onAddPhoto={handleAddPhoto}
+                onDeletePhoto={handleDeletePhoto}
+                onQuickUpdateStatus={handleQuickUpdateStatus}
+                onQuickUpdateUrgency={handleQuickUpdateUrgency}
+                onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
+                readOnly={readOnly}
+                selectable={selectionActive}
+                selected={selectionActive && selectedIds.has(item.id)}
+                onToggleSelect={handleToggleSelect}
+                onLongPress={readOnly ? undefined : handleLongPressSelect}
+              />
+            ))}
+            {pager}
+          </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
@@ -952,32 +982,7 @@ export default function App() {
           </div>
         ) : viewMode === 'rows' ? (
           /* View Mode 1: Detailed Rows with Drag and Drop Photo Reordering */
-          <div className="space-y-4">
-            {topBar}
-            {pagedItems.map((item, idx) => (
-              <DefectRowCard
-                key={item.id}
-                item={item}
-                index={idx}
-                onEdit={handleOpenEdit}
-                onDuplicate={handleDuplicateDefect}
-                onDelete={handleDeleteDefect}
-                onOpenPhotoLightbox={handleOpenPhotoLightbox}
-                onMovePhoto={handleMovePhoto}
-                onAddPhoto={handleAddPhoto}
-                onDeletePhoto={handleDeletePhoto}
-                onQuickUpdateStatus={handleQuickUpdateStatus}
-                onQuickUpdateUrgency={handleQuickUpdateUrgency}
-                onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
-                readOnly={readOnly}
-                selectable={selectionActive}
-                selected={selectionActive && selectedIds.has(item.id)}
-                onToggleSelect={handleToggleSelect}
-                onLongPress={readOnly ? undefined : handleLongPressSelect}
-              />
-            ))}
-            {pager}
-          </div>
+          rowsList
         ) : viewMode === 'photos' ? (
           /* View Mode 2: Photo Mosaic Grid */
           <>
@@ -994,17 +999,27 @@ export default function App() {
           </>
         ) : viewMode === 'matrix' ? (
           /* View Mode 3: Elevation Matrix (Drop vs Level) */
+          <>
           <ElevationMatrixView
-            items={elevationItems}
+            items={filteredItems}
+            allItems={elevationItems}
             selectedLevels={filters.levels}
             selectedDrops={filters.drops}
-            onSelectLevel={level => setFilters(prev => ({ ...prev, levels: level ? [level] : [], drops: [] }))}
+            onSelectLevel={level => setFilters(prev => ({ ...prev, levels: level ? [level] : [] }))}
+            onSelectDrop={drop => setFilters(prev => ({ ...prev, drops: drop ? [drop] : [] }))}
             stages={stageCounts}
             selectedStages={filters.orientations}
             onSelectStage={stage => setFilters(prev => ({ ...prev, orientations: stage ? [stage] : [] }))}
             onSelectCell={handleSelectElevationCell}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
           />
+          {/* The defects of the selected drop / level, right here */}
+          {(filters.drops.length > 0 || filters.levels.length > 0) && (
+            <div id="elevation-selection" className="mt-6 scroll-mt-24">
+              {rowsList}
+            </div>
+          )}
+          </>
         ) : (
           /* View Mode 4: Table View */
           <>
