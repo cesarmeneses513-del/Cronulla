@@ -25,6 +25,7 @@ export const StageImageViewer: React.FC<StageImageViewerProps> = ({ src, title, 
         <span className="text-sm font-bold tracking-wide">FCRS · {title}</span>
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={() => setZoomed(z => !z)}
             title={zoomed ? t('Alejar') : t('Acercar')}
             className="p-2 rounded-full hover:bg-white/15"
@@ -34,7 +35,7 @@ export const StageImageViewer: React.FC<StageImageViewerProps> = ({ src, title, 
           <a href={src} target="_blank" rel="noreferrer" title={t('Ver en pantalla completa')} className="p-2 rounded-full hover:bg-white/15">
             <ExternalLink className="w-5 h-5" />
           </a>
-          <button onClick={onClose} title={t('Cerrar')} className="p-2 rounded-full hover:bg-white/15">
+          <button type="button" onClick={onClose} title={t('Cerrar')} className="p-2 rounded-full hover:bg-white/15">
             <X className="w-5 h-5" />
           </button>
         </div>

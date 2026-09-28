@@ -4,6 +4,8 @@ import { DefectItem, UrgencyLevel, DefectStatus, PhotoPhase, DefectPhoto } from 
 import { uploadPhoto } from '../lib/supabase';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
+import { stageImageFor } from '../data/stageImages';
+import { StageImageViewer } from './StageImageViewer';
 
 interface EditDefectModalProps {
   item: DefectItem | null;
@@ -49,6 +51,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
   const [formData, setFormData] = useState<DefectItem>({ ...item });
   const [newTagInput, setNewTagInput] = useState('');
+  const [showStageImage, setShowStageImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -252,7 +255,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           </div>
 
           {/* Location: Drop & Level */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Línea (Drop)')}
@@ -313,6 +316,20 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   placeholder={t('Alto')}
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                {t('Cantidad')}
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={formData.quantity}
+                onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center focus:border-slate-400 focus:outline-hidden"
+                placeholder="0"
+              />
             </div>
           </div>
 
@@ -376,6 +393,28 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Stage reference drawing (FCRS) for the chosen stage / orientation */}
+          {(() => {
+            const stageImage = stageImageFor(formData.orientation || '');
+            if (!stageImage) return null;
+            return (
+              <div className="pt-2 border-t border-slate-100">
+                <span className="block text-xs font-semibold text-slate-700 mb-1.5">FCRS · {formData.orientation}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowStageImage(true)}
+                  title={t('Ver en pantalla completa')}
+                  className="w-40 h-28 rounded-lg overflow-hidden border border-indigo-200 bg-white hover:border-indigo-400 hover:shadow-sm transition-all"
+                >
+                  <img src={stageImage.thumb} alt={`FCRS ${formData.orientation}`} className="w-full h-full object-cover" />
+                </button>
+                {showStageImage && (
+                  <StageImageViewer src={stageImage.full} title={formData.orientation} onClose={() => setShowStageImage(false)} />
+                )}
+              </div>
+            );
+          })()}
 
           {/* Photo Management */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
