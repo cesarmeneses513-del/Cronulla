@@ -17,7 +17,7 @@ import { Pagination } from './components/Pagination';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
-import { supabase, fetchDefects, syncDefects, subscribeToDefects } from './lib/supabase';
+import { supabase, fetchDefects, fetchDefectsByIds, syncDefects, subscribeToDefects } from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
@@ -209,8 +209,26 @@ export default function App() {
       syncedRef.current = items;
       setSyncStatus('saving');
       saveQueueRef.current = saveQueueRef.current
-        .then(() => syncDefects(prev, items))
-        .then(() => {
+        .then(() => syncDefects(prev, items, normalizeItems))
+        .then(changed => {
+          if (changed.length > 0) {
+            // Rows someone else had changed meanwhile were merged: show the merged version,
+            // unless this device edited them again since.
+            const savedById = new Map(items.map(i => [i.id, i]));
+            const mergedById = new Map(normalizeItems(changed).map(i => [i.id, i]));
+            const withMerged = (list: DefectItem[]) =>
+              list.map(i => (mergedById.has(i.id) && savedById.get(i.id) === i ? mergedById.get(i.id)! : i));
+            const upToDate = itemsRef.current === items;
+            if (syncedRef.current) syncedRef.current = withMerged(syncedRef.current);
+            if (upToDate && syncedRef.current) {
+              itemsRef.current = syncedRef.current;
+              setItems(syncedRef.current);
+            } else {
+              setItems(p => withMerged(p));
+            }
+            if (upToDate) setSyncStatus('synced');
+            return;
+          }
           if (syncedRef.current === items) setSyncStatus('synced');
         })
         .catch(e => {
@@ -256,29 +274,61 @@ export default function App() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   // Reload everything from the database. Pending local edits are saved first so none are lost.
+  // `quiet`: automatic refresh (e.g. when the phone comes back to the app), without a toast.
   const [reloading, setReloading] = useState(false);
-  const handleReload = useCallback(async () => {
-    if (!supabase || reloading) return;
-    setReloading(true);
-    try {
-      await saveQueueRef.current;
-      const synced = syncedRef.current;
-      if (!readOnly && synced && itemsRef.current !== synced) {
-        await syncDefects(synced, itemsRef.current);
+  const reloadingRef = useRef(false);
+  const refreshFromServer = useCallback(
+    async (quiet: boolean) => {
+      if (!supabase || reloadingRef.current || syncedRef.current === null) return;
+      reloadingRef.current = true;
+      if (!quiet) setReloading(true);
+      try {
+        await saveQueueRef.current;
+        const synced = syncedRef.current;
+        if (!readOnly && synced && itemsRef.current !== synced) {
+          await syncDefects(synced, itemsRef.current, normalizeItems);
+        }
+        const started = itemsRef.current;
+        const normalized = normalizeItems(await fetchDefects());
+        // Anything edited on this device while loading is kept (and saved by the next sync).
+        const current = itemsRef.current;
+        const startedById = new Map(started.map(i => [i.id, i]));
+        const editedById = new Map(current.filter(i => startedById.get(i.id) !== i).map(i => [i.id, i]));
+        const next = editedById.size > 0 ? normalized.map(i => editedById.get(i.id) || i) : normalized;
+        syncedRef.current = normalized;
+        itemsRef.current = next;
+        setItems(next);
+        setSyncStatus(next === normalized ? 'synced' : 'saving');
+        if (!quiet) showToast(t('Datos actualizados: {n} defectos', { n: normalized.length }));
+      } catch (e) {
+        console.error('Failed to reload defects', e);
+        if (!quiet) setSyncStatus('error');
+      } finally {
+        reloadingRef.current = false;
+        if (!quiet) setReloading(false);
       }
-      const normalized = normalizeItems(await fetchDefects());
-      syncedRef.current = normalized;
-      itemsRef.current = normalized;
-      setItems(normalized);
-      setSyncStatus('synced');
-      showToast(t('Datos actualizados: {n} defectos', { n: normalized.length }));
-    } catch (e) {
-      console.error('Failed to reload defects', e);
-      setSyncStatus('error');
-    } finally {
-      setReloading(false);
-    }
-  }, [reloading, readOnly, showToast, t]);
+    },
+    [readOnly, showToast, t]
+  );
+  const handleReload = useCallback(() => refreshFromServer(false), [refreshFromServer]);
+
+  // Phones drop the live connection while the screen is off or the app is in the background, and
+  // changes made by others meanwhile never arrive. Catch up whenever the app is shown again.
+  useEffect(() => {
+    if (!supabase) return;
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 15000) refreshFromServer(true);
+    };
+    const onOnline = () => refreshFromServer(true);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [refreshFromServer]);
 
   const updateItems = useCallback((updater: (prev: DefectItem[]) => DefectItem[], label: string) => {
     const before = itemsRef.current;
@@ -816,10 +866,29 @@ export default function App() {
     (defectId: string, photoUrl?: string) => {
       const item = itemsRef.current.find(i => i.id === defectId);
       if (!item) return false;
-      const photoIndex = photoUrl ? item.photos.findIndex(p => (typeof p === 'string' ? p : p.url) === photoUrl) : -1;
+      const indexOf = (it: DefectItem) =>
+        photoUrl ? it.photos.findIndex(p => (typeof p === 'string' ? p : p.url) === photoUrl) : -1;
       setIsHistoryOpen(false);
       setLightboxItem(item);
-      setLightboxPhotoIndex(Math.max(0, photoIndex));
+      setLightboxPhotoIndex(Math.max(0, indexOf(item)));
+      // This copy may be older than the history entry: bring the row from the database, and
+      // jump to the photo once it's there.
+      fetchDefectsByIds([defectId])
+        .then(found => {
+          const raw = found.get(defectId);
+          const local = itemsRef.current.find(i => i.id === defectId);
+          const synced = syncedRef.current?.find(i => i.id === defectId);
+          if (!raw || !local || local !== synced) return; // unsaved edits here: leave them
+          const fresh = normalizeItems([raw])[0];
+          if (JSON.stringify(fresh) === JSON.stringify(local)) return;
+          const change: RemoteChange = { type: 'upsert', item: fresh, position: 0 };
+          if (syncedRef.current) syncedRef.current = applyRemoteChange(syncedRef.current, change);
+          itemsRef.current = applyRemoteChange(itemsRef.current, change);
+          setItems(itemsRef.current);
+          const idx = indexOf(fresh);
+          if (idx >= 0) setLightboxPhotoIndex(idx);
+        })
+        .catch(e => console.warn('Could not refresh defect', e));
       return true;
     },
     []
