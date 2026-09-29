@@ -92,6 +92,7 @@ function onOpen() {
   // Opening the spreadsheet puts the rows in order (Stage, Drop, Level) and renumbers them.
   try {
     sortSheetRows_();
+    ensureCompletedHighlight_(getSheet_());
   } catch (err) {
     // Read-only viewers can't edit; the sheet is still shown as it is.
   }
@@ -281,6 +282,7 @@ function writeRows_(items) {
   ensureIdColumn_(sheet);
   ensureDuringColumns_(sheet);
   renameHeader_(sheet, 'DATE 1ST PHOTO', 'DATE START');
+  ensureCompletedHighlight_(sheet);
   const headers = readHeaders_(sheet);
   const width = headers.length;
   const numberIdx = headers.lastIndexOf(NUMBER_HEADER);
@@ -755,6 +757,27 @@ function ensureDuringColumns_(sheet) {
   const col = after >= 0 ? after + 1 : sheet.getLastColumn();
   sheet.insertColumnsAfter(col, missing.length);
   sheet.getRange(1, col + 1, 1, missing.length).setValues([missing]);
+}
+
+// Rows whose STATUS is COMPLETED are shown green (the same green as Sheets' default rules).
+const COMPLETED_GREEN = '#b7e1cd';
+
+function ensureCompletedHighlight_(sheet) {
+  const statusIdx = readHeaders_(sheet).indexOf('STATUS');
+  if (statusIdx < 0) return;
+  const col = sheet.getRange(1, statusIdx + 1).getA1Notation().replace(/\d+/g, '');
+  const formula = '=$' + col + '2="COMPLETED"';
+  const range = sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), sheet.getMaxColumns());
+  // Replace an earlier version of this rule (the STATUS column or the sheet size may have changed).
+  const rules = sheet.getConditionalFormatRules().filter(r => {
+    const c = r.getBooleanCondition();
+    const f = c && c.getCriteriaType() === SpreadsheetApp.BooleanCriteria.CUSTOM_FORMULA ? String(c.getCriteriaValues()[0]) : '';
+    return !/^=\$[A-Z]+2="COMPLETED"$/.test(f);
+  });
+  rules.unshift(
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setBackground(COMPLETED_GREEN).setRanges([range]).build()
+  );
+  sheet.setConditionalFormatRules(rules);
 }
 
 function renameHeader_(sheet, from, to) {
