@@ -1,9 +1,18 @@
 import React from 'react';
 import { Edit2, Trash2, Camera, ExternalLink } from 'lucide-react';
-import { DefectItem, DefectStatus } from '../types/inspection';
+import { DefectItem, DefectStatus, DefectPhoto, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { PhaseChips } from './PhaseChips';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
+
+// One photo per phase in the Photos column, in this order, with the phase's dot color.
+const PHASES: { phase: PhotoPhase; dot: string }[] = [
+  { phase: 'BEFORE', dot: 'bg-slate-400' },
+  { phase: 'IN PROGRESS', dot: 'bg-amber-500' },
+  { phase: 'COMPLETED', dot: 'bg-emerald-500' },
+];
+const phaseOf = (p: DefectPhoto | string, i: number): PhotoPhase =>
+  typeof p === 'string' ? (i >= 6 ? 'COMPLETED' : i >= 3 ? 'IN PROGRESS' : 'BEFORE') : p.phase;
 
 interface TableViewProps {
   items: DefectItem[];
@@ -75,51 +84,34 @@ export const TableView: React.FC<TableViewProps> = ({
                   {item.rowNo}
                 </td>
 
-                {/* Photos previews */}
+                {/* Photos: the first Before, During and After photo. The dot shows the phase;
+                    an empty box means that phase has no photo yet. */}
                 <td className="p-3">
                   <div className="flex items-center gap-1.5">
-                    {item.photos.slice(0, 3).map((p, pIdx) => {
-                      const pUrl = typeof p === 'string' ? p : p.url;
-                      const pPhase =
-                        typeof p === 'string'
-                          ? pIdx >= 6
-                            ? 'COMPLETED'
-                            : pIdx >= 3
-                            ? 'IN PROGRESS'
-                            : 'BEFORE'
-                          : p.phase;
-
-                      const dotColor =
-                        pPhase === 'COMPLETED'
-                          ? 'bg-emerald-500'
-                          : pPhase === 'IN PROGRESS'
-                          ? 'bg-amber-500'
-                          : 'bg-slate-400';
-
+                    {PHASES.map(({ phase, dot }) => {
+                      const pIdx = item.photos.findIndex((p, i) => phaseOf(p, i) === phase);
+                      const p = pIdx >= 0 ? item.photos[pIdx] : null;
+                      const pUrl = p ? (typeof p === 'string' ? p : p.url) : '';
                       return (
-                        <div key={pIdx} className="flex flex-col items-center">
-                          <span className={`w-1.5 h-1.5 rounded-full mb-0.5 ${dotColor}`} title={t(PHASE_LABEL[pPhase])} />
-                          <button
-                            onClick={() => onOpenPhotoLightbox(item, pIdx)}
-                            className="relative w-8 h-8 rounded overflow-hidden border border-slate-200 hover:border-slate-400 group"
-                            title={`${t(PHASE_LABEL[pPhase])} - ${t('Ver foto')}`}
-                          >
-                            <img
-                              loading="lazy"
-                              decoding="async"
-                              src={thumbUrl(pUrl, 160)} onError={fallbackTo(pUrl)} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                          </button>
+                        <div key={phase} className="flex flex-col items-center">
+                          <span className={`w-1.5 h-1.5 rounded-full mb-0.5 ${dot} ${p ? '' : 'opacity-40'}`} title={t(PHASE_LABEL[phase])} />
+                          {p ? (
+                            <button
+                              onClick={() => onOpenPhotoLightbox(item, pIdx)}
+                              className="relative w-8 h-8 rounded overflow-hidden border border-slate-200 hover:border-slate-400 group"
+                              title={`${t(PHASE_LABEL[phase])} - ${t('Ver foto')}`}
+                            >
+                              <img
+                                loading="lazy"
+                                decoding="async"
+                                src={thumbUrl(pUrl, 160)} onError={fallbackTo(pUrl)} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                            </button>
+                          ) : (
+                            <span className="w-8 h-8 rounded border border-dashed border-slate-300 bg-slate-50" title={t(PHASE_LABEL[phase])} />
+                          )}
                         </div>
                       );
                     })}
-                    {item.photos.length > 3 && (
-                      <span className="text-[10px] font-mono font-bold text-slate-500 pl-0.5">
-                        +{item.photos.length - 3}
-                      </span>
-                    )}
-                    {item.photos.length === 0 && (
-                      <span className="text-[11px] text-slate-400 italic">{t('Sin fotos')}</span>
-                    )}
                   </div>
                 </td>
 
@@ -174,7 +166,7 @@ export const TableView: React.FC<TableViewProps> = ({
                   </div>
                 </td>
 
-                <td className="p-3 max-w-xs truncate text-[11px] text-slate-600" title={item.comment}>
+                <td className="p-3 max-w-xs lg:max-w-[12rem] truncate text-[11px] text-slate-600" title={item.comment}>
                   {item.comment || '—'}
                 </td>
 
