@@ -68,8 +68,8 @@ const revertEntry = (current: DefectItem[], { before, after }: HistoryEntry): De
   return result;
 };
 
-// Who added a photo, and when: a Before photo fills the start technician/date/time, a During or
-// After photo fills the completion ones. Uses the name given when signing in as editor.
+// Who added a photo, and when: a Before photo fills the start technician/date/time, a During photo
+// the During ones and an After photo the completion ones. Uses the name given when signing in as editor.
 const stampTechnician = (item: DefectItem, phases: PhotoPhase[]): DefectItem => {
   const user = getStoredUserName();
   if (!user || phases.length === 0) return item;
@@ -79,7 +79,8 @@ const stampTechnician = (item: DefectItem, phases: PhotoPhase[]): DefectItem => 
   const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   let next = item;
   if (phases.includes('BEFORE')) next = { ...next, technicianStart: user, date1stPhoto: date, time1stPhoto: time };
-  if (phases.some(p => p !== 'BEFORE')) next = { ...next, technicianCompleted: user, dateCompleted: date, timeCompleted: time };
+  if (phases.includes('IN PROGRESS')) next = { ...next, technicianDuring: user, dateDuring: date, timeDuring: time };
+  if (phases.includes('COMPLETED')) next = { ...next, technicianCompleted: user, dateCompleted: date, timeCompleted: time };
   return next;
 };
 
@@ -430,6 +431,7 @@ export default function App() {
           item.level.toLowerCase().includes(q) ||
           item.comment.toLowerCase().includes(q) ||
           item.technicianStart.toLowerCase().includes(q) ||
+          (item.technicianDuring || '').toLowerCase().includes(q) ||
           item.technicianCompleted.toLowerCase().includes(q) ||
           (item.modifiedBy || '').toLowerCase().includes(q) ||
           item.projectName.toLowerCase().includes(q) ||
@@ -846,7 +848,7 @@ export default function App() {
       let phases = Array.from(photoPhaseKeys(edited))
         .filter(k => !before.has(k))
         .map(k => k.split('|')[0] as PhotoPhase);
-      if (!previous && phases.length === 0) phases = [edited.status === 'BEFORE' ? 'BEFORE' : 'COMPLETED'];
+      if (!previous && phases.length === 0) phases = [edited.status];
       const updated = stampTechnician(edited, phases);
       updateItems(prev => {
         const exists = prev.some(i => i.id === updated.id);

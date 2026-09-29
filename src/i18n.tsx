@@ -130,6 +130,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Sin medidas especificadas': { en: 'No measurements', fa: 'بدون اندازه' },
   'Inicio:': { en: 'Start:', fa: 'شروع:' },
   'Listo:': { en: 'Done:', fa: 'تمام:' },
+  'Durante:': { en: 'During:', fa: 'در حین:' },
 
   // Table
   'Fotos': { en: 'Photos', fa: 'عکس‌ها' },
@@ -431,6 +432,8 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Comentario': { en: 'Comment', fa: 'نظر' },
   'Técnico inicio': { en: 'Start technician', fa: 'تکنیسین شروع' },
   'Técnico final': { en: 'Completion technician', fa: 'تکنیسین تکمیل' },
+  'Técnico durante': { en: 'During technician', fa: 'تکنیسین در حین کار' },
+  'Fecha durante': { en: 'During date', fa: 'تاریخ در حین کار' },
   'Fecha inicio': { en: 'Start date', fa: 'تاریخ شروع' },
   'Fecha final': { en: 'Completion date', fa: 'تاریخ تکمیل' },
   'Nº fila': { en: 'Row no.', fa: 'شماره ردیف' },

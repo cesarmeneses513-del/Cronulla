@@ -31,6 +31,8 @@ const FIELDS: { key: keyof DefectItem; label: string }[] = [
   { key: 'comment', label: 'Comentario' },
   { key: 'technicianStart', label: 'Técnico inicio' },
   { key: 'date1stPhoto', label: 'Fecha inicio' },
+  { key: 'technicianDuring', label: 'Técnico durante' },
+  { key: 'dateDuring', label: 'Fecha durante' },
   { key: 'technicianCompleted', label: 'Técnico final' },
   { key: 'dateCompleted', label: 'Fecha final' },
   { key: 'linearMeters', label: 'Metros Lineales (m)' },

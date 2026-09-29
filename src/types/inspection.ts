@@ -22,6 +22,10 @@ export interface DefectItem {
   technicianStart: string;
   date1stPhoto: string;
   time1stPhoto: string;
+  // Who added the latest During (In progress) photo, and when. Missing on older defects.
+  technicianDuring?: string;
+  dateDuring?: string;
+  timeDuring?: string;
   technicianCompleted: string;
   dateCompleted: string;
   timeCompleted: string;
