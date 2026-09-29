@@ -3,7 +3,7 @@ import { ArrowDownUp, ArrowDown01, ArrowUp10, Check, ChevronDown } from 'lucide-
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 
-export type SortKey = 'number' | 'stage' | 'defect' | 'drop' | 'level';
+export type SortKey = 'recent' | 'number' | 'stage' | 'defect' | 'drop' | 'level';
 export type SortDirection = 'asc' | 'desc';
 // Sort keys in priority order; empty = original order.
 export interface SortState {
@@ -12,6 +12,7 @@ export interface SortState {
 }
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'recent', label: 'Últimos cambios' },
   { key: 'number', label: 'Nº' },
   { key: 'stage', label: 'Stage' },
   { key: 'defect', label: 'Defecto (A-Z)' },
@@ -37,6 +38,13 @@ const levelRank = (level: string) => {
 };
 
 const COMPARE: Record<SortKey, (x: DefectItem, y: DefectItem) => number> = {
+  // Newest first (created or changed); rows never changed since this was added go last.
+  recent: (x, y) => {
+    const a = x.modifiedAt || '';
+    const b = y.modifiedAt || '';
+    if (!a || !b) return a ? -1 : b ? 1 : 0;
+    return a < b ? 1 : a > b ? -1 : 0;
+  },
   number: (x, y) => natural(x.rowNo, y.rowNo),
   stage: (x, y) => natural(x.orientation, y.orientation),
   defect: (x, y) => natural(x.defect, y.defect),

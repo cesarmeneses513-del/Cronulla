@@ -20,7 +20,19 @@ interface DefectRow {
   position: number;
   data: DefectItem;
   client_id?: string | null;
+  modified_at?: string | null;
 }
+
+// `modifiedAt` comes from its own column (kept by the database), not from `data`.
+const withModified = (r: DefectRow): DefectItem =>
+  r.modified_at ? { ...r.data, modifiedAt: r.modified_at } : r.data;
+const withoutModified = (item: DefectItem): DefectItem => {
+  if (!('modifiedAt' in item)) return item;
+  const { modifiedAt: _ignored, ...rest } = item;
+  return rest;
+};
+// False once we know the database doesn't have the modified_at column yet.
+let hasModifiedAt = true;
 
 export async function fetchDefects(): Promise<DefectItem[]> {
   if (!supabase) throw new Error('Supabase no configurado');
@@ -30,24 +42,35 @@ export async function fetchDefects(): Promise<DefectItem[]> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from(TABLE)
-      .select('id, position, data')
+      .select(hasModifiedAt ? 'id, position, data, modified_at' : 'id, position, data')
       .order('position')
       .order('id')
       .range(from, from + PAGE - 1);
+    if (error && hasModifiedAt && from === 0) {
+      // Column not created yet (supabase/modified-at.sql): load without it.
+      hasModifiedAt = false;
+      return fetchDefects();
+    }
     if (error) throw error;
-    rows.push(...(data as DefectRow[]));
+    rows.push(...(data as unknown as DefectRow[]));
     if (data.length < PAGE) break;
   }
-  return rows.map(r => r.data);
+  return rows.map(withModified);
 }
 
 export async function fetchDefectsByIds(ids: string[]): Promise<Map<string, DefectItem>> {
   const found = new Map<string, DefectItem>();
   if (!supabase) return found;
   for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
-    const { data, error } = await supabase.from(TABLE).select('id, data').in('id', ids.slice(i, i + DELETE_CHUNK));
-    if (error) throw error;
-    (data as DefectRow[]).forEach(r => found.set(r.id, r.data));
+    const chunk = ids.slice(i, i + DELETE_CHUNK);
+    const select = (cols: string) => supabase!.from(TABLE).select(cols).in('id', chunk);
+    let res = await select(hasModifiedAt ? 'id, data, modified_at' : 'id, data');
+    if (res.error && hasModifiedAt) {
+      hasModifiedAt = false;
+      res = await select('id, data');
+    }
+    if (res.error) throw res.error;
+    (res.data as unknown as DefectRow[]).forEach(r => found.set(r.id, withModified(r)));
   }
   return found;
 }
@@ -100,15 +123,17 @@ export async function syncDefects(
   normalize: (items: DefectItem[]) => DefectItem[] = items => items
 ): Promise<DefectItem[]> {
   if (!supabase) return [];
-
   const prevById = new Map<string, { item: DefectItem; position: number }>();
   prev.forEach((item, position) => prevById.set(item.id, { item, position }));
 
+  // The change time isn't part of the row's data: it's left out of comparisons and writes.
+  const stamps = new Map<string, string>();
   const upserts: DefectRow[] = [];
   next.forEach((item, position) => {
     const old = prevById.get(item.id);
     if (!old || old.item !== item || old.position !== position) {
-      upserts.push({ id: item.id, position, data: item });
+      upserts.push({ id: item.id, position, data: withoutModified(item) });
+      if (item.modifiedAt) stamps.set(item.id, item.modifiedAt);
     }
   });
 
@@ -117,13 +142,15 @@ export async function syncDefects(
   const changed: DefectItem[] = [];
   upserts.forEach(r => {
     const raw = remote.get(r.id);
-    const theirs = raw && normalize([raw])[0];
-    const base = prevById.get(r.id)?.item;
+    const theirs = raw && withoutModified(normalize([raw])[0]);
+    const prevItem = prevById.get(r.id)?.item;
+    const base = prevItem && withoutModified(prevItem);
     if (!theirs || !base || same(theirs, base)) return;
     const merged = mergeItem(base, r.data, theirs);
     if (!same(merged, r.data)) {
       r.data = merged;
-      changed.push(merged);
+      const stamp = stamps.get(r.id);
+      changed.push(stamp ? { ...merged, modifiedAt: stamp } : merged);
     }
   });
 
@@ -158,7 +185,7 @@ export function subscribeToDefects(
         if (id) onDelete(id);
       } else {
         const row = payload.new as DefectRow;
-        if (row.client_id !== CLIENT_ID) onUpsert(row.data, row.position);
+        if (row.client_id !== CLIENT_ID) onUpsert(withModified(row), row.position);
       }
     })
     .subscribe();

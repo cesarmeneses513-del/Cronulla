@@ -32,6 +32,8 @@ export interface DefectItem {
   linearMeters: string;
   quantity: string;
   customTags?: string[];
+  // When the row's data last changed (from the database; never saved inside the row).
+  modifiedAt?: string;
 }
 
 export interface FilterState {

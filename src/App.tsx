@@ -334,11 +334,12 @@ export default function App() {
   const updateItems = useCallback((updater: (prev: DefectItem[]) => DefectItem[], label: string) => {
     const before = itemsRef.current;
     const beforeById = new Map(before.map(i => [i.id, i]));
-    // Rows touched by the action get their photos back in Before → During → After order.
+    // Rows touched by the action get their photos back in Before → During → After order, and
+    // the time of the change (for the "Recent changes" sort; the database keeps its own copy).
+    const now = new Date().toISOString();
     const after = updater(before).map(i => {
       if (beforeById.get(i.id) === i) return i;
-      const photos = sortPhotosByPhase(i.photos);
-      return photos === i.photos ? i : { ...i, photos };
+      return { ...i, photos: sortPhotosByPhase(i.photos), modifiedAt: now };
     });
     if (after.every((i, n) => before[n] === i) && after.length === before.length) return;
     itemsRef.current = after;

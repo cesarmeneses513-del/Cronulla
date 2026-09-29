@@ -85,6 +85,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Nº': { en: 'No.', fa: 'شماره' },
   'Stage': { en: 'Stage', fa: 'مرحله' },
   'Defecto (A-Z)': { en: 'Defect (A-Z)', fa: 'نقص (A-Z)' },
+  'Últimos cambios': { en: 'Recent changes', fa: 'آخرین تغییرات' },
   'Ascendente (clic para invertir)': { en: 'Ascending (click to reverse)', fa: 'صعودی (برای برعکس کردن کلیک کنید)' },
   'Descendente (clic para invertir)': { en: 'Descending (click to reverse)', fa: 'نزولی (برای برعکس کردن کلیک کنید)' },
   'Ascendente': { en: 'Ascending', fa: 'صعودی' },
