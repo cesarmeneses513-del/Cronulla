@@ -17,6 +17,7 @@ import { Pagination } from './components/Pagination';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
+import { sortPhotosByPhase } from './lib/photoOrder';
 import { supabase, fetchDefects, fetchDefectsByIds, syncDefects, subscribeToDefects } from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
 
@@ -78,7 +79,7 @@ const photoPhaseKeys = (item?: DefectItem) =>
 const normalizeItems = (rawItems: DefectItem[]): DefectItem[] => {
   return rawItems.map(item => ({
     ...item,
-    photos: item.photos.map((p: any, idx: number) => {
+    photos: sortPhotosByPhase(item.photos).map((p: any, idx: number) => {
       if (typeof p === 'string') {
         const phase: PhotoPhase = idx >= 6 ? 'COMPLETED' : idx >= 3 ? 'IN PROGRESS' : 'BEFORE';
         return {
@@ -332,8 +333,14 @@ export default function App() {
 
   const updateItems = useCallback((updater: (prev: DefectItem[]) => DefectItem[], label: string) => {
     const before = itemsRef.current;
-    const after = updater(before);
-    if (after === before) return;
+    const beforeById = new Map(before.map(i => [i.id, i]));
+    // Rows touched by the action get their photos back in Before → During → After order.
+    const after = updater(before).map(i => {
+      if (beforeById.get(i.id) === i) return i;
+      const photos = sortPhotosByPhase(i.photos);
+      return photos === i.photos ? i : { ...i, photos };
+    });
+    if (after.every((i, n) => before[n] === i) && after.length === before.length) return;
     itemsRef.current = after;
     setItems(after);
     setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), { label, before, after }]);
@@ -376,6 +383,8 @@ export default function App() {
   // Lightbox State
   const [lightboxItem, setLightboxItem] = useState<DefectItem | null>(null);
   const [lightboxPhotoIndex, setLightboxPhotoIndex] = useState<number>(0);
+  const lightboxRef = useRef<{ itemId?: string; index: number }>({ index: 0 });
+  lightboxRef.current = { itemId: lightboxItem?.id, index: lightboxPhotoIndex };
 
   // Filter items
   const applyFilters = useCallback((f: FilterState) => {
@@ -697,6 +706,8 @@ export default function App() {
   // Handler: Update photo phase directly
   const handleUpdatePhotoPhase = useCallback(
     (itemId: string, photoIndex: number, newPhase: PhotoPhase) => {
+      const old = itemsRef.current.find(i => i.id === itemId)?.photos[photoIndex];
+      const url = old === undefined ? undefined : typeof old === 'string' ? old : old.url;
       updateItems(prev =>
         prev.map(item => {
           if (item.id !== itemId) return item;
@@ -712,6 +723,13 @@ export default function App() {
         }),
         t('cambiar fase de foto')
       );
+      // The photo moves to its new phase group: keep the viewer on it.
+      const cur = itemsRef.current.find(i => i.id === itemId);
+      const view = lightboxRef.current;
+      if (cur && url && view.itemId === itemId && view.index === photoIndex) {
+        const idx = cur.photos.findIndex(p => (typeof p === 'string' ? p : p.url) === url);
+        if (idx >= 0) setLightboxPhotoIndex(idx);
+      }
       showToast(t('Foto cambiada a {phase}', { phase: t(PHASE_LABEL[newPhase]) }), true);
     },
     [showToast, updateItems, t]

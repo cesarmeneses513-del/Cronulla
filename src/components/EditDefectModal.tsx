@@ -8,6 +8,7 @@ import { stageImageFor } from '../data/stageImages';
 import { StageImageViewer } from './StageImageViewer';
 import { PhasePicker } from './PhasePicker';
 import { SuggestInput } from './SuggestInput';
+import { sortPhotosByPhase } from '../lib/photoOrder';
 
 interface EditDefectModalProps {
   item: DefectItem | null;
@@ -108,7 +109,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
       phase: newPhase,
       slot: typeof itemPhoto === 'object' ? itemPhoto.slot : index + 1,
     };
-    setFormData({ ...formData, photos });
+    setFormData({ ...formData, photos: sortPhotosByPhase(photos) });
   };
 
   // A new photo (file or URL) waits here until its phase is chosen.
@@ -136,7 +137,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
     const url = p.file ? await uploadPhoto(p.file) : p.url!;
     setFormData(prev => {
       const newPhoto: DefectPhoto = { url, phase, slot: prev.photos.length + 1 };
-      return { ...prev, photos: [...prev.photos, newPhoto] };
+      return { ...prev, photos: sortPhotosByPhase([...prev.photos, newPhoto]) };
     });
   };
 
