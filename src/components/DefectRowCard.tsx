@@ -532,12 +532,6 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                 <span>{t('Inicio:')} <strong>{item.technicianStart}</strong> {item.date1stPhoto && `(${item.date1stPhoto})`}</span>
               </span>
             )}
-            {item.technicianDuring && (
-              <span className="flex items-center gap-1 text-amber-700">
-                <User className="w-3 h-3 text-amber-500" />
-                <span>{t('Durante:')} <strong>{item.technicianDuring}</strong> {item.dateDuring && `(${item.dateDuring})`}</span>
-              </span>
-            )}
             {item.technicianCompleted && (
               <span className="flex items-center gap-1 text-emerald-700">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />

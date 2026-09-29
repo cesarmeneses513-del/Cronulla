@@ -383,9 +383,6 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             {item.technicianStart && (
               <div>{t('Inicio:')} <strong className="text-white">{item.technicianStart}</strong> ({item.date1stPhoto || '—'})</div>
             )}
-            {item.technicianDuring && (
-              <div>{t('Durante:')} <strong className="text-amber-300">{item.technicianDuring}</strong> ({item.dateDuring || '—'})</div>
-            )}
             {item.technicianCompleted && (
               <div>{t('Finalizado:')} <strong className="text-emerald-400">{item.technicianCompleted}</strong> ({item.dateCompleted || '—'})</div>
             )}

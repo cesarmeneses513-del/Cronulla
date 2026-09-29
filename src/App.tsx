@@ -431,7 +431,6 @@ export default function App() {
           item.level.toLowerCase().includes(q) ||
           item.comment.toLowerCase().includes(q) ||
           item.technicianStart.toLowerCase().includes(q) ||
-          (item.technicianDuring || '').toLowerCase().includes(q) ||
           item.technicianCompleted.toLowerCase().includes(q) ||
           (item.modifiedBy || '').toLowerCase().includes(q) ||
           item.projectName.toLowerCase().includes(q) ||
