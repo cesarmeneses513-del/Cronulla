@@ -19,7 +19,16 @@ import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
 import { sortPhotosByPhase } from './lib/photoOrder';
 import { canonicalPerson } from './lib/people';
-import { supabase, fetchDefects, fetchDefectsByIds, syncDefects, subscribeToDefects } from './lib/supabase';
+import {
+  supabase,
+  fetchDefects,
+  fetchDefectsByIds,
+  syncDefects,
+  subscribeToDefects,
+  sameData,
+  mergeItem,
+  withoutModified,
+} from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
@@ -185,9 +194,27 @@ export default function App() {
 
     const unsubscribe = subscribeToDefects(
       (item, position) => {
-        const change: RemoteChange = { type: 'upsert', item: normalizeItems([item])[0], position };
-        if (syncedRef.current) syncedRef.current = applyRemoteChange(syncedRef.current, change);
-        setItems(prev => applyRemoteChange(prev, change));
+        const remote = normalizeItems([item])[0];
+        const synced = syncedRef.current?.find(i => i.id === remote.id);
+        const local = itemsRef.current.find(i => i.id === remote.id);
+        const meta = { modifiedAt: remote.modifiedAt, modifiedBy: remote.modifiedBy };
+        let forSynced = remote;
+        let forItems = remote;
+        if (synced && sameData(synced, remote)) {
+          // Only the change time / person moved: keep our copy (it may hold changes not saved yet).
+          forSynced = { ...synced, ...meta };
+          forItems = local && local !== synced ? { ...local, ...meta } : forSynced;
+        } else if (local && synced && local !== synced) {
+          // Someone else changed a row we're changing too: keep both sets of changes.
+          forItems = {
+            ...mergeItem(withoutModified(synced), withoutModified(local), withoutModified(remote)),
+            modifiedAt: local.modifiedAt,
+            modifiedBy: local.modifiedBy,
+          };
+        }
+        if (syncedRef.current) syncedRef.current = applyRemoteChange(syncedRef.current, { type: 'upsert', item: forSynced, position });
+        itemsRef.current = applyRemoteChange(itemsRef.current, { type: 'upsert', item: forItems, position });
+        setItems(itemsRef.current);
       },
       id => {
         const change: RemoteChange = { type: 'delete', id };

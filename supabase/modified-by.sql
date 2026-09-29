@@ -1,9 +1,10 @@
 -- "Last modified by" of each defect, for the filter of the same name.
 -- Run once in Supabase → SQL Editor, after modified-at.sql. Safe to run again.
 --
--- Taken from the change history: the web logs who is signed in; Glide logs the technician of
--- the row ("Glide · Name"). Edits from the Google Sheet don't say who made them, and only
--- renumbering the row ("No") doesn't count, so neither changes the name.
+-- The web sends it with each change it saves (who is signed in). Glide changes take it from
+-- their history entry ("Glide · Name" = the technician of the row). Edits from the Google
+-- Sheet don't say who made them, and only renumbering the row ("No") doesn't count, so
+-- neither changes the name.
 
 alter table public.defects add column if not exists modified_by text;
 
@@ -39,7 +40,10 @@ as $$
   end
 $$;
 
--- Each new history entry updates its defect.
+-- Each new Glide history entry updates its defect. Only Glide: the script saves the row first
+-- and logs it after, so the row already has the new data. The web logs a change before saving
+-- the row, and updating the row at that moment would send the phones the old version of it
+-- (photos just added would vanish), so the web sends the name with the row instead.
 create or replace function public.touch_defect_modified_by()
 returns trigger
 language plpgsql
@@ -49,7 +53,7 @@ as $$
 declare
   person text := public.history_person(new);
 begin
-  if person is not null then
+  if person is not null and new.user_name like 'Glide · %' then
     update public.defects set modified_by = person
     where id = new.defect_id and modified_by is distinct from person;
   end if;

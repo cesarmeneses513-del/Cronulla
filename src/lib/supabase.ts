@@ -32,7 +32,7 @@ const withModified = (r: DefectRow): DefectItem => {
   if (r.modified_by) item.modifiedBy = r.modified_by;
   return item;
 };
-const withoutModified = (item: DefectItem): DefectItem => {
+export const withoutModified = (item: DefectItem): DefectItem => {
   if (!('modifiedAt' in item) && !('modifiedBy' in item)) return item;
   const { modifiedAt: _at, modifiedBy: _by, ...rest } = item;
   return rest;
@@ -84,7 +84,19 @@ export async function fetchDefectsByIds(ids: string[]): Promise<Map<string, Defe
 
 type Photo = DefectItem['photos'][number];
 const photoUrl = (p: Photo) => (typeof p === 'string' ? p : p.url);
-const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
+// Key order doesn't matter: rows read back from the database come with their keys reordered.
+const stable = (v: unknown) =>
+  JSON.stringify(v, (_k, val) =>
+    val && typeof val === 'object' && !Array.isArray(val)
+      ? Object.keys(val)
+          .sort()
+          .reduce<Record<string, unknown>>((o, k) => ((o[k] = (val as Record<string, unknown>)[k]), o), {})
+      : val
+  );
+const same = (a: unknown, b: unknown) => a === b || stable(a) === stable(b);
+
+// Same defect data, ignoring the change time / person (kept by the database).
+export const sameData = (a: DefectItem, b: DefectItem) => same(withoutModified(a), withoutModified(b));
 
 // Photos: keep everyone's. Ours win for the ones we added or changed; ones we removed stay removed.
 function mergePhotos(base: Photo[], mine: Photo[], theirs: Photo[]): Photo[] {
@@ -108,7 +120,7 @@ function mergePhotos(base: Photo[], mine: Photo[], theirs: Photo[]): Photo[] {
 
 // Three-way merge of one row: fields we changed since `base` come from `mine`, the rest from the
 // database, so a phone with an older copy never undoes what someone else saved meanwhile.
-function mergeItem(base: DefectItem, mine: DefectItem, theirs: DefectItem): DefectItem {
+export function mergeItem(base: DefectItem, mine: DefectItem, theirs: DefectItem): DefectItem {
   const merged = { ...theirs } as Record<string, unknown>;
   const b = base as unknown as Record<string, unknown>;
   const m = mine as unknown as Record<string, unknown>;
@@ -136,11 +148,14 @@ export async function syncDefects(
   // The change time isn't part of the row's data: it's left out of comparisons and writes.
   const stamps = new Map<string, Pick<DefectItem, 'modifiedAt' | 'modifiedBy'>>();
   const upserts: DefectRow[] = [];
+  // Rows whose data changed here (not just moved): they also carry who changed them.
+  const edited = new Set<string>();
   next.forEach((item, position) => {
     const old = prevById.get(item.id);
     if (!old || old.item !== item || old.position !== position) {
       upserts.push({ id: item.id, position, data: withoutModified(item) });
       if (item.modifiedAt || item.modifiedBy) stamps.set(item.id, { modifiedAt: item.modifiedAt, modifiedBy: item.modifiedBy });
+      if ((!old || old.item !== item) && item.modifiedBy) edited.add(item.id);
     }
   });
 
@@ -166,10 +181,25 @@ export async function syncDefects(
 
   // Chunked: bulk deletes put every id in the URL, which has a length limit.
   const now = new Date().toISOString();
-  for (let i = 0; i < upserts.length; i += WRITE_CHUNK) {
+  // Separate requests: in one bulk upsert every row gets the same columns, and rows that only
+  // moved must not overwrite who last changed them.
+  const withBy = extra === 0 ? upserts.filter(r => edited.has(r.id)) : [];
+  const withoutBy = extra === 0 ? upserts.filter(r => !edited.has(r.id)) : upserts;
+  for (let i = 0; i < withBy.length; i += WRITE_CHUNK) {
+    const { error } = await supabase.from(TABLE).upsert(
+      withBy.slice(i, i + WRITE_CHUNK).map(r => ({
+        ...r,
+        client_id: CLIENT_ID,
+        updated_at: now,
+        modified_by: stamps.get(r.id)?.modifiedBy,
+      }))
+    );
+    if (error) throw error;
+  }
+  for (let i = 0; i < withoutBy.length; i += WRITE_CHUNK) {
     const { error } = await supabase
       .from(TABLE)
-      .upsert(upserts.slice(i, i + WRITE_CHUNK).map(r => ({ ...r, client_id: CLIENT_ID, updated_at: now })));
+      .upsert(withoutBy.slice(i, i + WRITE_CHUNK).map(r => ({ ...r, client_id: CLIENT_ID, updated_at: now })));
     if (error) throw error;
   }
   for (let i = 0; i < deletes.length; i += DELETE_CHUNK) {
