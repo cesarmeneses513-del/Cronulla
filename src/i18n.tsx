@@ -209,6 +209,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Dimensiones': { en: 'Dimensions', fa: 'ابعاد' },
   'Base × Altura:': { en: 'Width × Height:', fa: 'عرض × ارتفاع:' },
   'Comentario / Nota': { en: 'Comment / Note', fa: 'نظر / یادداشت' },
+  'Añadir comentario o nota…': { en: 'Add a comment or note…', fa: 'افزودن نظر یا یادداشت…' },
   'Finalizado:': { en: 'Completed:', fa: 'تکمیل:' },
   'Fotos de esta fila ({n})': { en: 'Photos in this row ({n})', fa: 'عکس‌های این ردیف ({n})' },
   'Mover foto a otra fila:': { en: 'Move photo to another row:', fa: 'انتقال عکس به ردیف دیگر:' },

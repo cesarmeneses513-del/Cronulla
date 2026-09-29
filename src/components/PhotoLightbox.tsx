@@ -81,6 +81,18 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
     go();
   };
 
+  // Technicians
+  const technicians = (
+    <div className="text-xs text-slate-400 space-y-1 pt-1 border-t border-white/10">
+      {item.technicianStart && (
+        <div>{t('Inicio:')} <strong className="text-white">{item.technicianStart}</strong> ({item.date1stPhoto || '—'})</div>
+      )}
+      {item.technicianCompleted && (
+        <div>{t('Finalizado:')} <strong className="text-emerald-400">{item.technicianCompleted}</strong> ({item.dateCompleted || '—'})</div>
+      )}
+    </div>
+  );
+
   const hasPrev = photoIndex > 0;
   const hasNext = photoIndex < item.photos.length - 1;
 
@@ -338,7 +350,9 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           </div>
 
           {/* Editable details (editor only) */}
-          {onSaveItem && <LightboxEditForm item={item} allItems={allItems} onSave={onSaveItem} flushRef={flushRef} />}
+          {onSaveItem && (
+            <LightboxEditForm item={item} allItems={allItems} onSave={onSaveItem} flushRef={flushRef} afterDetails={technicians} />
+          )}
 
           {/* Quick Metrics */}
           {!onSaveItem && (
@@ -370,23 +384,15 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             </div>
           )}
 
-          {/* Comment */}
-          {item.comment && (
+          {/* Comment (editors edit it in the form, under the technicians) */}
+          {!onSaveItem && item.comment && (
             <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs">
               <span className="text-amber-400 block text-[11px] font-semibold">{t('Comentario / Nota')}</span>
               <p className="text-amber-100 font-medium mt-0.5">{item.comment}</p>
             </div>
           )}
 
-          {/* Technicians */}
-          <div className="text-xs text-slate-400 space-y-1 pt-1 border-t border-white/10">
-            {item.technicianStart && (
-              <div>{t('Inicio:')} <strong className="text-white">{item.technicianStart}</strong> ({item.date1stPhoto || '—'})</div>
-            )}
-            {item.technicianCompleted && (
-              <div>{t('Finalizado:')} <strong className="text-emerald-400">{item.technicianCompleted}</strong> ({item.dateCompleted || '—'})</div>
-            )}
-          </div>
+          {!onSaveItem && technicians}
 
           {/* Thumbnail list of photos in this defect */}
           <div className="pt-2 border-t border-white/10">
@@ -564,7 +570,7 @@ const MovePhotosPanel: React.FC<{
 };
 
 // Inline editing of the row's main details from the photo viewer.
-const EDIT_FIELDS = ['defect', 'drop', 'level', 'baseM', 'heightM', 'linearMeters', 'quantity'] as const;
+const EDIT_FIELDS = ['defect', 'drop', 'level', 'baseM', 'heightM', 'linearMeters', 'quantity', 'comment'] as const;
 type EditField = (typeof EDIT_FIELDS)[number];
 type Draft = Record<EditField, string>;
 const draftOf = (item: DefectItem): Draft =>
@@ -575,7 +581,9 @@ const LightboxEditForm: React.FC<{
   allItems: DefectItem[];
   onSave: (item: DefectItem) => void;
   flushRef?: React.MutableRefObject<(() => void) | null>;
-}> = ({ item, allItems, onSave, flushRef }) => {
+  // Shown between the details and the comment (the technicians).
+  afterDetails?: React.ReactNode;
+}> = ({ item, allItems, onSave, flushRef, afterDetails }) => {
   const { t } = useI18n();
   const [draft, setDraft] = useState<Draft>(() => draftOf(item));
   // Start over whenever the row itself changes (saved, or edited elsewhere).
@@ -586,7 +594,7 @@ const LightboxEditForm: React.FC<{
     [allItems]
   );
   const dirty = EDIT_FIELDS.some(f => draft[f] !== String(item[f] ?? ''));
-  const set = (f: EditField) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const set = (f: EditField) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value;
     setDraft(d => ({ ...d, [f]: value }));
   };
@@ -614,7 +622,8 @@ const LightboxEditForm: React.FC<{
   const label = 'block text-[11px] text-slate-400 mb-0.5 md:mb-1 truncate';
 
   return (
-    <form onSubmit={submit} className="p-2.5 md:p-3 bg-white/5 rounded-lg border border-white/10 space-y-2 md:space-y-2.5">
+    <form onSubmit={submit} className="space-y-3">
+      <div className="p-2.5 md:p-3 bg-white/5 rounded-lg border border-white/10 space-y-2 md:space-y-2.5">
       <div>
         <label className={label}>{t('Defecto')}</label>
         <SuggestInput
@@ -650,6 +659,20 @@ const LightboxEditForm: React.FC<{
           <label className={label}>{t('Cantidad')}</label>
           <input value={draft.quantity} onChange={set('quantity')} inputMode="decimal" className={`${input} font-mono`} />
         </div>
+      </div>
+      </div>
+
+      {afterDetails}
+
+      <div>
+        <label className={label}>{t('Comentario / Nota')}</label>
+        <textarea
+          value={draft.comment}
+          onChange={set('comment')}
+          rows={2}
+          placeholder={t('Añadir comentario o nota…')}
+          className={`${input} resize-y`}
+        />
       </div>
       {dirty && (
         <div className="flex items-center justify-end gap-2 pt-1">
