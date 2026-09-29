@@ -13,6 +13,11 @@
  * Deleting rows in the sheet (right-click → Delete row) deletes those defects in the app. Deleted
  * rows are first copied to a hidden "_papelera" tab; Cronulla → Restaurar último borrado brings
  * the last batch back. Clearing a row's contents is NOT a delete — use Delete row.
+ *
+ * Order: rows are sorted by Level, Drop and Stage whenever the web writes the sheet and whenever
+ * the spreadsheet is opened. The last "No" column (B) is renumbered 1, 2, 3… in that order and is
+ * never sent to the web. Any other column the web doesn't write (like the first "No", column A)
+ * belongs to the sheet: what is typed there moves with its row and is never erased.
  */
 
 const SUPABASE_URL = 'https://jawmcsrcgqvndjhhvovl.supabase.co';
@@ -29,8 +34,8 @@ const SNAPSHOT_SHEET = '_sync_ids';
 const TRASH_SHEET = '_papelera';
 
 // Sheet header (trimmed, upper-case) → DefectItem field, for plain text columns.
+// "No" is not here: the sheet numbers its own rows (see NUMBER_HEADER).
 const FIELDS = {
-  'NO': 'rowNo',
   'NAME PROYECT': 'projectName',
   'NAME PROJECT': 'projectName',
   'NAME PROJECT:': 'projectName',
@@ -80,6 +85,12 @@ function setup() {
 }
 
 function onOpen() {
+  // Opening the spreadsheet puts the rows in order (Level, Drop, Stage) and renumbers them.
+  try {
+    sortSheetRows_();
+  } catch (err) {
+    // Read-only viewers can't edit; the sheet is still shown as it is.
+  }
   SpreadsheetApp.getUi()
     .createMenu('Cronulla')
     .addItem('Enviar la planilla a la web', 'sendSheetToWeb')
@@ -210,49 +221,82 @@ function formatDateTimeColumns_(sheet, headers, rowCount) {
   });
 }
 
-// The sheet is always written in "No" order (1, 2, … 10, 11; blanks last), whatever order the
-// web keeps internally, so it doesn't look shuffled after each update.
-function sortByRowNo_(items) {
-  return items
-    .map((item, i) => ({ item: item, i: i }))
+// The sheet is always written in Level, Drop, Stage order, whatever order the web keeps internally.
+// Levels go up the building: G, 1, 2, … 12, then R; blanks last. Ties keep their current order.
+const NUMBER_HEADER = 'NO';
+
+const natural_ = (a, b) => {
+  a = String(a === undefined || a === null ? '' : a).trim();
+  b = String(b === undefined || b === null ? '' : b).trim();
+  if (!a || !b) return a ? -1 : b ? 1 : 0;
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+};
+
+function levelRank_(level) {
+  const v = String(level === undefined || level === null ? '' : level).trim().toUpperCase();
+  if (!v) return Number.POSITIVE_INFINITY;
+  if (v === 'G') return -1;
+  if (v === 'R') return 100000;
+  const n = parseFloat(v);
+  return isNaN(n) ? 50000 : n;
+}
+
+// `key` returns { level, drop, stage } for each element of `list`.
+function sortForSheet_(list, key) {
+  return list
+    .map((x, i) => ({ x: x, k: key(x), i: i }))
     .sort((a, b) => {
-      const x = String(a.item.rowNo || '').trim();
-      const y = String(b.item.rowNo || '').trim();
-      if (!x || !y) return x ? -1 : y ? 1 : a.i - b.i;
-      return x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' }) || a.i - b.i;
+      const la = levelRank_(a.k.level);
+      const lb = levelRank_(b.k.level);
+      if (la !== lb) return la < lb ? -1 : 1;
+      return natural_(a.k.level, b.k.level) || natural_(a.k.drop, b.k.drop) || natural_(a.k.stage, b.k.stage) || a.i - b.i;
     })
-    .map(x => x.item);
+    .map(e => e.x);
+}
+
+const itemKey_ = item => ({ level: item.level, drop: item.drop, stage: item.orientation });
+
+// Columns sheet edits send to the web.
+function sentToWeb_(h) {
+  return !!FIELDS[h] || /^PHOTO\s*\d$/.test(h) || h === 'CUSTOM TAGS';
 }
 
 // Filled only by hand in the sheet; the web never writes them.
 const SHEET_ONLY_HEADERS = ['MAPPING'];
 
+// Columns the web writes on each rewrite; every other one keeps what was typed in the sheet.
+function writtenByWeb_(h) {
+  return h === ID_HEADER || (sentToWeb_(h) && SHEET_ONLY_HEADERS.indexOf(h) < 0);
+}
+
 function writeRows_(items) {
-  items = sortByRowNo_(items);
+  items = sortForSheet_(items, itemKey_);
   const sheet = getSheet_();
   ensureIdColumn_(sheet);
   const headers = readHeaders_(sheet);
   const width = headers.length;
+  const numberIdx = headers.lastIndexOf(NUMBER_HEADER);
 
-  // Columns the web never writes: each row keeps what was typed in the sheet (matched by ID,
-  // since rows can move when the sheet is re-sorted).
+  // Columns the web never writes (e.g. the first "No"): each row keeps what was typed in the
+  // sheet, matched by ID, since rows move when the sheet is re-sorted.
   const oldCount = Math.max(sheet.getLastRow() - 1, 0);
   const idIdx = headers.indexOf(ID_HEADER);
   const kept = {};
   const oldValues = oldCount > 0 ? sheet.getRange(2, 1, oldCount, width).getValues() : [];
   headers.forEach((h, c) => {
-    if (SHEET_ONLY_HEADERS.indexOf(h) < 0) return;
-    kept[h] = {};
+    if (c === numberIdx || writtenByWeb_(h)) return;
+    kept[c] = {};
     oldValues.forEach(r => {
       const id = String(r[idIdx]).trim();
-      if (id) kept[h][id] = r[c];
+      if (id) kept[c][id] = r[c];
     });
   });
 
-  const values = items.map(item => {
+  const values = items.map((item, i) => {
     const slots = photoSlots_(item);
-    return headers.map(h => {
-      if (kept[h]) return kept[h][item.id] === undefined ? '' : kept[h][item.id];
+    return headers.map((h, c) => {
+      if (c === numberIdx) return i + 1;
+      if (kept[c]) return kept[c][item.id] === undefined ? '' : kept[c][item.id];
       const v = columnValue_(h, item, slots);
       return v === undefined || v === null ? '' : v;
     });
@@ -277,6 +321,45 @@ function writeRows_(items) {
   }
 }
 
+/**
+ * Sorts the rows already in the sheet (Level, Drop, Stage) and renumbers the last "No" column,
+ * without asking the web. Rows move whole, so every column keeps its value. Rows without an ID
+ * (a defect still being typed) stay at the bottom.
+ */
+function sortSheetRows_() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return; // a sync is writing; it sorts the sheet itself
+  try {
+    const sheet = getSheet_();
+    const headers = readHeaders_(sheet);
+    const idIdx = headers.indexOf(ID_HEADER);
+    const n = sheet.getLastRow() - 1;
+    if (idIdx < 0 || n < 1) return;
+    const col = h => headers.indexOf(h);
+    const [levelIdx, dropIdx, stageIdx] = ['LEVEL', 'DROP', 'ORIENTATION'].map(col);
+    const numberIdx = headers.lastIndexOf(NUMBER_HEADER);
+    const at = (r, c) => (c >= 0 ? r[c] : '');
+
+    const range = sheet.getRange(2, 1, n, headers.length);
+    const values = range.getValues();
+    const hasId = r => String(r[idIdx]).trim() !== '';
+    const sorted = sortForSheet_(values.filter(hasId), r => ({
+      level: at(r, levelIdx),
+      drop: at(r, dropIdx),
+      stage: at(r, stageIdx),
+    })).concat(values.filter(r => !hasId(r)));
+    let count = 0;
+    sorted.forEach(r => {
+      if (numberIdx >= 0 && hasId(r)) r[numberIdx] = ++count;
+    });
+
+    const changed = sorted.some((r, i) => r.some((v, c) => String(v) !== String(values[i][c])));
+    if (changed) range.setValues(sorted);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ───────────────────────────── Sheet → app ─────────────────────────────
 
 /** Installable onEdit trigger (installed by `setup`). */
@@ -295,7 +378,7 @@ function onSheetEdit(e) {
   const editedHeaders = [];
   for (let c = e.range.getColumn(); c <= e.range.getLastColumn(); c++) {
     const h = headers[c - 1];
-    if (h && h !== ID_HEADER) editedHeaders.push(h);
+    if (h && h !== ID_HEADER && sentToWeb_(h)) editedHeaders.push(h);
   }
   if (editedHeaders.length === 0) return;
 
