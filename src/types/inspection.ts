@@ -56,6 +56,8 @@ export interface FilterState {
   levels: string[];
   technicians: string[];
   hasPhotosOnly: boolean;
+  // Only defects without any photo.
+  noPhotosOnly?: boolean;
 }
 
 export interface DragPhotoPayload {

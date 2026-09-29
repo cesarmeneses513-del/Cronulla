@@ -60,7 +60,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     filters.drops.length +
     filters.levels.length +
     filters.technicians.length +
-    (filters.hasPhotosOnly ? 1 : 0);
+    (filters.hasPhotosOnly ? 1 : 0) +
+    (filters.noPhotosOnly ? 1 : 0);
 
   const clearAllFilters = () => {
     onFilterChange({
@@ -73,6 +74,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       levels: [],
       technicians: [],
       hasPhotosOnly: false,
+      noPhotosOnly: false,
     });
   };
 
@@ -334,6 +336,21 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Photos: defects that don't have any photo yet */}
+              <label className="font-semibold text-slate-700 block pt-2">{t('Fotos')}</label>
+              <div className="flex flex-wrap gap-1 pr-1">
+                <button
+                  onClick={() => onFilterChange({ ...filters, noPhotosOnly: !filters.noPhotosOnly })}
+                  className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
+                    filters.noPhotosOnly
+                      ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {t('Sin fotos')} ({stageItems.filter(i => i.photos.length === 0).length})
+                </button>
               </div>
             </div>
 

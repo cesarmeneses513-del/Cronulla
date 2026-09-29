@@ -364,6 +364,7 @@ export default function App() {
     levels: [],
     technicians: [],
     hasPhotosOnly: false,
+    noPhotosOnly: false,
   });
 
   // Toast notification state
@@ -559,6 +560,9 @@ export default function App() {
 
       // Has photos only
       if (f.hasPhotosOnly && item.photos.length === 0) {
+        return false;
+      }
+      if (f.noPhotosOnly && item.photos.length > 0) {
         return false;
       }
 
@@ -1169,6 +1173,7 @@ export default function App() {
             levels: [],
             technicians: [],
             hasPhotosOnly: false,
+            noPhotosOnly: false,
           })
         }
         className="inline-flex items-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors"
