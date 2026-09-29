@@ -1106,11 +1106,6 @@ export default function App() {
   }, []);
 
   // Handler: Prompt to Move Photo from Mosaic View
-  const handlePromptMovePhoto = useCallback((sourceItem: DefectItem, photoIndex: number) => {
-    setLightboxItem(sourceItem);
-    setLightboxPhotoIndex(photoIndex);
-  }, []);
-
   // Handler: Select Cell from Elevation Matrix (applies Drop & Level filter)
   const handleSelectElevationCell = useCallback((drop: string, level: string) => {
     setFilters(prev => ({
@@ -1324,7 +1319,6 @@ export default function App() {
             items={pagedItems}
             onOpenPhotoLightbox={handleOpenPhotoLightbox}
             onDeletePhoto={handleDeletePhoto}
-            onMovePhotoPrompt={handlePromptMovePhoto}
             onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
             readOnly={readOnly}
             canDelete={canDelete}

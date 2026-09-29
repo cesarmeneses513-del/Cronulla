@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, ArrowRightLeft, Trash2, MapPin, Tag } from 'lucide-react';
+import { ExternalLink, Trash2, MapPin, Tag } from 'lucide-react';
 import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
@@ -8,7 +8,6 @@ interface PhotoMosaicViewProps {
   items: DefectItem[];
   onOpenPhotoLightbox: (item: DefectItem, photoIndex: number) => void;
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
-  onMovePhotoPrompt: (sourceItem: DefectItem, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
   readOnly?: boolean;
   canDelete?: boolean;
@@ -18,7 +17,6 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
   items,
   onOpenPhotoLightbox,
   onDeletePhoto,
-  onMovePhotoPrompt,
   onUpdatePhotoPhase,
   readOnly = false,
   canDelete = true,
@@ -189,16 +187,9 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                       <ExternalLink className="w-4 h-4" />
                     </button>
 
+                    {/* Moving the photo to another defect is done from the viewer this opens. */}
                     {!readOnly && (
                     <>
-                    <button
-                      onClick={() => onMovePhotoPrompt(item, pIdx)}
-                      title={t('Reasignar a otra fila de defecto')}
-                      className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-sm"
-                    >
-                      <ArrowRightLeft className="w-4 h-4" />
-                    </button>
-
                     {canDelete && (
                     <button
                       onClick={() => onDeletePhoto(item.id, pIdx)}
@@ -229,7 +220,7 @@ export const PhotoMosaicView: React.FC<PhotoMosaicViewProps> = ({
                   <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
                     <span className="flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-slate-400" />
-                      <span>D:{item.drop || '—'} / P:{item.level || '—'}</span>
+                      <span>D:{item.drop || '—'} / L:{item.level || '—'}</span>
                     </span>
 
                     <span className="font-medium text-slate-700">
