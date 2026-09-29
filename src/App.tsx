@@ -28,6 +28,7 @@ import {
   sameData,
   mergeItem,
   withoutModified,
+  RENUMBER_CLIENT,
 } from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
 
@@ -274,7 +275,19 @@ export default function App() {
     })();
 
     const unsubscribe = subscribeToDefects(
-      (item, position) => {
+      (item, position, clientId) => {
+        // A renumbering only changed the "No". Its copy of the rest can be older than what this
+        // device has (it may arrive late, after a photo was deleted here), so only the number is taken.
+        if (clientId === RENUMBER_CLIENT && itemsRef.current.some(i => i.id === item.id)) {
+          const withNo = (list: DefectItem[]) =>
+            list.map(i => (i.id === item.id && i.rowNo !== item.rowNo ? { ...i, rowNo: item.rowNo } : i));
+          // The same list when nothing is waiting to be saved: keep it shared, so no save follows.
+          const inSync = itemsRef.current === syncedRef.current;
+          if (syncedRef.current) syncedRef.current = withNo(syncedRef.current);
+          itemsRef.current = inSync && syncedRef.current ? syncedRef.current : withNo(itemsRef.current);
+          setItems(itemsRef.current);
+          return;
+        }
         const remote = normalizeItems([item])[0];
         const synced = syncedRef.current?.find(i => i.id === remote.id);
         const local = itemsRef.current.find(i => i.id === remote.id);

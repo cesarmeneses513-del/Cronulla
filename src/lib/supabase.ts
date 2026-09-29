@@ -209,8 +209,11 @@ export async function syncDefects(
   return changed;
 }
 
+// client_id of the rows the database renumbers (supabase/renumber.sql): only their rowNo changed.
+export const RENUMBER_CLIENT = 'renumber';
+
 export function subscribeToDefects(
-  onUpsert: (item: DefectItem, position: number) => void,
+  onUpsert: (item: DefectItem, position: number, clientId?: string | null) => void,
   onDelete: (id: string) => void
 ): () => void {
   if (!supabase) return () => {};
@@ -222,7 +225,7 @@ export function subscribeToDefects(
         if (id) onDelete(id);
       } else {
         const row = payload.new as DefectRow;
-        if (row.client_id !== CLIENT_ID) onUpsert(withModified(row), row.position);
+        if (row.client_id !== CLIENT_ID) onUpsert(withModified(row), row.position, row.client_id);
       }
     })
     .subscribe();
