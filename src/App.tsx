@@ -1138,6 +1138,7 @@ export default function App() {
                 onDeletePhoto={handleDeletePhoto}
                 onQuickUpdateStatus={handleQuickUpdateStatus}
                 onQuickUpdateUrgency={handleQuickUpdateUrgency}
+                onSaveItem={handleSaveDefect}
                 onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
                 readOnly={readOnly}
                 selectable={selectionActive}

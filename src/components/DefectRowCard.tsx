@@ -12,7 +12,10 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 import { DefectItem, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from '../types/inspection';
 import { useI18n, PHASE_LABEL, URGENCY_LABEL } from '../i18n';
@@ -36,6 +39,8 @@ interface DefectRowCardProps {
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
   onQuickUpdateStatus: (itemId: string, status: DefectStatus) => void;
   onQuickUpdateUrgency: (itemId: string, urgency: UrgencyLevel) => void;
+  // Saves the measurements edited right on the card.
+  onSaveItem?: (item: DefectItem) => void;
   readOnly?: boolean;
   selectable?: boolean;
   selected?: boolean;
@@ -58,6 +63,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   onDeletePhoto,
   onUpdatePhotoPhase,
   onQuickUpdateUrgency,
+  onSaveItem,
   readOnly = false,
   selectable = false,
   selected = false,
@@ -68,6 +74,22 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   const { t } = useI18n();
   const longPress = useLongPress(onLongPress ? () => onLongPress(item.id) : undefined);
   const [isDragOver, setIsDragOver] = useState(false);
+  // Quick edit of the measurements, on the card itself.
+  type Measures = Pick<DefectItem, 'baseM' | 'heightM' | 'linearMeters' | 'quantity'>;
+  const measuresOf = (i: DefectItem): Measures => ({
+    baseM: i.baseM || '',
+    heightM: i.heightM || '',
+    linearMeters: i.linearMeters || '',
+    quantity: i.quantity || '',
+  });
+  const [measures, setMeasures] = useState<Measures | null>(null);
+  const saveMeasures = () => {
+    if (!measures || !onSaveItem) return;
+    const clean = Object.fromEntries(Object.entries(measures).map(([k, v]) => [k, v.trim()])) as Measures;
+    const before = measuresOf(item);
+    if ((Object.keys(clean) as (keyof Measures)[]).some(k => clean[k] !== before[k])) onSaveItem({ ...item, ...clean });
+    setMeasures(null);
+  };
   const [showStageImage, setShowStageImage] = useState(false);
   const stageImage = stageImageFor(item.orientation);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -478,7 +500,52 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-600 gap-y-2 gap-x-4">
           {/* Dimensions */}
           <div className="flex flex-wrap items-center gap-3">
-            {(item.linearMeters || item.baseM || item.heightM || item.quantity) ? (
+            {!readOnly && onSaveItem && !measures && (
+              <button
+                onClick={() => setMeasures(measuresOf(item))}
+                title={t('Editar medidas')}
+                className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {measures ? (
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  saveMeasures();
+                }}
+                onKeyDown={e => e.key === 'Escape' && setMeasures(null)}
+                className="flex flex-wrap items-end gap-2 bg-slate-50 px-2.5 py-2 rounded border border-slate-200"
+              >
+                {([
+                  ['linearMeters', 'Metros Lineales (m)'],
+                  ['baseM', 'Ancho (m)'],
+                  ['heightM', 'Alto (m)'],
+                  ['quantity', 'Cantidad'],
+                ] as const).map(([key, label], i) => (
+                  <label key={key} className="flex flex-col gap-0.5 text-[11px] text-slate-500">
+                    {t(label)}
+                    <input
+                      value={measures[key]}
+                      onChange={e => {
+                        const value = e.target.value;
+                        setMeasures(m => (m ? { ...m, [key]: value } : m));
+                      }}
+                      autoFocus={i === 0}
+                      inputMode="decimal"
+                      className="w-20 px-2 py-1 text-xs font-mono text-slate-900 bg-white border border-slate-300 rounded focus:outline-hidden focus:border-slate-900"
+                    />
+                  </label>
+                ))}
+                <button type="submit" title={t('Guardar Cambios')} className="p-1.5 text-white bg-slate-900 hover:bg-slate-800 rounded-md">
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button type="button" onClick={() => setMeasures(null)} title={t('Cancelar')} className="p-1.5 text-slate-500 hover:bg-slate-200 rounded-md">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            ) : (item.linearMeters || item.baseM || item.heightM || item.quantity) ? (
               <div className="flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded border border-slate-200">
                 <Ruler className="w-3.5 h-3.5 text-slate-500" />
                 {item.linearMeters && (

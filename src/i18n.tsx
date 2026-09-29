@@ -370,6 +370,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Ancho (m)': { en: 'Width (m)', fa: 'عرض (m)' },
   'Alto (m)': { en: 'Height (m)', fa: 'ارتفاع (m)' },
   'Cantidad': { en: 'Quantity', fa: 'تعداد' },
+  'Editar medidas': { en: 'Edit measurements', fa: 'ویرایش اندازه‌ها' },
   'Páginas': { en: 'Pages', fa: 'صفحه‌ها' },
   '{from}–{to} de {total}': { en: '{from}–{to} of {total}', fa: '{from}–{to} از {total}' },
   'Anterior': { en: 'Previous', fa: 'قبلی' },
