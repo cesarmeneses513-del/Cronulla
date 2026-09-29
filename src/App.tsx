@@ -116,8 +116,9 @@ const withPhotoStamp = <T extends DefectPhoto | string>(photo: T, source: Defect
  * Keeps each phase's technician/date/time in line with the photos, after any photo change:
  * - a photo added (or put into another phase) now stamps the editor and the current time;
  * - a photo moved in from another defect stamps whoever put it in that phase, and when;
- * - when the last photo of a phase is deleted or moved away, that phase's fields are emptied.
- * Reordering, and photos that didn't change, leave the fields as they are.
+ * - when the last photo of a phase is deleted or moved away, that phase's fields are emptied;
+ * - the status follows the photos: After → COMPLETED, else During → IN PROGRESS, else BEFORE.
+ * Reordering, and photos that didn't change, leave the fields and the status as they are.
  */
 const reconcilePhotoStamps = (before: DefectItem | undefined, after: DefectItem): DefectItem => {
   const urlOf = (p: DefectPhoto | string) => (typeof p === 'string' ? p : p.url);
@@ -127,11 +128,13 @@ const reconcilePhotoStamps = (before: DefectItem | undefined, after: DefectItem)
   const now = currentStamp();
   let next = after;
   let photos = after.photos;
+  let changed = false;
 
   after.photos.forEach((p, i) => {
     const phase = phaseOf(p, i);
     const was = oldPhase.get(urlOf(p));
     if (was === phase) return;
+    changed = true;
     const carried = was === undefined && typeof p === 'object' && p.by ? { by: p.by, date: p.date || '', time: p.time || '' } : null;
     const s = carried || now;
     if (!s) return;
@@ -147,6 +150,19 @@ const reconcilePhotoStamps = (before: DefectItem | undefined, after: DefectItem)
     const has = after.photos.some((p, i) => phaseOf(p, i) === phase);
     if (had && !has) next = setPhaseStamp(next, phase, { by: '', date: '', time: '' });
   });
+
+  const present = new Set(after.photos.map(urlOf));
+  if (changed || (before?.photos || []).some(p => !present.has(urlOf(p)))) {
+    const phases = new Set(after.photos.map(phaseOf));
+    const status: DefectStatus | null = phases.has('COMPLETED')
+      ? 'COMPLETED'
+      : phases.has('IN PROGRESS')
+      ? 'IN PROGRESS'
+      : phases.has('BEFORE')
+      ? 'BEFORE'
+      : null;
+    if (status && status !== next.status) next = { ...next, status };
+  }
 
   return photos === after.photos ? next : { ...next, photos };
 };
@@ -911,10 +927,12 @@ export default function App() {
       // Photos added, re-phased or removed update each phase's technician/date/time;
       // a new defect without photos stamps by its status.
       const previous = itemsRef.current.find(i => i.id === edited.id);
-      const updated =
+      const stamped =
         !previous && edited.photos.length === 0
           ? stampTechnician(edited, [edited.status])
           : reconcilePhotoStamps(previous, edited);
+      // A status chosen in the form wins over the one the photos suggest.
+      const updated = previous && edited.status !== previous.status ? { ...stamped, status: edited.status } : stamped;
       updateItems(prev => {
         const exists = prev.some(i => i.id === updated.id);
         if (exists) {

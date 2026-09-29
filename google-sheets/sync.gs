@@ -546,6 +546,11 @@ function applyRow_(item, row, headers, editedHeaders) {
       if (k && k.by) Object.assign(photo, { by: k.by, date: k.date || '', time: k.time || '' });
       return photo;
     });
+    // The status follows the photos (as in the web), unless STATUS was edited too.
+    if (editedHeaders.indexOf('STATUS') < 0 && item.photos.length > 0) {
+      const has = ph => item.photos.some(p => p.phase === ph);
+      item.status = has('COMPLETED') ? 'COMPLETED' : has('IN PROGRESS') ? 'IN PROGRESS' : 'BEFORE';
+    }
   }
 }
 
