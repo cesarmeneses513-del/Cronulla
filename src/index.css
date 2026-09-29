@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* The app is always light: without this, browsers in dark mode draw their own pop-ups
+   (e.g. the defect suggestions list) with white text on a light background. */
+:root {
+  color-scheme: light;
+}
+
 /* iPhone Safari zooms into any text field under 16px when it is tapped and doesn't zoom back,
    which leaves the page wider than the screen. 16px on phones avoids that zoom. */
 @media (max-width: 640px) {
