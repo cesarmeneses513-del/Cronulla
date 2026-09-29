@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, X, SlidersHorizontal, LayoutGrid, Rows3, Grid3X3, Table2, Check } from 'lucide-react';
 import { DefectItem, FilterState } from '../types/inspection';
+import { canonicalPerson } from '../lib/people';
 import { useI18n, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 
 export type ViewMode = 'rows' | 'photos' | 'matrix' | 'table';
@@ -43,7 +44,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const uniqueTechnicians = Array.from(
     new Set(
       items
-        .map(i => (i.modifiedBy || '').trim())
+        .map(i => canonicalPerson(i.modifiedBy || ''))
         .filter(Boolean)
     )
   ).sort();

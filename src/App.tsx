@@ -18,6 +18,7 @@ import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, 
 import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
 import { sortPhotosByPhase } from './lib/photoOrder';
+import { canonicalPerson } from './lib/people';
 import { supabase, fetchDefects, fetchDefectsByIds, syncDefects, subscribeToDefects } from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
 
@@ -340,7 +341,7 @@ export default function App() {
     const user = getStoredUserName();
     const after = updater(before).map(i => {
       if (beforeById.get(i.id) === i) return i;
-      return { ...i, photos: sortPhotosByPhase(i.photos), modifiedAt: now, modifiedBy: user || i.modifiedBy };
+      return { ...i, photos: sortPhotosByPhase(i.photos), modifiedAt: now, modifiedBy: user ? canonicalPerson(user) : i.modifiedBy };
     });
     if (after.every((i, n) => before[n] === i) && after.length === before.length) return;
     itemsRef.current = after;
@@ -443,7 +444,7 @@ export default function App() {
       // Technicians
       if (
         f.technicians.length > 0 &&
-        !f.technicians.includes((item.modifiedBy || '').trim())
+        !f.technicians.includes(canonicalPerson(item.modifiedBy || ''))
       ) {
         return false;
       }

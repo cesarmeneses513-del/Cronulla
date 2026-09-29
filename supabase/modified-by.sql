@@ -7,6 +7,24 @@
 
 alter table public.defects add column if not exists modified_by text;
 
+-- Short names people type when signing in → their full name (keep in sync with
+-- src/lib/people.ts). "Ali" and "Ali Madad" are different people.
+create or replace function public.canonical_person(name text)
+returns text
+language sql
+immutable
+as $$
+  select case lower(trim(name))
+    when 'cesar' then 'César Meneses'
+    when 'césar' then 'César Meneses'
+    when 'cesar meneses' then 'César Meneses'
+    when 'nicolas' then 'Nicolas Loyola'
+    when 'nicolás' then 'Nicolas Loyola'
+    when 'natalia' then 'Natalia Onate'
+    else nullif(trim(name), '')
+  end
+$$;
+
 -- The person behind a history entry, or null when it doesn't name one.
 create or replace function public.history_person(entry public.defect_history)
 returns text
@@ -17,7 +35,7 @@ as $$
     when entry.defect_id is null or entry.action = 'delete' then null
     when entry.action = 'sheet_edit' and entry.details->'fields' = '["rowNo"]'::jsonb then null
     when entry.action = 'edit' and entry.details->>'key' = 'rowNo' then null
-    else nullif(nullif(nullif(trim(regexp_replace(entry.user_name, '^Glide · ', '')), ''), 'Google Sheet'), 'planilla')
+    else nullif(nullif(public.canonical_person(regexp_replace(entry.user_name, '^Glide · ', '')), 'Google Sheet'), 'planilla')
   end
 $$;
 
