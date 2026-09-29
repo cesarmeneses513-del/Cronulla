@@ -1,5 +1,5 @@
-import React from 'react';
-import { RefreshCw, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { RefreshCw, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -41,6 +41,23 @@ export const Header: React.FC<HeaderProps> = ({
   reloading = false,
 }) => {
   const { t } = useI18n();
+  // Import CSV, Cronulla vs Code and Export CSV share one dropdown.
+  const [dataOpen, setDataOpen] = useState(false);
+  const dataRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!dataOpen) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (dataRef.current && !dataRef.current.contains(e.target as Node)) setDataOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+    };
+  }, [dataOpen]);
+  const menuItem =
+    'w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 rounded-md hover:bg-slate-100 text-start whitespace-nowrap';
   const completedCount = items.filter(i => i.status === 'COMPLETED').length;
   const inProgressCount = items.filter(i => i.status === 'IN PROGRESS').length;
   const beforeCount = items.filter(i => i.status === 'BEFORE').length;
@@ -145,38 +162,49 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">{t('Deshacer')}</span>
           </button>
 
-          {/* Importing can replace the whole list: administrators only */}
-          {isAdmin && (
-          <button
-            onClick={onOpenImportModal}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t('Importar')}</span> CSV
-          </button>
-          )}
+          <div ref={dataRef} className="relative">
+            <button
+              onClick={() => setDataOpen(o => !o)}
+              aria-expanded={dataOpen}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('Datos')}</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dataOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          {/* Shortcut to the synced spreadsheet: administrators, on computers only */}
-          {isAdmin && (
-          <a
-            href={CVC_SHEET_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={t('Abrir la planilla Cronulla vs Code')}
-            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors whitespace-nowrap"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            Cronulla vs Code
-          </a>
-          )}
+            {dataOpen && (
+              <div className="absolute end-0 top-full mt-1.5 z-40 min-w-48 p-1.5 bg-white border border-slate-200 rounded-xl shadow-xl">
+                {/* Importing can replace the whole list: administrators only */}
+                {isAdmin && (
+                  <button onClick={() => { setDataOpen(false); onOpenImportModal(); }} className={menuItem}>
+                    <Upload className="w-3.5 h-3.5" />
+                    {t('Importar')} CSV
+                  </button>
+                )}
 
-          <button
-            onClick={onExportCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t('Exportar')}</span> CSV
-          </button>
+                {/* Shortcut to the synced spreadsheet: administrators, on computers only */}
+                {isAdmin && (
+                  <a
+                    href={CVC_SHEET_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setDataOpen(false)}
+                    title={t('Abrir la planilla Cronulla vs Code')}
+                    className={`${menuItem} hidden md:flex text-emerald-800 hover:bg-emerald-50`}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    Cronulla vs Code
+                  </a>
+                )}
+
+                <button onClick={() => { setDataOpen(false); onExportCsv(); }} className={menuItem}>
+                  <Download className="w-3.5 h-3.5" />
+                  {t('Exportar')} CSV
+                </button>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={onNewDefect}

@@ -25,6 +25,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Restaurar datos iniciales': { en: 'Restore initial data', fa: 'بازگرداندن داده‌های اولیه' },
   'Importar': { en: 'Import', fa: 'وارد کردن' },
   'Exportar': { en: 'Export', fa: 'صادر کردن' },
+  'Datos': { en: 'Data', fa: 'داده‌ها' },
   'Nuevo Defecto': { en: 'New defect', fa: 'نقص جدید' },
   'Cambiar de modo': { en: 'Switch mode', fa: 'تغییر حالت' },
   'Salir': { en: 'Exit', fa: 'خروج' },
