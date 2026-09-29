@@ -46,7 +46,8 @@ const FIELDS = {
   'LEVEL': 'level',
   'STATUS': 'status',
   'TECHNICIAN START': 'technicianStart',
-  'DATE 1ST PHOTO': 'date1stPhoto',
+  'DATE START': 'date1stPhoto',
+  'DATE 1ST PHOTO': 'date1stPhoto', // former name of DATE START
   'TIME 1ST PHOTO': 'time1stPhoto',
   'TECHNICIAN DURING': 'technicianDuring',
   'DATE DURING': 'dateDuring',
@@ -199,7 +200,7 @@ function columnValue_(header, item, slots) {
 // Dates and times are written as ISO text ("2026-08-17", "14:04:48"), which Sheets reads the same
 // way in every locale, and shown as dd/MM/yyyy and HH:mm:ss. Text like "08/09/2026" would be read
 // as 9 August or 8 September depending on the spreadsheet's locale.
-const DATE_HEADERS = ['DATE 1ST PHOTO', 'DATE DURING', 'DATE COMPLETED'];
+const DATE_HEADERS = ['DATE START', 'DATE 1ST PHOTO', 'DATE DURING', 'DATE COMPLETED'];
 const TIME_HEADERS = ['TIME 1ST PHOTO', 'TIME DURING', 'TIME COMPLETED'];
 
 function isoDate_(v) {
@@ -279,6 +280,7 @@ function writeRows_(items) {
   const sheet = getSheet_();
   ensureIdColumn_(sheet);
   ensureDuringColumns_(sheet);
+  renameHeader_(sheet, 'DATE 1ST PHOTO', 'DATE START');
   const headers = readHeaders_(sheet);
   const width = headers.length;
   const numberIdx = headers.lastIndexOf(NUMBER_HEADER);
@@ -747,6 +749,11 @@ function ensureDuringColumns_(sheet) {
   sheet.getRange(1, col + 1, 1, missing.length).setValues([missing]);
 }
 
+function renameHeader_(sheet, from, to) {
+  const c = readHeaders_(sheet).indexOf(from);
+  if (c >= 0) sheet.getRange(1, c + 1).setValue(to);
+}
+
 function headers_(extra) {
   return Object.assign({ apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }, extra || {});
 }
@@ -755,7 +762,7 @@ function headers_(extra) {
 
 // Dates and times are left out of the bulk comparison: Sheets reformats them on its own
 // (e.g. 17/08/2026 shown as 8/17/2026), which would look like edits.
-const BULK_SKIP = ['DATE 1ST PHOTO', 'TIME 1ST PHOTO', 'DATE DURING', 'TIME DURING', 'DATE COMPLETED', 'TIME COMPLETED'];
+const BULK_SKIP = ['DATE START', 'DATE 1ST PHOTO', 'TIME 1ST PHOTO', 'DATE DURING', 'TIME DURING', 'DATE COMPLETED', 'TIME COMPLETED'];
 
 /**
  * Menu action: compares every row of the sheet with the web and sends what differs (the sheet
