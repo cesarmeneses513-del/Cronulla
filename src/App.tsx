@@ -1252,7 +1252,7 @@ export default function App() {
           onNavigatePhoto={handleNavigatePhoto}
           onDeletePhoto={handleDeletePhoto}
           onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
-          onMovePhotos={readOnly ? undefined : handleMovePhotos}
+          onMovePhotos={canDelete ? handleMovePhotos : undefined}
           onSaveItem={readOnly ? undefined : handleSaveDefect}
           defectNav={lightboxNav}
           readOnly={readOnly}
