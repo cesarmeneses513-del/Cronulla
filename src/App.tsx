@@ -942,7 +942,8 @@ export default function App() {
         if (exists) {
           return prev.map(i => (i.id === updated.id ? updated : i));
         }
-        return [updated, ...prev];
+        // At the end: a new defect doesn't take the number of the ones already there.
+        return [...prev, updated];
       }, t('guardar registro #{row}', { row: updated.rowNo }));
       showToast(t('Registro #{row} guardado', { row: updated.rowNo }), true);
     },
@@ -959,7 +960,11 @@ export default function App() {
         photos: [...original.photos],
         customTags: [...(original.customTags || [])],
       };
-      updateItems(prev => [duplicate, ...prev], t('duplicar registro #{row}', { row: original.rowNo }));
+      // Right after the original, so the copy gets the next number and the original keeps its own.
+      updateItems(prev => {
+        const at = prev.findIndex(i => i.id === original.id);
+        return at < 0 ? [...prev, duplicate] : [...prev.slice(0, at + 1), duplicate, ...prev.slice(at + 1)];
+      }, t('duplicar registro #{row}', { row: original.rowNo }));
       showToast(t('Registro #{row} duplicado', { row: original.rowNo }), true);
     },
     [showToast, updateItems, t]
