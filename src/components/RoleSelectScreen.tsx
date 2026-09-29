@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PencilLine, Eye, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { canonicalPerson } from '../lib/people';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 export type AppRole = 'editor' | 'client';
@@ -11,9 +12,10 @@ export type AccessLevel = 'admin' | 'user';
 const EDITOR_PINS: Record<string, AccessLevel> = { '1407': 'admin', '1111': 'user' };
 const USER_KEY = 'cronulla_user';
 
+// Always the person's full name, whatever short form they typed ("Cesar" → "César Meneses").
 export const getStoredUserName = (): string => {
   try {
-    return localStorage.getItem(USER_KEY) || '';
+    return canonicalPerson(localStorage.getItem(USER_KEY) || '');
   } catch {
     return '';
   }
