@@ -21,18 +21,26 @@ interface DefectRow {
   data: DefectItem;
   client_id?: string | null;
   modified_at?: string | null;
+  modified_by?: string | null;
 }
 
-// `modifiedAt` comes from its own column (kept by the database), not from `data`.
-const withModified = (r: DefectRow): DefectItem =>
-  r.modified_at ? { ...r.data, modifiedAt: r.modified_at } : r.data;
+// `modifiedAt`/`modifiedBy` come from their own columns (kept by the database), not from `data`.
+const withModified = (r: DefectRow): DefectItem => {
+  if (!r.modified_at && !r.modified_by) return r.data;
+  const item = { ...r.data };
+  if (r.modified_at) item.modifiedAt = r.modified_at;
+  if (r.modified_by) item.modifiedBy = r.modified_by;
+  return item;
+};
 const withoutModified = (item: DefectItem): DefectItem => {
-  if (!('modifiedAt' in item)) return item;
-  const { modifiedAt: _ignored, ...rest } = item;
+  if (!('modifiedAt' in item) && !('modifiedBy' in item)) return item;
+  const { modifiedAt: _at, modifiedBy: _by, ...rest } = item;
   return rest;
 };
-// False once we know the database doesn't have the modified_at column yet.
-let hasModifiedAt = true;
+// Extra columns to read, dropped one by one if the database doesn't have them yet
+// (supabase/modified-at.sql, supabase/modified-by.sql).
+const EXTRA_COLUMNS = [', modified_at, modified_by', ', modified_at', ''];
+let extra = 0;
 
 export async function fetchDefects(): Promise<DefectItem[]> {
   if (!supabase) throw new Error('Supabase no configurado');
@@ -42,13 +50,12 @@ export async function fetchDefects(): Promise<DefectItem[]> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from(TABLE)
-      .select(hasModifiedAt ? 'id, position, data, modified_at' : 'id, position, data')
+      .select('id, position, data' + EXTRA_COLUMNS[extra])
       .order('position')
       .order('id')
       .range(from, from + PAGE - 1);
-    if (error && hasModifiedAt && from === 0) {
-      // Column not created yet (supabase/modified-at.sql): load without it.
-      hasModifiedAt = false;
+    if (error && from === 0 && extra < EXTRA_COLUMNS.length - 1) {
+      extra++;
       return fetchDefects();
     }
     if (error) throw error;
@@ -64,10 +71,10 @@ export async function fetchDefectsByIds(ids: string[]): Promise<Map<string, Defe
   for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
     const chunk = ids.slice(i, i + DELETE_CHUNK);
     const select = (cols: string) => supabase!.from(TABLE).select(cols).in('id', chunk);
-    let res = await select(hasModifiedAt ? 'id, data, modified_at' : 'id, data');
-    if (res.error && hasModifiedAt) {
-      hasModifiedAt = false;
-      res = await select('id, data');
+    let res = await select('id, data' + EXTRA_COLUMNS[extra]);
+    while (res.error && extra < EXTRA_COLUMNS.length - 1) {
+      extra++;
+      res = await select('id, data' + EXTRA_COLUMNS[extra]);
     }
     if (res.error) throw res.error;
     (res.data as unknown as DefectRow[]).forEach(r => found.set(r.id, withModified(r)));
@@ -127,13 +134,13 @@ export async function syncDefects(
   prev.forEach((item, position) => prevById.set(item.id, { item, position }));
 
   // The change time isn't part of the row's data: it's left out of comparisons and writes.
-  const stamps = new Map<string, string>();
+  const stamps = new Map<string, Pick<DefectItem, 'modifiedAt' | 'modifiedBy'>>();
   const upserts: DefectRow[] = [];
   next.forEach((item, position) => {
     const old = prevById.get(item.id);
     if (!old || old.item !== item || old.position !== position) {
       upserts.push({ id: item.id, position, data: withoutModified(item) });
-      if (item.modifiedAt) stamps.set(item.id, item.modifiedAt);
+      if (item.modifiedAt || item.modifiedBy) stamps.set(item.id, { modifiedAt: item.modifiedAt, modifiedBy: item.modifiedBy });
     }
   });
 
@@ -150,7 +157,7 @@ export async function syncDefects(
     if (!same(merged, r.data)) {
       r.data = merged;
       const stamp = stamps.get(r.id);
-      changed.push(stamp ? { ...merged, modifiedAt: stamp } : merged);
+      changed.push(stamp ? { ...merged, ...stamp } : merged);
     }
   });
 

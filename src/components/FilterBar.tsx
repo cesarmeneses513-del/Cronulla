@@ -43,9 +43,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const uniqueTechnicians = Array.from(
     new Set(
       items
-        .flatMap(i => [i.technicianStart, i.technicianCompleted])
+        .map(i => (i.modifiedBy || '').trim())
         .filter(Boolean)
-        .map(t => t.trim())
     )
   ).sort();
 
@@ -337,7 +336,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
             {/* Technicians */}
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">{t('Técnico Asignado')}</label>
+              <label className="font-semibold text-slate-700 block">{t('Última modificación por')}</label>
               <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
                 {uniqueTechnicians.map(tc => {
                   const isSelected = filters.technicians.includes(tc);

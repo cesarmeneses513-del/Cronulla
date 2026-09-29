@@ -70,6 +70,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Drop:': { en: 'Drop:', fa: 'دراپ:' },
   'Piso:': { en: 'Level:', fa: 'طبقه:' },
   'Técnico Asignado': { en: 'Assigned technician', fa: 'تکنیسین مسئول' },
+  'Última modificación por': { en: 'Last modified by', fa: 'آخرین تغییر توسط' },
   'Mostrando {n} de {total} registros de inspección': {
     en: 'Showing {n} of {total} inspection records',
     fa: 'نمایش {n} از {total} مورد بازرسی',

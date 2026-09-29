@@ -337,9 +337,10 @@ export default function App() {
     // Rows touched by the action get their photos back in Before → During → After order, and
     // the time of the change (for the "Recent changes" sort; the database keeps its own copy).
     const now = new Date().toISOString();
+    const user = getStoredUserName();
     const after = updater(before).map(i => {
       if (beforeById.get(i.id) === i) return i;
-      return { ...i, photos: sortPhotosByPhase(i.photos), modifiedAt: now };
+      return { ...i, photos: sortPhotosByPhase(i.photos), modifiedAt: now, modifiedBy: user || i.modifiedBy };
     });
     if (after.every((i, n) => before[n] === i) && after.length === before.length) return;
     itemsRef.current = after;
@@ -402,6 +403,7 @@ export default function App() {
           item.comment.toLowerCase().includes(q) ||
           item.technicianStart.toLowerCase().includes(q) ||
           item.technicianCompleted.toLowerCase().includes(q) ||
+          (item.modifiedBy || '').toLowerCase().includes(q) ||
           item.projectName.toLowerCase().includes(q) ||
           (item.customTags || []).some(t => t.toLowerCase().includes(q));
 
@@ -441,8 +443,7 @@ export default function App() {
       // Technicians
       if (
         f.technicians.length > 0 &&
-        !f.technicians.includes(item.technicianStart) &&
-        !f.technicians.includes(item.technicianCompleted)
+        !f.technicians.includes((item.modifiedBy || '').trim())
       ) {
         return false;
       }

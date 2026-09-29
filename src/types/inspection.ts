@@ -34,6 +34,8 @@ export interface DefectItem {
   customTags?: string[];
   // When the row's data last changed (from the database; never saved inside the row).
   modifiedAt?: string;
+  // Who made that last change (from the database, like modifiedAt).
+  modifiedBy?: string;
 }
 
 export interface FilterState {
