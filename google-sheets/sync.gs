@@ -191,6 +191,7 @@ function columnValue_(header, item, slots) {
   if (photo) return slots[Number(photo[1]) - 1] || '';
   if (header === ID_HEADER) return item.id;
   if (header === 'CUSTOM TAGS') return (item.customTags || []).join(';');
+  if (COMPUTED[header]) return COMPUTED[header](item);
   const field = FIELDS[header];
   if (!field) return '';
   if (DATE_HEADERS.indexOf(header) >= 0) return isoDate_(item[field]);
@@ -271,9 +272,37 @@ function sentToWeb_(h) {
 // Filled only by hand in the sheet; the web never writes them.
 const SHEET_ONLY_HEADERS = ['MAPPING'];
 
+// Columns worked out by the script on each rewrite (never sent to the web), placed right after
+// LINEAR METERS: M^2 = Base × Height and LM = Linear Meters, each at least 1. Blank when the
+// measurements are blank.
+const toNumber_ = v => {
+  const n = parseFloat(String(v === undefined || v === null ? '' : v).replace(',', '.'));
+  return isNaN(n) ? null : n;
+};
+const atLeastOne_ = n => (n === null ? '' : Math.max(1, Math.round(n * 100) / 100));
+const COMPUTED = {
+  'M^2': item => {
+    const base = toNumber_(item.baseM);
+    const height = toNumber_(item.heightM);
+    return atLeastOne_(base === null || height === null ? null : base * height);
+  },
+  'LM': item => atLeastOne_(toNumber_(item.linearMeters)),
+};
+const COMPUTED_HEADERS = ['M^2', 'LM'];
+
+function ensureComputedColumns_(sheet) {
+  const headers = readHeaders_(sheet);
+  const missing = COMPUTED_HEADERS.filter(h => headers.indexOf(h) < 0);
+  if (missing.length === 0) return;
+  const after = headers.indexOf('LINEAR METERS');
+  const col = after >= 0 ? after + 1 : sheet.getLastColumn();
+  sheet.insertColumnsAfter(col, missing.length);
+  sheet.getRange(1, col + 1, 1, missing.length).setValues([missing]);
+}
+
 // Columns the web writes on each rewrite; every other one keeps what was typed in the sheet.
 function writtenByWeb_(h) {
-  return h === ID_HEADER || (sentToWeb_(h) && SHEET_ONLY_HEADERS.indexOf(h) < 0);
+  return h === ID_HEADER || !!COMPUTED[h] || (sentToWeb_(h) && SHEET_ONLY_HEADERS.indexOf(h) < 0);
 }
 
 function writeRows_(items) {
@@ -282,6 +311,7 @@ function writeRows_(items) {
   ensureIdColumn_(sheet);
   ensureDuringColumns_(sheet);
   renameHeader_(sheet, 'DATE 1ST PHOTO', 'DATE START');
+  ensureComputedColumns_(sheet);
   ensureCompletedHighlight_(sheet);
   const headers = readHeaders_(sheet);
   const width = headers.length;
