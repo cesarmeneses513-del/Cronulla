@@ -14,7 +14,7 @@
  * rows are first copied to a hidden "_papelera" tab; Cronulla → Restaurar último borrado brings
  * the last batch back. Clearing a row's contents is NOT a delete — use Delete row.
  *
- * Order: rows are sorted by Level, Drop and Stage whenever the web writes the sheet and whenever
+ * Order: rows are sorted by Stage, Drop and Level whenever the web writes the sheet and whenever
  * the spreadsheet is opened. The last "No" column (B) is renumbered 1, 2, 3… in that order and is
  * never sent to the web. Any other column the web doesn't write (like the first "No", column A)
  * belongs to the sheet: what is typed there moves with its row and is never erased.
@@ -85,7 +85,7 @@ function setup() {
 }
 
 function onOpen() {
-  // Opening the spreadsheet puts the rows in order (Level, Drop, Stage) and renumbers them.
+  // Opening the spreadsheet puts the rows in order (Stage, Drop, Level) and renumbers them.
   try {
     sortSheetRows_();
   } catch (err) {
@@ -221,7 +221,7 @@ function formatDateTimeColumns_(sheet, headers, rowCount) {
   });
 }
 
-// The sheet is always written in Level, Drop, Stage order, whatever order the web keeps internally.
+// The sheet is always written in Stage, Drop, Level order, whatever order the web keeps internally.
 // Levels go up the building: G, 1, 2, … 12, then R; blanks last. Ties keep their current order.
 const NUMBER_HEADER = 'NO';
 
@@ -246,10 +246,12 @@ function sortForSheet_(list, key) {
   return list
     .map((x, i) => ({ x: x, k: key(x), i: i }))
     .sort((a, b) => {
+      const byStageDrop = natural_(a.k.stage, b.k.stage) || natural_(a.k.drop, b.k.drop);
+      if (byStageDrop) return byStageDrop;
       const la = levelRank_(a.k.level);
       const lb = levelRank_(b.k.level);
       if (la !== lb) return la < lb ? -1 : 1;
-      return natural_(a.k.level, b.k.level) || natural_(a.k.drop, b.k.drop) || natural_(a.k.stage, b.k.stage) || a.i - b.i;
+      return natural_(a.k.level, b.k.level) || a.i - b.i;
     })
     .map(e => e.x);
 }
@@ -322,7 +324,7 @@ function writeRows_(items) {
 }
 
 /**
- * Sorts the rows already in the sheet (Level, Drop, Stage) and renumbers the last "No" column,
+ * Sorts the rows already in the sheet (Stage, Drop, Level) and renumbers the last "No" column,
  * without asking the web. Rows move whole, so every column keeps its value. Rows without an ID
  * (a defect still being typed) stay at the bottom.
  */
