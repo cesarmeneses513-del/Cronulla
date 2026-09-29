@@ -22,6 +22,7 @@ import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { PhaseChips } from './PhaseChips';
+import { SuggestInput } from './SuggestInput';
 
 interface PhotoLightboxProps {
   item: DefectItem;
@@ -489,12 +490,13 @@ const LightboxEditForm: React.FC<{
     <form onSubmit={submit} className="p-2.5 md:p-3 bg-white/5 rounded-lg border border-white/10 space-y-2 md:space-y-2.5">
       <div>
         <label className={label}>{t('Defecto')}</label>
-        <input list="lightbox-defects" value={draft.defect} onChange={set('defect')} className={`${input} font-bold uppercase`} />
-        <datalist id="lightbox-defects">
-          {defectNames.map(d => (
-            <option key={d} value={d} />
-          ))}
-        </datalist>
+        <SuggestInput
+          value={draft.defect}
+          onChange={v => setDraft(d => ({ ...d, defect: v }))}
+          options={defectNames}
+          className={`${input} font-bold uppercase`}
+          dark
+        />
       </div>
       <div className="grid grid-cols-3 md:grid-cols-2 gap-x-2 gap-y-1.5 md:gap-2">
         <div className="md:order-1">

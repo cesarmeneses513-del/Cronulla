@@ -7,6 +7,7 @@ import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { stageImageFor } from '../data/stageImages';
 import { StageImageViewer } from './StageImageViewer';
 import { PhasePicker } from './PhasePicker';
+import { SuggestInput } from './SuggestInput';
 
 interface EditDefectModalProps {
   item: DefectItem | null;
@@ -193,17 +194,12 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Etapa / Orientación')}
               </label>
-              <input
-                list="stages-list"
+              <SuggestInput
                 value={formData.orientation}
-                onChange={e => setFormData({ ...formData, orientation: e.target.value })}
+                onChange={v => setFormData({ ...formData, orientation: v })}
+                options={COMMON_STAGES}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:border-slate-400 focus:outline-hidden"
               />
-              <datalist id="stages-list">
-                {COMMON_STAGES.map(s => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
             </div>
           </div>
 
@@ -213,17 +209,12 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Tipo de Defecto')}
               </label>
-              <input
-                list="defects-list"
+              <SuggestInput
                 value={formData.defect}
-                onChange={e => setFormData({ ...formData, defect: e.target.value })}
+                onChange={v => setFormData({ ...formData, defect: v })}
+                options={COMMON_DEFECTS}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-medium focus:border-slate-400 focus:outline-hidden"
               />
-              <datalist id="defects-list">
-                {COMMON_DEFECTS.map(d => (
-                  <option key={d} value={d} />
-                ))}
-              </datalist>
             </div>
 
             <div>
