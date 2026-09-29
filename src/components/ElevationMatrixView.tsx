@@ -54,8 +54,11 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
   // The grid shows the current selection; the buttons always offer every drop and level.
   const drops = dropsOf(items);
   const levels = levelsOf(items);
-  const dropOptions = dropsOf(allItems || items);
-  const levelOptions = levelsOf(allItems || items);
+  // The selected drop / level stays offered even when the current stage has none, so it can be changed.
+  const withSelected = (list: DefectItem[], field: 'drop' | 'level', selected: string[]) =>
+    list.concat(selected.map(v => ({ [field]: v }) as unknown as DefectItem));
+  const dropOptions = dropsOf(withSelected(allItems || items, 'drop', selectedDrops));
+  const levelOptions = levelsOf(withSelected(allItems || items, 'level', selectedLevels));
   const chip = (active: boolean) =>
     `min-w-8 px-2 py-1 text-xs font-mono font-semibold rounded-md border transition-colors ${
       active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -149,6 +152,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
         </div>
       )}
 
+      {items.length > 0 && (
       <div className="overflow-x-auto p-4">
         <table className="w-full border-collapse text-xs">
           <thead>
@@ -266,6 +270,7 @@ export const ElevationMatrixView: React.FC<ElevationMatrixViewProps> = ({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 };

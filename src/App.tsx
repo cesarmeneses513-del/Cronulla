@@ -1062,6 +1062,37 @@ export default function App() {
           </div>
   );
 
+  // Shown when no defect matches; the elevation view keeps its Stage / Drop / Level pickers above it.
+  const emptyState = (
+    <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
+      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+        <Info className="w-6 h-6" />
+      </div>
+      <h3 className="text-base font-bold text-slate-800">{t('No se encontraron defectos coincidentes')}</h3>
+      <p className="text-xs text-slate-500 max-w-md mx-auto">
+        {t('Intenta cambiar los filtros seleccionados o el término de búsqueda para ver los registros de inspección.')}
+      </p>
+      <button
+        onClick={() =>
+          setFilters({
+            searchQuery: '',
+            orientations: [],
+            defects: [],
+            urgencies: [],
+            statuses: [],
+            drops: [],
+            levels: [],
+            technicians: [],
+            hasPhotosOnly: false,
+          })
+        }
+        className="inline-flex items-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors"
+      >
+        {t('Restablecer Filtros')}
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
       {/* Toast notification */}
@@ -1144,34 +1175,8 @@ export default function App() {
 
       {/* Main View Area */}
       <main ref={mainRef} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {filteredItems.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-              <Info className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-800">{t('No se encontraron defectos coincidentes')}</h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              {t('Intenta cambiar los filtros seleccionados o el término de búsqueda para ver los registros de inspección.')}
-            </p>
-            <button
-              onClick={() =>
-                setFilters({
-                  searchQuery: '',
-                  orientations: [],
-                  defects: [],
-                  urgencies: [],
-                  statuses: [],
-                  drops: [],
-                  levels: [],
-                  technicians: [],
-                  hasPhotosOnly: false,
-                })
-              }
-              className="inline-flex items-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors"
-            >
-              {t('Restablecer Filtros')}
-            </button>
-          </div>
+        {filteredItems.length === 0 && viewMode !== 'matrix' ? (
+          emptyState
         ) : viewMode === 'rows' ? (
           /* View Mode 1: Detailed Rows with Drag and Drop Photo Reordering */
           rowsList
@@ -1209,7 +1214,7 @@ export default function App() {
           {/* The defects of the selected drop / level, right here */}
           {(filters.drops.length > 0 || filters.levels.length > 0) && (
             <div id="elevation-selection" className="mt-6 scroll-mt-24">
-              {rowsList}
+              {filteredItems.length === 0 ? emptyState : rowsList}
             </div>
           )}
           </>
