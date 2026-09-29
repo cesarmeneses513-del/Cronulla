@@ -5,7 +5,7 @@ import { useI18n } from '../i18n';
 
 export type SortKey = 'recent' | 'number' | 'stage' | 'defect' | 'drop' | 'level';
 export type SortDirection = 'asc' | 'desc';
-// Sort keys in priority order; empty = original order.
+// Sort keys in priority order; empty = by row number.
 export interface SortState {
   keys: SortKey[];
   direction: SortDirection;
@@ -58,7 +58,6 @@ const COMPARE: Record<SortKey, (x: DefectItem, y: DefectItem) => number> = {
 };
 
 export function sortDefects(items: DefectItem[], { keys, direction }: SortState): DefectItem[] {
-  if (keys.length === 0) return direction === 'asc' ? items : [...items].reverse();
   const sign = direction === 'asc' ? 1 : -1;
   // Row number breaks remaining ties so the result is stable and predictable.
   const order: SortKey[] = keys.includes('number') ? keys : [...keys, 'number'];
@@ -92,7 +91,9 @@ interface SortBarProps {
 
 export const SortBar: React.FC<SortBarProps> = ({ sort, onChange, actions, compact = false }) => {
   const { t } = useI18n();
-  const { keys, direction } = sort;
+  const { direction } = sort;
+  // No key chosen sorts by row number, so Nº shows as chosen.
+  const keys: SortKey[] = sort.keys.length > 0 ? sort.keys : ['number'];
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   // Clicking adds a key after the ones already chosen, or removes it.
@@ -113,10 +114,7 @@ export const SortBar: React.FC<SortBarProps> = ({ sort, onChange, actions, compa
     };
   }, [open]);
 
-  const summary =
-    keys.length === 0
-      ? t('Original')
-      : keys.map(k => t(SORT_OPTIONS.find(o => o.key === k)!.label)).join(' › ');
+  const summary = keys.map(k => t(SORT_OPTIONS.find(o => o.key === k)!.label)).join(' › ');
   const item = (active: boolean) =>
     `w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md text-start transition-colors ${
       active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
@@ -146,9 +144,6 @@ export const SortBar: React.FC<SortBarProps> = ({ sort, onChange, actions, compa
             <p className="px-3 pt-1 pb-2 text-[11px] text-slate-400">
               {t('Puedes marcar varios: se ordena en el orden en que los marcas')}
             </p>
-            <button onClick={() => onChange({ keys: [], direction })} className={item(keys.length === 0)}>
-              {t('Original')}
-            </button>
             {SORT_OPTIONS.map(opt => {
               const pos = keys.indexOf(opt.key);
               const active = pos >= 0;
