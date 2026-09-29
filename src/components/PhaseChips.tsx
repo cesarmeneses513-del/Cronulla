@@ -13,7 +13,7 @@ export const PhaseChips: React.FC<{ item: DefectItem; size?: 'sm' | 'xs' }> = ({
   const { t } = useI18n();
   const present = new Set(item.photos.map(photoPhase));
   return (
-    <div className="inline-flex items-center gap-1">
+    <div className={`inline-flex items-center gap-1 ${size === 'xs' ? 'flex-wrap' : ''}`}>
       {PHASES.map(phase => {
         const has = present.has(phase);
         const label = t(PHASE_LABEL[phase]);

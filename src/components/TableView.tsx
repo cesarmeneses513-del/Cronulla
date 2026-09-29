@@ -43,9 +43,10 @@ export const TableView: React.FC<TableViewProps> = ({
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+        {/* On computers: tighter cells and headers, so every column fits in either language. */}
+        <table className="w-full text-left text-xs border-collapse lg:[&_th]:px-2 lg:[&_td]:px-2">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+            <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider lg:tracking-normal text-[11px] lg:text-[10px]">
               {selectable && <th className="p-3 w-8" />}
               <th className="p-3 w-12 text-center">#</th>
               <th className="p-3 w-28">{t('Fotos')}</th>
@@ -166,7 +167,7 @@ export const TableView: React.FC<TableViewProps> = ({
                   </div>
                 </td>
 
-                <td className="p-3 max-w-xs lg:max-w-[12rem] truncate text-[11px] text-slate-600" title={item.comment}>
+                <td className="p-3 max-w-xs lg:max-w-[10rem] truncate text-[11px] text-slate-600" title={item.comment}>
                   {item.comment || '—'}
                 </td>
 

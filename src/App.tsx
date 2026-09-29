@@ -1308,7 +1308,7 @@ export default function App() {
         ref={mainRef}
         className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 ${
           // On computers the table uses the whole width, so every column fits without scrolling.
-          viewMode === 'table' ? 'lg:max-w-none' : ''
+          viewMode === 'table' ? 'lg:max-w-none lg:px-4' : ''
         }`}
       >
         {filteredItems.length === 0 && viewMode !== 'matrix' ? (
