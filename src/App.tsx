@@ -29,6 +29,7 @@ import {
   mergeItem,
   withoutModified,
   RENUMBER_CLIENT,
+  renumberDefects,
 } from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
 
@@ -313,7 +314,10 @@ export default function App() {
       id => {
         const change: RemoteChange = { type: 'delete', id };
         if (syncedRef.current) syncedRef.current = applyRemoteChange(syncedRef.current, change);
-        setItems(prev => applyRemoteChange(prev, change));
+        // itemsRef too, right away: another live update arriving before the next render starts
+        // from itemsRef, and would otherwise bring the deleted defect back (and save it again).
+        itemsRef.current = applyRemoteChange(itemsRef.current, change);
+        setItems(itemsRef.current);
       }
     );
 
@@ -347,7 +351,8 @@ export default function App() {
               itemsRef.current = syncedRef.current;
               setItems(syncedRef.current);
             } else {
-              setItems(p => withMerged(p));
+              itemsRef.current = withMerged(itemsRef.current);
+              setItems(itemsRef.current);
             }
             if (upToDate) setSyncStatus('synced');
             return;
@@ -435,6 +440,20 @@ export default function App() {
     [readOnly, showToast, t]
   );
   const handleReload = useCallback(() => refreshFromServer(false), [refreshFromServer]);
+
+  // Administrators: sort and renumber every defect (Stage, Drop, Level), same order as the sheet.
+  const handleRenumber = useCallback(async () => {
+    if (!window.confirm(t('¿Ordenar y renumerar todos los defectos por Stage, Drop y Level? Los números (Nº) cambiarán.'))) return;
+    try {
+      await saveQueueRef.current;
+      await renumberDefects();
+      await refreshFromServer(true);
+      showToast(t('Defectos ordenados y renumerados'));
+    } catch (e) {
+      console.error('Failed to renumber defects', e);
+      showToast(t('No se pudo renumerar. Inténtalo de nuevo.'));
+    }
+  }, [refreshFromServer, showToast, t]);
 
   // Phones drop the live connection while the screen is off or the app is in the background, and
   // changes made by others meanwhile never arrive. Catch up whenever the app is shown again.
@@ -1012,7 +1031,8 @@ export default function App() {
   const handleNewDefect = useCallback(() => {
     const newItem: DefectItem = {
       id: `defect-new-${Date.now()}`,
-      rowNo: `${items.length + 1}`,
+      // Next free number; the administrator's "Sort and renumber" puts it in place later.
+      rowNo: `${items.reduce((max, i) => Math.max(max, parseInt(i.rowNo, 10) || 0), 0) + 1}`,
       projectName: 'CRONULLA JOB',
       orientation: 'STAGE 1',
       defect: 'RENDER REPAIR',
@@ -1261,6 +1281,7 @@ export default function App() {
         onNewDefect={handleNewDefect}
         onExportCsv={handleExportCsv}
         onOpenImportModal={() => canDelete && setIsImportModalOpen(true)}
+        onRenumber={supabase && canDelete ? handleRenumber : undefined}
         readOnly={readOnly}
         isAdmin={canDelete}
         onLogout={() => handleSelectRole(null)}

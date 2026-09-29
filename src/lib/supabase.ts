@@ -65,6 +65,13 @@ export async function fetchDefects(): Promise<DefectItem[]> {
   return rows.map(withModified);
 }
 
+// Numbers every defect 1, 2, 3… in Stage, Drop, Level order (supabase/renumber.sql).
+export async function renumberDefects(): Promise<void> {
+  if (!supabase) throw new Error('Supabase no configurado');
+  const { error } = await supabase.rpc('renumber_defects');
+  if (error) throw error;
+}
+
 export async function fetchDefectsByIds(ids: string[]): Promise<Map<string, DefectItem>> {
   const found = new Map<string, DefectItem>();
   if (!supabase) return found;

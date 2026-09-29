@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { RefreshCw, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
+import { RefreshCw, Download, Upload, ListOrdered, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -14,6 +14,8 @@ interface HeaderProps {
   onNewDefect: () => void;
   onExportCsv: () => void;
   onOpenImportModal: () => void;
+  // Administrators: sort and renumber all defects.
+  onRenumber?: () => void;
   readOnly: boolean;
   isAdmin?: boolean;
   onLogout: () => void;
@@ -31,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNewDefect,
   onExportCsv,
   onOpenImportModal,
+  onRenumber,
   readOnly,
   isAdmin = false,
   onLogout,
@@ -196,6 +199,13 @@ export const Header: React.FC<HeaderProps> = ({
                     <FileSpreadsheet className="w-3.5 h-3.5" />
                     Cronulla vs Code
                   </a>
+                )}
+
+                {isAdmin && onRenumber && (
+                  <button onClick={() => { setDataOpen(false); onRenumber(); }} className={menuItem}>
+                    <ListOrdered className="w-3.5 h-3.5" />
+                    {t('Ordenar y renumerar')}
+                  </button>
                 )}
 
                 <button onClick={() => { setDataOpen(false); onExportCsv(); }} className={menuItem}>

@@ -26,6 +26,13 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Importar': { en: 'Import', fa: 'وارد کردن' },
   'Exportar': { en: 'Export', fa: 'صادر کردن' },
   'Datos': { en: 'Data', fa: 'داده‌ها' },
+  'Ordenar y renumerar': { en: 'Sort and renumber', fa: 'مرتب‌سازی و شماره‌گذاری' },
+  '¿Ordenar y renumerar todos los defectos por Stage, Drop y Level? Los números (Nº) cambiarán.': {
+    en: 'Sort and renumber all defects by Stage, Drop and Level? The numbers (No) will change.',
+    fa: 'همه نقص‌ها بر اساس Stage، Drop و Level مرتب و شماره‌گذاری شوند؟ شماره‌ها تغییر می‌کنند.',
+  },
+  'Defectos ordenados y renumerados': { en: 'Defects sorted and renumbered', fa: 'نقص‌ها مرتب و شماره‌گذاری شدند' },
+  'No se pudo renumerar. Inténtalo de nuevo.': { en: 'Could not renumber. Please try again.', fa: 'شماره‌گذاری انجام نشد. دوباره تلاش کنید.' },
   'Nuevo Defecto': { en: 'New defect', fa: 'نقص جدید' },
   'Cambiar de modo': { en: 'Switch mode', fa: 'تغییر حالت' },
   'Salir': { en: 'Exit', fa: 'خروج' },
