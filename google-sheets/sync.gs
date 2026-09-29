@@ -272,9 +272,9 @@ function sentToWeb_(h) {
 // Filled only by hand in the sheet; the web never writes them.
 const SHEET_ONLY_HEADERS = ['MAPPING'];
 
-// Columns worked out by the script on each rewrite (never sent to the web), placed right after
-// LINEAR METERS: M^2 = Base × Height and LM = Linear Meters, each at least 1. Blank when the
-// measurements are blank.
+// Columns worked out by the script on each rewrite (never sent to the web): M^2 = Base × Height,
+// right after HEIGHT (M), and LM = Linear Meters, right after LINEAR METERS; each at least 1.
+// Blank when the measurements are blank.
 const toNumber_ = v => {
   const n = parseFloat(String(v === undefined || v === null ? '' : v).replace(',', '.'));
   return isNaN(n) ? null : n;
@@ -288,16 +288,28 @@ const COMPUTED = {
   },
   'LM': item => atLeastOne_(toNumber_(item.linearMeters)),
 };
-const COMPUTED_HEADERS = ['M^2', 'LM'];
+// Computed column → the column it goes right after.
+const COMPUTED_AFTER = [['M^2', 'HEIGHT (M)'], ['LM', 'LINEAR METERS']];
 
+// Adds the computed columns, or moves them back next to their column if they are elsewhere.
 function ensureComputedColumns_(sheet) {
-  const headers = readHeaders_(sheet);
-  const missing = COMPUTED_HEADERS.filter(h => headers.indexOf(h) < 0);
-  if (missing.length === 0) return;
-  const after = headers.indexOf('LINEAR METERS');
-  const col = after >= 0 ? after + 1 : sheet.getLastColumn();
-  sheet.insertColumnsAfter(col, missing.length);
-  sheet.getRange(1, col + 1, 1, missing.length).setValues([missing]);
+  COMPUTED_AFTER.forEach(([header, anchor]) => {
+    const headers = readHeaders_(sheet);
+    const at = headers.indexOf(header);
+    const after = headers.indexOf(anchor);
+    if (after < 0) {
+      if (at < 0) sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+      return;
+    }
+    if (at === after + 1) return;
+    if (at < 0) {
+      sheet.insertColumnAfter(after + 1);
+      sheet.getRange(1, after + 2).setValue(header);
+    } else {
+      // moveColumns' destination is the column index before the move.
+      sheet.moveColumns(sheet.getRange(1, at + 1), after + 2);
+    }
+  });
 }
 
 // Columns the web writes on each rewrite; every other one keeps what was typed in the sheet.
