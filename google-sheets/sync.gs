@@ -535,7 +535,15 @@ function applyRow_(item, row, headers, editedHeaders) {
       // The sheet only shows 3 photos per phase; keep any extra ones the app has.
       current.filter(p => p.phase === phase).slice(3).forEach(p => photos.push({ url: p.url, phase: phase }));
     });
-    item.photos = photos.map((p, i) => ({ url: p.url, phase: p.phase, slot: i + 1 }));
+    // Photos that stay in their phase keep who put them there, and when (set by the web).
+    const known = {};
+    current.forEach(p => (known[p.phase + '|' + p.url] = p));
+    item.photos = photos.map((p, i) => {
+      const k = known[p.phase + '|' + p.url];
+      const photo = { url: p.url, phase: p.phase, slot: i + 1 };
+      if (k && k.by) Object.assign(photo, { by: k.by, date: k.date || '', time: k.time || '' });
+      return photo;
+    });
   }
 }
 

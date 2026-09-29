@@ -68,24 +68,88 @@ const revertEntry = (current: DefectItem[], { before, after }: HistoryEntry): De
   return result;
 };
 
-// Who added a photo, and when: a Before photo fills the start technician/date/time, a During photo
-// the During ones and an After photo the completion ones. Uses the name given when signing in as editor.
-const stampTechnician = (item: DefectItem, phases: PhotoPhase[]): DefectItem => {
+// Technician / date / time fields of each photo phase: Before → start, During → during, After → completed.
+const PHASE_STAMP_FIELDS = {
+  BEFORE: ['technicianStart', 'date1stPhoto', 'time1stPhoto'],
+  'IN PROGRESS': ['technicianDuring', 'dateDuring', 'timeDuring'],
+  COMPLETED: ['technicianCompleted', 'dateCompleted', 'timeCompleted'],
+} as const satisfies Record<PhotoPhase, readonly (keyof DefectItem)[]>;
+
+type Stamp = { by: string; date: string; time: string };
+
+// The signed-in editor (the name given when signing in) and the current date and time.
+const currentStamp = (): Stamp | null => {
   const user = getStoredUserName();
-  if (!user || phases.length === 0) return item;
+  if (!user) return null;
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
-  const date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
-  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  let next = item;
-  if (phases.includes('BEFORE')) next = { ...next, technicianStart: user, date1stPhoto: date, time1stPhoto: time };
-  if (phases.includes('IN PROGRESS')) next = { ...next, technicianDuring: user, dateDuring: date, timeDuring: time };
-  if (phases.includes('COMPLETED')) next = { ...next, technicianCompleted: user, dateCompleted: date, timeCompleted: time };
-  return next;
+  return {
+    by: user,
+    date: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+  };
 };
 
-const photoPhaseKeys = (item?: DefectItem) =>
-  new Set((item?.photos || []).map((p, i) => (typeof p === 'string' ? `${i >= 6 ? 'COMPLETED' : i >= 3 ? 'IN PROGRESS' : 'BEFORE'}|${p}` : `${p.phase}|${p.url}`)));
+const setPhaseStamp = (item: DefectItem, phase: PhotoPhase, s: Stamp): DefectItem => {
+  const [tech, date, time] = PHASE_STAMP_FIELDS[phase];
+  return { ...item, [tech]: s.by, [date]: s.date, [time]: s.time };
+};
+
+// A new defect without photos stamps the phase of its status.
+const stampTechnician = (item: DefectItem, phases: PhotoPhase[]): DefectItem => {
+  const s = currentStamp();
+  return s ? phases.reduce((next, phase) => setPhaseStamp(next, phase, s), item) : item;
+};
+
+// A photo about to leave `source`: it carries who put it in its phase. Older photos don't
+// know, so they take the source defect's technician/date/time for that phase.
+const withPhotoStamp = <T extends DefectPhoto | string>(photo: T, source: DefectItem): T => {
+  if (typeof photo === 'string') return photo;
+  const p = photo as DefectPhoto;
+  if (p.by) return photo;
+  const [tech, date, time] = PHASE_STAMP_FIELDS[p.phase];
+  const by = source[tech] || '';
+  return (by ? { ...p, by, date: source[date] || '', time: source[time] || '' } : p) as T;
+};
+
+/**
+ * Keeps each phase's technician/date/time in line with the photos, after any photo change:
+ * - a photo added (or put into another phase) now stamps the editor and the current time;
+ * - a photo moved in from another defect stamps whoever put it in that phase, and when;
+ * - when the last photo of a phase is deleted or moved away, that phase's fields are emptied.
+ * Reordering, and photos that didn't change, leave the fields as they are.
+ */
+const reconcilePhotoStamps = (before: DefectItem | undefined, after: DefectItem): DefectItem => {
+  const urlOf = (p: DefectPhoto | string) => (typeof p === 'string' ? p : p.url);
+  const phaseOf = (p: DefectPhoto | string, i: number): PhotoPhase =>
+    typeof p === 'string' ? (i >= 6 ? 'COMPLETED' : i >= 3 ? 'IN PROGRESS' : 'BEFORE') : p.phase;
+  const oldPhase = new Map((before?.photos || []).map((p, i) => [urlOf(p), phaseOf(p, i)] as const));
+  const now = currentStamp();
+  let next = after;
+  let photos = after.photos;
+
+  after.photos.forEach((p, i) => {
+    const phase = phaseOf(p, i);
+    const was = oldPhase.get(urlOf(p));
+    if (was === phase) return;
+    const carried = was === undefined && typeof p === 'object' && p.by ? { by: p.by, date: p.date || '', time: p.time || '' } : null;
+    const s = carried || now;
+    if (!s) return;
+    next = setPhaseStamp(next, phase, s);
+    if (!carried) {
+      if (photos === after.photos) photos = [...photos];
+      photos[i] = { ...(typeof p === 'object' ? p : { url: p, phase, slot: i + 1 }), by: s.by, date: s.date, time: s.time };
+    }
+  });
+
+  (Object.keys(PHASE_STAMP_FIELDS) as PhotoPhase[]).forEach(phase => {
+    const had = (before?.photos || []).some((p, i) => phaseOf(p, i) === phase);
+    const has = after.photos.some((p, i) => phaseOf(p, i) === phase);
+    if (had && !has) next = setPhaseStamp(next, phase, { by: '', date: '', time: '' });
+  });
+
+  return photos === after.photos ? next : { ...next, photos };
+};
 
 const normalizeItems = (rawItems: DefectItem[]): DefectItem[] => {
   return rawItems.map(item => ({
@@ -676,9 +740,10 @@ export default function App() {
         }
 
         // Moving between different rows
-        const originalPhoto = sourceItem.photos[payload.photoIndex];
+        const originalPhoto = withPhotoStamp(sourceItem.photos[payload.photoIndex], sourceItem);
         const resolvedPhase: PhotoPhase = payload.phase || (typeof originalPhoto === 'object' ? originalPhoto.phase : 'BEFORE');
         const movedPhoto: DefectPhoto = {
+          ...(typeof originalPhoto === 'object' ? originalPhoto : {}),
           url: payload.photoUrl,
           phase: resolvedPhase,
           slot: (targetPhotoIndex ?? targetItem.photos.length) + 1,
@@ -704,8 +769,8 @@ export default function App() {
         );
 
         return prevItems.map(i => {
-          if (i.id === sourceItem.id) return { ...i, photos: sourcePhotos };
-          if (i.id === targetItem.id) return { ...i, photos: targetPhotos };
+          if (i.id === sourceItem.id) return reconcilePhotoStamps(i, { ...i, photos: sourcePhotos });
+          if (i.id === targetItem.id) return reconcilePhotoStamps(i, { ...i, photos: targetPhotos });
           return i;
         });
       }, t('mover foto'));
@@ -723,12 +788,13 @@ export default function App() {
       if (!source || !target || source.id === target.id || photoUrls.length === 0) return;
       const moving = new Set(photoUrls);
       const already = new Set(target.photos.map(urlOf));
-      const moved = source.photos.filter(p => moving.has(urlOf(p)));
+      const moved = source.photos.filter(p => moving.has(urlOf(p))).map(p => withPhotoStamp(p, source));
       updateItems(
         prev =>
           prev.map(i => {
-            if (i.id === source.id) return { ...i, photos: i.photos.filter(p => !moving.has(urlOf(p))) };
-            if (i.id === target.id) return { ...i, photos: [...i.photos, ...moved.filter(p => !already.has(urlOf(p)))] };
+            if (i.id === source.id) return reconcilePhotoStamps(i, { ...i, photos: i.photos.filter(p => !moving.has(urlOf(p))) });
+            if (i.id === target.id)
+              return reconcilePhotoStamps(i, { ...i, photos: [...i.photos, ...moved.filter(p => !already.has(urlOf(p)))] });
             return i;
           }),
         t('mover fotos')
@@ -755,7 +821,7 @@ export default function App() {
               phase,
               slot: i.photos.length + 1,
             };
-            return stampTechnician({ ...i, photos: [...i.photos, newPhoto] }, [phase]);
+            return reconcilePhotoStamps(i, { ...i, photos: [...i.photos, newPhoto] });
           }),
         t('añadir foto')
       );
@@ -776,11 +842,12 @@ export default function App() {
           const cur = photos[photoIndex];
           const url = typeof cur === 'string' ? cur : cur.url;
           photos[photoIndex] = {
+            ...(typeof cur === 'object' ? cur : {}),
             url,
             phase: newPhase,
             slot: typeof cur === 'object' ? cur.slot : photoIndex + 1,
           };
-          return { ...item, photos };
+          return reconcilePhotoStamps(item, { ...item, photos });
         }),
         t('cambiar fase de foto')
       );
@@ -804,10 +871,10 @@ export default function App() {
         prev =>
           prev.map(i => {
             if (i.id !== itemId) return i;
-            return {
+            return reconcilePhotoStamps(i, {
               ...i,
               photos: i.photos.filter((_, idx) => idx !== photoIndex),
-            };
+            });
           }),
         t('eliminar foto')
       );
@@ -841,14 +908,13 @@ export default function App() {
   // Handler: Save from Edit Modal
   const handleSaveDefect = useCallback(
     (edited: DefectItem) => {
-      // New photos stamp who added them; a new defect without photos stamps by its status.
+      // Photos added, re-phased or removed update each phase's technician/date/time;
+      // a new defect without photos stamps by its status.
       const previous = itemsRef.current.find(i => i.id === edited.id);
-      const before = photoPhaseKeys(previous);
-      let phases = Array.from(photoPhaseKeys(edited))
-        .filter(k => !before.has(k))
-        .map(k => k.split('|')[0] as PhotoPhase);
-      if (!previous && phases.length === 0) phases = [edited.status];
-      const updated = stampTechnician(edited, phases);
+      const updated =
+        !previous && edited.photos.length === 0
+          ? stampTechnician(edited, [edited.status])
+          : reconcilePhotoStamps(previous, edited);
       updateItems(prev => {
         const exists = prev.some(i => i.id === updated.id);
         if (exists) {

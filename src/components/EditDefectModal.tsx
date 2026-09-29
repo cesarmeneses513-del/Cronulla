@@ -105,6 +105,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
     const itemPhoto = photos[index];
     const url = typeof itemPhoto === 'string' ? itemPhoto : itemPhoto.url;
     photos[index] = {
+      ...(typeof itemPhoto === 'object' ? itemPhoto : {}),
       url,
       phase: newPhase,
       slot: typeof itemPhoto === 'object' ? itemPhoto.slot : index + 1,

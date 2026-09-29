@@ -6,6 +6,10 @@ export interface DefectPhoto {
   url: string;
   phase: PhotoPhase;
   slot?: number; // 1 to 9 corresponding to PHOTO 1..9
+  // Who put the photo in its current phase, and when (dd/mm/yyyy, hh:mm:ss). Missing on older photos.
+  by?: string;
+  date?: string;
+  time?: string;
 }
 
 export interface DefectItem {
