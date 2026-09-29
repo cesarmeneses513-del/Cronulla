@@ -685,6 +685,36 @@ export default function App() {
     [showToast, updateItems, t]
   );
 
+  // Handler: move several photos of one defect to another (photos uploaded to the wrong defect).
+  // One undoable step; the viewer then shows the target defect on the first moved photo.
+  const handleMovePhotos = useCallback(
+    (sourceId: string, photoUrls: string[], targetId: string) => {
+      const urlOf = (p: DefectPhoto | string) => (typeof p === 'string' ? p : p.url);
+      const source = itemsRef.current.find(i => i.id === sourceId);
+      const target = itemsRef.current.find(i => i.id === targetId);
+      if (!source || !target || source.id === target.id || photoUrls.length === 0) return;
+      const moving = new Set(photoUrls);
+      const already = new Set(target.photos.map(urlOf));
+      const moved = source.photos.filter(p => moving.has(urlOf(p)));
+      updateItems(
+        prev =>
+          prev.map(i => {
+            if (i.id === source.id) return { ...i, photos: i.photos.filter(p => !moving.has(urlOf(p))) };
+            if (i.id === target.id) return { ...i, photos: [...i.photos, ...moved.filter(p => !already.has(urlOf(p)))] };
+            return i;
+          }),
+        t('mover fotos')
+      );
+      showToast(t('{n} foto(s) movida(s) de #{a} a #{b}', { n: moved.length, a: source.rowNo, b: target.rowNo }), true);
+      const updated = itemsRef.current.find(i => i.id === target.id);
+      if (updated) {
+        setLightboxItem(updated);
+        setLightboxPhotoIndex(Math.max(0, updated.photos.findIndex(p => moving.has(urlOf(p)))));
+      }
+    },
+    [showToast, updateItems, t]
+  );
+
   // Handler: Add photo to row
   const handleAddPhoto = useCallback(
     (itemId: string, photoUrl: string, phase: PhotoPhase = 'BEFORE') => {
@@ -1222,6 +1252,7 @@ export default function App() {
           onNavigatePhoto={handleNavigatePhoto}
           onDeletePhoto={handleDeletePhoto}
           onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
+          onMovePhotos={readOnly ? undefined : handleMovePhotos}
           onSaveItem={readOnly ? undefined : handleSaveDefect}
           defectNav={lightboxNav}
           readOnly={readOnly}

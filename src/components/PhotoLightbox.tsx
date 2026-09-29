@@ -16,7 +16,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Tag
+  Tag,
+  MoveRight,
+  Check
 } from 'lucide-react';
 import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
@@ -35,6 +37,8 @@ interface PhotoLightboxProps {
   defectNav?: { index: number; total: number; onPrev?: () => void; onNext?: () => void };
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
   onUpdatePhotoPhase?: (itemId: string, photoIndex: number, phase: PhotoPhase) => void;
+  // Moves some photos of this defect to another one (e.g. uploaded to the wrong defect).
+  onMovePhotos?: (sourceId: string, photoUrls: string[], targetId: string) => void;
   readOnly?: boolean;
   canDelete?: boolean;
 }
@@ -49,6 +53,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   defectNav,
   onDeletePhoto,
   onUpdatePhotoPhase,
+  onMovePhotos,
   readOnly = false,
   canDelete = true,
 }) => {
@@ -413,10 +418,19 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           </div>
         </div>
 
-        {/* Move Photo to Another Row Form */}
-        {!readOnly && hasPhoto && canDelete && (
+        {!readOnly && hasPhoto && (onMovePhotos || canDelete) && (
         <div className="pt-4 border-t border-white/10 space-y-3 mt-4">
+          {onMovePhotos && (
+            <MovePhotosPanel
+              key={item.id}
+              item={item}
+              currentUrl={currentPhotoUrl}
+              allItems={allItems}
+              onMove={(urls, targetId) => onMovePhotos(item.id, urls, targetId)}
+            />
+          )}
           {/* Delete Photo Button */}
+          {canDelete && (
           <button
             onClick={() => {
               if (window.confirm(t('¿Seguro que deseas quitar esta fotografía de la fila?'))) {
@@ -429,9 +443,122 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
             <Trash2 className="w-3.5 h-3.5" />
             <span>{t('Eliminar esta fotografía')}</span>
           </button>
+          )}
         </div>
         )}
       </div>
+    </div>
+  );
+};
+
+// Moves chosen photos of this defect to another one, found by its number: the shortcut for
+// photos uploaded to the wrong defect (instead of downloading and uploading them again).
+const MovePhotosPanel: React.FC<{
+  item: DefectItem;
+  currentUrl: string;
+  allItems: DefectItem[];
+  onMove: (photoUrls: string[], targetId: string) => void;
+}> = ({ item, currentUrl, allItems, onMove }) => {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [rowNo, setRowNo] = useState('');
+  const [chosen, setChosen] = useState<string[]>([]);
+
+  const urlOf = (p: DefectItem['photos'][number]) => (typeof p === 'string' ? p : p.url);
+  const wanted = rowNo.trim().replace(/^#/, '');
+  const target = wanted ? allItems.find(i => i.rowNo.trim() === wanted) : undefined;
+  const sameRow = target?.id === item.id;
+  const canMove = !!target && !sameRow && chosen.length > 0;
+
+  const toggle = (url: string) => setChosen(c => (c.includes(url) ? c.filter(u => u !== url) : [...c, url]));
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => {
+          setChosen(currentUrl ? [currentUrl] : []);
+          setOpen(true);
+        }}
+        className="w-full py-2 bg-sky-600/20 hover:bg-sky-600/30 text-sky-200 border border-sky-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+      >
+        <MoveRight className="w-3.5 h-3.5" />
+        <span>{t('Mover fotos a otro defecto')}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-lg space-y-2.5 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-sky-200">{t('Mover fotos a otro defecto')}</span>
+        <button onClick={() => setOpen(false)} className="p-1 text-slate-400 hover:text-white" aria-label={t('Cancelar')}>
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div>
+        <span className="block text-[11px] text-slate-400 mb-1">{t('1. Marca las fotos que quieres mover')}</span>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {item.photos.map((p, idx) => {
+            const url = urlOf(p);
+            const ph = typeof p === 'string' ? 'BEFORE' : p.phase;
+            const on = chosen.includes(url);
+            return (
+              <button
+                key={url + idx}
+                type="button"
+                onClick={() => toggle(url)}
+                className={`relative shrink-0 flex flex-col items-center rounded-md p-0.5 ${on ? 'ring-2 ring-sky-400' : 'opacity-50 hover:opacity-90'}`}
+              >
+                <span className="text-[8px] font-bold text-slate-300 mb-0.5 uppercase">{t(PHASE_LABEL[ph])}</span>
+                <div className="w-12 h-12 rounded overflow-hidden border border-white/20">
+                  <img src={thumbUrl(url, 160)} onError={fallbackTo(url)} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                </div>
+                {on && (
+                  <span className="absolute top-3 end-0 w-4 h-4 rounded-full bg-sky-500 text-white flex items-center justify-center">
+                    <Check className="w-3 h-3" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <span className="block text-[11px] text-slate-400 mb-1">{t('2. Número del defecto correcto')}</span>
+        <input
+          value={rowNo}
+          onChange={e => setRowNo(e.target.value)}
+          inputMode="numeric"
+          placeholder={t('Ej: 465')}
+          className="w-full bg-white/10 border border-white/20 rounded-md px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400"
+        />
+        {wanted && (
+          <p className={`mt-1 text-[11px] ${target && !sameRow ? 'text-emerald-300' : 'text-rose-300'}`}>
+            {!target
+              ? t('No existe el defecto #{n}', { n: wanted })
+              : sameRow
+                ? t('Es este mismo defecto')
+                : `#${target.rowNo} · ${target.orientation} · ${target.defect} · Drop ${target.drop || '—'} / ${t('Nivel')} ${target.level || '—'}`}
+          </p>
+        )}
+      </div>
+
+      <button
+        disabled={!canMove}
+        onClick={() => {
+          if (!target) return;
+          onMove(chosen, target.id);
+          setOpen(false);
+        }}
+        className="w-full py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:hover:bg-sky-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5"
+      >
+        <MoveRight className="w-3.5 h-3.5" />
+        {target && !sameRow
+          ? t('Mover {n} foto(s) al defecto #{row}', { n: chosen.length, row: target.rowNo })
+          : t('Mover {n} foto(s)', { n: chosen.length })}
+      </button>
     </div>
   );
 };

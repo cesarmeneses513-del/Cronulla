@@ -1,8 +1,11 @@
 import React from 'react';
-import { RefreshCw, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History } from 'lucide-react';
+import { RefreshCw, Download, Upload, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
+
+// The "Cronulla vs Code" spreadsheet kept in sync with the web (google-sheets/sync.gs).
+const CVC_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1T46fR5QS6E6vcc568Tc0JjjiIzc6kLebtvtsL2wam9s/edit';
 
 interface HeaderProps {
   items: DefectItem[];
@@ -151,6 +154,20 @@ export const Header: React.FC<HeaderProps> = ({
             <Upload className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('Importar')}</span> CSV
           </button>
+          )}
+
+          {/* Shortcut to the synced spreadsheet: administrators, on computers only */}
+          {isAdmin && (
+          <a
+            href={CVC_SHEET_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t('Abrir la planilla Cronulla vs Code')}
+            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors whitespace-nowrap"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            Cronulla vs Code
+          </a>
           )}
 
           <button

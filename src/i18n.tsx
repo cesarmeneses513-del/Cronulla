@@ -180,6 +180,17 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Fecha (dd/mm/aaaa)': { en: 'Date (dd/mm/yyyy)', fa: 'تاریخ (dd/mm/yyyy)' },
   'Hora': { en: 'Time', fa: 'ساعت' },
   'Cancelar': { en: 'Cancel', fa: 'انصراف' },
+  'Abrir la planilla Cronulla vs Code': { en: 'Open the Cronulla vs Code spreadsheet', fa: 'باز کردن جدول Cronulla vs Code' },
+  'Mover fotos a otro defecto': { en: 'Move photos to another defect', fa: 'انتقال عکس‌ها به نقص دیگر' },
+  '1. Marca las fotos que quieres mover': { en: '1. Tick the photos to move', fa: '۱. عکس‌هایی را که می‌خواهید منتقل کنید انتخاب کنید' },
+  '2. Número del defecto correcto': { en: '2. Number of the right defect', fa: '۲. شماره نقص درست' },
+  'Ej: 465': { en: 'e.g. 465', fa: 'مثلاً 465' },
+  'No existe el defecto #{n}': { en: 'There is no defect #{n}', fa: 'نقص #{n} وجود ندارد' },
+  'Es este mismo defecto': { en: 'That is this same defect', fa: 'این همان نقص است' },
+  'Mover {n} foto(s) al defecto #{row}': { en: 'Move {n} photo(s) to defect #{row}', fa: 'انتقال {n} عکس به نقص #{row}' },
+  'Mover {n} foto(s)': { en: 'Move {n} photo(s)', fa: 'انتقال {n} عکس' },
+  'mover fotos': { en: 'move photos', fa: 'انتقال عکس‌ها' },
+  '{n} foto(s) movida(s) de #{a} a #{b}': { en: '{n} photo(s) moved from #{a} to #{b}', fa: '{n} عکس از #{a} به #{b} منتقل شد' },
   'Guardar Cambios': { en: 'Save changes', fa: 'ذخیره تغییرات' },
 
   // Lightbox
