@@ -32,21 +32,23 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const uniqueStages = Array.from(new Set(items.map(i => i.orientation).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true })
   );
-  const uniqueDefects = Array.from(new Set(items.map(i => i.defect).filter(Boolean))).sort();
-  const uniqueDrops = Array.from(new Set(items.map(i => i.drop).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
-  const uniqueLevels = Array.from(new Set(items.map(i => i.level).filter(Boolean))).sort((a, b) => {
+  // Like the elevation view: once a stage is chosen, the other filters offer (and count) only that
+  // stage's defects. Values already selected stay listed so they can be turned off.
+  const stageItems =
+    filters.orientations.length > 0 ? items.filter(i => filters.orientations.includes(i.orientation)) : items;
+  const withSelected = (values: string[], selected: string[]) => Array.from(new Set([...values, ...selected]));
+  const uniqueDefects = withSelected(stageItems.map(i => i.defect).filter(Boolean), filters.defects).sort();
+  const uniqueDrops = withSelected(stageItems.map(i => i.drop).filter(Boolean), filters.drops).sort((a, b) => Number(a) - Number(b));
+  const uniqueLevels = withSelected(stageItems.map(i => i.level).filter(Boolean), filters.levels).sort((a, b) => {
     if (a === 'G') return -1;
     if (b === 'G') return 1;
     if (a === 'R') return 1;
     if (b === 'R') return -1;
     return Number(a) - Number(b);
   });
-  const uniqueTechnicians = Array.from(
-    new Set(
-      items
-        .map(i => canonicalPerson(i.modifiedBy || ''))
-        .filter(Boolean)
-    )
+  const uniqueTechnicians = withSelected(
+    stageItems.map(i => canonicalPerson(i.modifiedBy || '')).filter(Boolean),
+    filters.technicians
   ).sort();
 
   const activeFilterCount =
@@ -246,7 +248,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
                 {uniqueDefects.slice(0, 12).map(df => {
                   const isSelected = filters.defects.includes(df);
-                  const count = items.filter(i => i.defect === df).length;
+                  const count = stageItems.filter(i => i.defect === df).length;
                   return (
                     <button
                       key={df}
@@ -317,7 +319,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <div className="flex flex-nowrap gap-1 overflow-x-auto pr-1">
                 {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
                   const isSelected = filters.statuses.includes(st);
-                  const count = items.filter(i => i.status === st).length;
+                  const count = stageItems.filter(i => i.status === st).length;
                   return (
                     <button
                       key={st}
@@ -363,7 +365,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <div className="flex flex-wrap gap-1 pr-1">
                 {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
                   const isSelected = filters.urgencies.includes(ug);
-                  const count = items.filter(i => i.urgency === ug).length;
+                  const count = stageItems.filter(i => i.urgency === ug).length;
                   return (
                     <button
                       key={ug}
