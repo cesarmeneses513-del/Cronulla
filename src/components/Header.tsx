@@ -18,6 +18,9 @@ interface HeaderProps {
   onRenumber?: () => void;
   // Administrators signed in with an account: manage the accounts.
   onOpenUsers?: () => void;
+  // Who is signed in, shown above their level; `viaPin` while they still use the temporary PIN.
+  userName?: string;
+  viaPin?: boolean;
   readOnly: boolean;
   isAdmin?: boolean;
   onLogout: () => void;
@@ -37,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenImportModal,
   onRenumber,
   onOpenUsers,
+  userName,
+  viaPin = false,
   readOnly,
   isAdmin = false,
   onLogout,
@@ -136,14 +141,22 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Primary Actions */}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <span
-            className={`hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border ${
-              readOnly ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-800 border-amber-200'
-            }`}
-          >
-            {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
-            {readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}
-          </span>
+          <div className="flex flex-col items-end gap-0.5">
+            {!readOnly && userName && (
+              <span className="max-w-[10rem] truncate text-[11px] font-semibold text-slate-700 leading-none" title={userName}>
+                {userName}
+                {viaPin && <span className="font-normal text-slate-400"> · PIN</span>}
+              </span>
+            )}
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border ${
+                readOnly ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+              } ${!readOnly && userName ? '' : 'hidden sm:inline-flex'}`}
+            >
+              {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
+              {readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}
+            </span>
+          </div>
 
           <LanguageSwitcher />
 

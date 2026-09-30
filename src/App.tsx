@@ -1392,6 +1392,14 @@ export default function App() {
         isAdmin={canDelete}
         onLogout={handleLogout}
         onOpenUsers={isAccountAdmin ? () => setIsUsersOpen(true) : undefined}
+        userName={account?.name || getStoredUserName()}
+        viaPin={!readOnly && !account && (() => {
+          try {
+            return sessionStorage.getItem(AUTH_KEY) !== 'account';
+          } catch {
+            return true;
+          }
+        })()}
         onUndo={handleUndo}
         undoLabel={history.length > 0 ? history[history.length - 1].label : null}
         onOpenHistory={() => setIsHistoryOpen(true)}
