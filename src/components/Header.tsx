@@ -141,22 +141,23 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Primary Actions */}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="flex flex-col items-end gap-0.5">
-            {!readOnly && userName && (
-              <span className="max-w-[10rem] truncate text-[11px] font-semibold text-slate-700 leading-none" title={userName}>
-                {userName}
-                {viaPin && <span className="font-normal text-slate-400"> · PIN</span>}
-              </span>
-            )}
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border ${
-                readOnly ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-800 border-amber-200'
-              } ${!readOnly && userName ? '' : 'hidden sm:inline-flex'}`}
-            >
-              {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
-              {readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}
+          {/* Level, with the signed-in person's name inside (· PIN while using the temporary PIN) */}
+          <span
+            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold border ${
+              readOnly ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+            } ${!readOnly && userName ? '' : 'hidden sm:inline-flex'}`}
+          >
+            {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
+            <span className="flex flex-col leading-tight">
+              <span>{readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}</span>
+              {!readOnly && userName && (
+                <span className="max-w-[9rem] truncate text-[9px] font-medium text-amber-700/80" title={userName}>
+                  {userName}
+                  {viaPin && ' · PIN'}
+                </span>
+              )}
             </span>
-          </div>
+          </span>
 
           <LanguageSwitcher />
 
