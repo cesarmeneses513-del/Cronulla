@@ -4,7 +4,8 @@ import { DefectItem, UrgencyLevel, DefectStatus, PhotoPhase, DefectPhoto } from 
 import { uploadPhoto } from '../lib/supabase';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { useCan } from '../lib/permissions';
-import { DEFECT_TYPES, STAGES, measuresFor } from '../lib/defectTypes';
+import { STAGES, measuresFor, useDefectTypes } from '../lib/defectTypes';
+import { ManageTypesModal } from './ManageTypesModal';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { stageImageFor } from '../data/stageImages';
 import { StageImageViewer } from './StageImageViewer';
@@ -17,6 +18,9 @@ interface EditDefectModalProps {
   onClose: () => void;
   onSave: (updatedItem: DefectItem) => void;
   canDelete?: boolean;
+  // For "Manage types": all defects (how many use each type) and whether this person may manage them.
+  allItems?: DefectItem[];
+  canManageTypes?: boolean;
 }
 
 export const EditDefectModal: React.FC<EditDefectModalProps> = ({
@@ -25,9 +29,13 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   onClose,
   onSave,
   canDelete = true,
+  allItems = [],
+  canManageTypes = false,
 }) => {
   const { t } = useI18n();
   const can = useCan();
+  const { types } = useDefectTypes();
+  const [managingTypes, setManagingTypes] = useState(false);
   if (!isOpen || !item) return null;
 
   const [formData, setFormData] = useState<DefectItem>({ ...item });
@@ -38,7 +46,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
   // Everything must be filled in before saving, including the measurements the defect type needs.
   const [missing, setMissing] = useState<string[]>([]);
-  const measures = measuresFor(formData.defect);
+  const measures = measuresFor(formData.defect, types);
   const filled = (v?: string) => !!String(v ?? '').trim();
   const measureOk = {
     area: filled(formData.baseM) && filled(formData.heightM),
@@ -229,9 +237,14 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           {/* Defect, Urgency, Status */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                {t('Tipo de Defecto')}
-              </label>
+              <div className="flex items-baseline justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">{t('Tipo de Defecto')}</label>
+                {canManageTypes && (
+                  <button type="button" onClick={() => setManagingTypes(true)} className="text-[11px] text-slate-500 underline hover:text-slate-900">
+                    {t('Gestionar tipos')}
+                  </button>
+                )}
+              </div>
               <select
                 value={formData.defect}
                 onChange={e => setFormData({ ...formData, defect: e.target.value })}
@@ -239,10 +252,10 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               >
                 <option value="">{t('Elegir…')}</option>
                 {/* A type outside the list (older data) stays selectable so it isn't lost */}
-                {formData.defect && !DEFECT_TYPES.some(d => d.name === formData.defect) && (
+                {formData.defect && !types.some(d => d.name === formData.defect && !d.hidden) && (
                   <option value={formData.defect}>{formData.defect}</option>
                 )}
-                {DEFECT_TYPES.map(d => (
+                {types.filter(d => !d.hidden).map(d => (
                   <option key={d.name} value={d.name}>
                     {d.name}
                   </option>
@@ -568,6 +581,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
           {/* Technicians and dates are filled in automatically from who adds each photo */}
           {pending && <PhasePicker preview={pending.preview} onPick={addPendingPhoto} onCancel={closePending} />}
+          {managingTypes && <ManageTypesModal items={allItems} onClose={() => setManagingTypes(false)} />}
 
           {/* Modal Footer */}
           <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">

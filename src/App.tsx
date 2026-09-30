@@ -5,6 +5,7 @@ import { DefectRowCard } from './components/DefectRowCard';
 import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName, storeUserName } from './components/RoleSelectScreen';
 import { Profile, isUsable, roleOf, fetchMyProfile, signOut } from './lib/auth';
 import { Permission, PermissionsContext, RoleKey, ROLES, defaultTable, fetchPermissionTable } from './lib/permissions';
+import { DEFECT_TYPES, DefectTypesContext, fetchDefectTypes } from './lib/defectTypes';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
 import { SortBar, SortState, sortDefects, parseStoredSort } from './components/SortBar';
@@ -236,6 +237,14 @@ export default function App() {
     [effectiveRole, permTable]
   );
   const canDelete = can('defects.delete');
+
+  // Defect types catalogue (Edit defect → Manage types).
+  const [defectTypes, setDefectTypes] = useState(DEFECT_TYPES);
+  const reloadDefectTypes = useCallback(() => {
+    fetchDefectTypes().then(setDefectTypes);
+  }, []);
+  useEffect(reloadDefectTypes, [reloadDefectTypes]);
+  const defectTypesValue = useMemo(() => ({ types: defectTypes, reload: reloadDefectTypes }), [defectTypes, reloadDefectTypes]);
   const isAccountAdmin = !!account && can('users.manage');
   // Data → Users: managing accounts, or just sending invitations.
   const canOpenUsers = !!account && (can('users.manage') || can('users.invite'));
@@ -1348,6 +1357,7 @@ export default function App() {
 
   return (
     <PermissionsContext.Provider value={can}>
+    <DefectTypesContext.Provider value={defectTypesValue}>
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
       {/* A newer version was published: offer to load it */}
       {newVersion && (
@@ -1589,6 +1599,8 @@ export default function App() {
           onClose={() => setIsEditModalOpen(false)}
           onSave={edited => handleSaveDefect(edited, editingItem || undefined)}
           canDelete={can('photos.delete')}
+          allItems={items}
+          canManageTypes={!!account && can('types.manage')}
         />
       )}
 
@@ -1643,6 +1655,7 @@ export default function App() {
         </p>
       </footer>
     </div>
+    </DefectTypesContext.Provider>
     </PermissionsContext.Provider>
   );
 }
