@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, X, SlidersHorizontal, LayoutGrid, Rows3, Grid3X3, Table2, Check } from 'lucide-react';
 import { DefectItem, FilterState } from '../types/inspection';
 import { canonicalPerson } from '../lib/people';
@@ -14,6 +14,8 @@ interface FilterBarProps {
   onViewModeChange: (mode: ViewMode) => void;
   filteredCount: number;
   readOnly?: boolean;
+  // Changes when something asks to open the filters panel (e.g. the export dialog).
+  openRequest?: number;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -24,9 +26,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onViewModeChange,
   filteredCount,
   readOnly = false,
+  openRequest,
 }) => {
   const { t } = useI18n();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  useEffect(() => {
+    if (openRequest) setShowAdvanced(true);
+  }, [openRequest]);
 
   // Extract unique values
   const uniqueStages = Array.from(new Set(items.map(i => i.orientation).filter(Boolean))).sort((a, b) =>

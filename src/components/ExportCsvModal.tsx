@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, Download, Check } from 'lucide-react';
-import { useI18n } from '../i18n';
+import { X, Download, Check, SlidersHorizontal } from 'lucide-react';
+import { useI18n, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { FilterState } from '../types/inspection';
 import { EXPORT_COLUMNS } from '../utils/csvParser';
 
 const COLUMNS_KEY = 'cronulla_export_columns';
@@ -20,13 +21,31 @@ const storedColumns = (): string[] => {
 interface ExportCsvModalProps {
   totalCount: number;
   filteredCount: number;
+  // The filters in use, listed so it's clear what "only the filtered ones" means.
+  filters: FilterState;
+  // Closes the dialog and opens the filters panel.
+  onEditFilters: () => void;
   onClose: () => void;
   // `onlyFiltered`: just the defects the current filters show.
   onExport: (columns: string[], onlyFiltered: boolean) => void;
 }
 
-export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filteredCount, onClose, onExport }) => {
+export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filteredCount, filters, onEditFilters, onClose, onExport }) => {
   const { t } = useI18n();
+  const [showFilters, setShowFilters] = useState(false);
+  // Active filters as "label: values" lines.
+  const activeFilters: { label: string; values: string[] }[] = [
+    { label: t('Buscar'), values: filters.searchQuery.trim() ? [`"${filters.searchQuery.trim()}"`] : [] },
+    { label: t('Stage'), values: filters.orientations },
+    { label: t('Tipo de Defecto'), values: filters.defects },
+    { label: t('Drop'), values: filters.drops },
+    { label: t('Nivel'), values: filters.levels },
+    { label: t('Estado'), values: filters.statuses.map(s => t(STATUS_LABEL[s] || s)) },
+    { label: t('Urgencia'), values: filters.urgencies.map(u => t(URGENCY_LABEL[u] || u)) },
+    { label: t('Última modificación por'), values: filters.technicians },
+    { label: t('Fotos'), values: [...(filters.hasPhotosOnly ? [t('Con fotos')] : []), ...(filters.noPhotosOnly ? [t('Sin fotos')] : [])] },
+  ].filter(f => f.values.length > 0);
+  const filterCount = activeFilters.reduce((n, f) => n + f.values.length, 0);
   const [chosen, setChosen] = useState<string[]>(storedColumns);
   const filtered = filteredCount < totalCount;
   const [onlyFiltered, setOnlyFiltered] = useState(filtered);
@@ -80,7 +99,38 @@ export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filt
                   {o.label}
                 </button>
               ))}
+              <button
+                onClick={() => setShowFilters(s => !s)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  showFilters ? 'bg-slate-100 border-slate-300 text-slate-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                {t('Filtros')}
+                {filterCount > 0 && (
+                  <span className="px-1.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold">{filterCount}</span>
+                )}
+              </button>
             </div>
+            {showFilters && (
+              <div className="mt-2 p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-1.5 text-xs">
+                {activeFilters.length === 0 ? (
+                  <p className="text-slate-500">{t('No hay filtros puestos: se exportan todos los defectos.')}</p>
+                ) : (
+                  activeFilters.map(f => (
+                    <div key={f.label} className="flex flex-wrap items-center gap-1">
+                      <span className="font-semibold text-slate-700 me-1">{f.label}:</span>
+                      {f.values.map(v => (
+                        <span key={v} className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-800">{v}</span>
+                      ))}
+                    </div>
+                  ))
+                )}
+                <button onClick={onEditFilters} className="pt-1 font-semibold text-slate-900 hover:underline">
+                  {t('Cambiar filtros')}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Which columns */}

@@ -1196,6 +1196,7 @@ export default function App() {
   // Export CSV
   // Export CSV: the dialog chooses the columns and whether only the filtered defects go.
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [filterOpenRequest, setFilterOpenRequest] = useState(0);
   const handleExportCsv = useCallback(() => setIsExportOpen(true), []);
   const handleDownloadCsv = useCallback((columns: string[], onlyFiltered: boolean) => {
     setIsExportOpen(false);
@@ -1416,6 +1417,7 @@ export default function App() {
         onViewModeChange={setViewMode}
         filteredCount={filteredItems.length}
         readOnly={readOnly}
+        openRequest={filterOpenRequest}
       />
 
       {/* Main View Area */}
@@ -1574,6 +1576,12 @@ export default function App() {
         <ExportCsvModal
           totalCount={items.length}
           filteredCount={filteredItems.length}
+          filters={filters}
+          onEditFilters={() => {
+            setIsExportOpen(false);
+            setFilterOpenRequest(n => n + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onClose={() => setIsExportOpen(false)}
           onExport={handleDownloadCsv}
         />
