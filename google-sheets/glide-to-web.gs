@@ -445,7 +445,20 @@ function applyChanges_(item, rec, old, changed, log) {
     item[field] = v;
     log.push({ action: 'edit', details: { key: field, field: FIELDS[h][1], from: from, to: v } });
   });
-  if (photosChanged) mergePhotos_(item, rec, old, log);
+  if (photosChanged) {
+    mergePhotos_(item, rec, old, log);
+    // The status follows the photos, as in the web: After → COMPLETED, else During → IN PROGRESS,
+    // else BEFORE. A STATUS changed in Glide in the same edit wins.
+    const statusSet = changed.indexOf('STATUS') >= 0 && STATUS_VALUES[String(rec['STATUS'] || '').toUpperCase()];
+    if (!statusSet && item.photos.length > 0) {
+      const has = ph => item.photos.some(p => p.phase === ph);
+      const status = has('COMPLETED') ? 'COMPLETED' : has('IN PROGRESS') ? 'IN PROGRESS' : 'BEFORE';
+      if (item.status !== status) {
+        log.push({ action: 'edit', details: { key: 'status', field: FIELDS['STATUS'][1], from: item.status || '', to: status } });
+        item.status = status;
+      }
+    }
+  }
 }
 
 // Only additions: missing photos, and fields that are empty in the web.
@@ -505,7 +518,8 @@ function mergePhotos_(item, rec, old, log) {
   photos = photos
     .map((p, i) => ({ p: p, i: i }))
     .sort((a, b) => order[a.p.phase] - order[b.p.phase] || a.i - b.i)
-    .map((x, i) => ({ url: x.p.url, phase: x.p.phase, slot: i + 1 }));
+    // Everything else the web keeps on a photo (who put it in its phase, and when) stays.
+    .map((x, i) => Object.assign({}, x.p, { slot: i + 1 }));
   item.photos = photos;
 }
 
