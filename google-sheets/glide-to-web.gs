@@ -17,7 +17,8 @@
  */
 
 const SUPABASE_URL = 'https://jawmcsrcgqvndjhhvovl.supabase.co';
-// Publishable key: the same key the web app ships to browsers.
+// Publishable key: the same key the web app ships to browsers. Used until the secret key is
+// saved from the menu (see saveSecretKeyFromMenu).
 const SUPABASE_KEY = 'sb_publishable_C5fy8k5sNRW0F5ZBsJDEDw_k8DRptZJ';
 
 // Tab to read: the gid from the sheet's URL (#gid=...). If that tab doesn't look like the
@@ -101,6 +102,8 @@ function onOpen() {
     .addItem('Quitar de aquí las filas borradas en la web', 'removeWebDeletedFromMenu')
     .addSeparator()
     .addItem('Copiar todo desde la web (igual a Cronulla vs Code)', 'copyAllFromWebFromMenu')
+    .addSeparator()
+    .addItem('Guardar clave secreta de Supabase', 'saveSecretKeyFromMenu')
     .addToUi();
 }
 
@@ -619,8 +622,54 @@ function idList_(ids) {
   return encodeURIComponent(ids.map(id => '"' + String(id).replace(/"/g, '') + '"').join(','));
 }
 
+// ───────────────────────────── Secret key ─────────────────────────────
+// The database only lets the sheet in with Supabase's secret key once the open access is closed
+// (supabase/accounts-lockdown.sql). It is kept in this spreadsheet's Script Properties, never in
+// the code: menu → "Guardar clave secreta de Supabase". Until then the publishable key is used.
+const SECRET_KEY_PROPERTY = 'SUPABASE_SECRET_KEY';
+
+function secretKey_() {
+  return PropertiesService.getScriptProperties().getProperty(SECRET_KEY_PROPERTY) || '';
+}
+
 function headers_(extra) {
-  return Object.assign({ apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }, extra || {});
+  const secret = secretKey_();
+  // Secret keys go in the apikey header only; the publishable key also as the bearer, as before.
+  const base = secret ? { apikey: secret } : { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
+  return Object.assign(base, extra || {});
+}
+
+/** Menu action: asks for the secret key, checks it against the database and keeps it. */
+function saveSecretKeyFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const answer = ui.prompt(
+    'Clave secreta de Supabase',
+    'Pega la clave secreta (empieza por sb_secret_). Supabase → Project Settings → API Keys → Secret keys.\n' +
+      'Se guarda solo en esta planilla. Déjalo vacío para volver a la clave pública.',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (answer.getSelectedButton() !== ui.Button.OK) return;
+  const key = answer.getResponseText().trim();
+  const props = PropertiesService.getScriptProperties();
+  if (!key) {
+    props.deleteProperty(SECRET_KEY_PROPERTY);
+    ui.alert('Clave secreta quitada: la planilla usa la clave pública.');
+    return;
+  }
+  if (!/^sb_secret_/.test(key)) {
+    ui.alert('Esa no parece una clave secreta: debe empezar por sb_secret_. No se guardó.');
+    return;
+  }
+  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?select=id&limit=1', {
+    headers: { apikey: key },
+    muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() !== 200) {
+    ui.alert('Supabase no aceptó la clave (error ' + res.getResponseCode() + '). No se guardó.');
+    return;
+  }
+  props.setProperty(SECRET_KEY_PROPERTY, key);
+  ui.alert('Clave secreta guardada y comprobada. La planilla ya usa la clave secreta.');
 }
 
 function chunk_(list, size) {
