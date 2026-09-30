@@ -26,6 +26,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Importar': { en: 'Import', fa: 'وارد کردن' },
   'Exportar': { en: 'Export', fa: 'صادر کردن' },
   'Datos': { en: 'Data', fa: 'داده‌ها' },
+  'Botón planilla Cronulla vs Code': { en: 'Cronulla vs Code sheet button', fa: 'دکمه جدول Cronulla vs Code' },
   'Enviar invitaciones': { en: 'Send invitations', fa: 'ارسال دعوت‌نامه' },
   "Oficina": { en: "Office", fa: "دفتر" },
   "Usuarios y permisos": { en: "Users & permissions", fa: "کاربران و دسترسی‌ها" },

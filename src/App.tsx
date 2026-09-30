@@ -1421,7 +1421,7 @@ export default function App() {
         onOpenImportModal={can('csv.import') ? () => setIsImportModalOpen(true) : undefined}
         onRenumber={supabase && can('renumber') ? handleRenumber : undefined}
         onOpenHistoryAllowed={can('history.view')}
-        showSheetLink={can('users.manage')}
+        showSheetLink={can('sheet.open')}
         roleLabel={effectiveRole ? ROLES.find(r => r.role === effectiveRole)?.label : undefined}
         readOnly={readOnly}
         isAdmin={effectiveRole === 'admin'}

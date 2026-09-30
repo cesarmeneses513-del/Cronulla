@@ -13,6 +13,7 @@ export type Permission =
   | 'csv.import'
   | 'csv.export'
   | 'renumber'
+  | 'sheet.open'
   | 'users.invite'
   | 'users.manage';
 
@@ -40,6 +41,7 @@ export const PERMISSIONS: { key: Permission; label: string }[] = [
   { key: 'csv.import', label: 'Importar CSV' },
   { key: 'csv.export', label: 'Exportar CSV' },
   { key: 'renumber', label: 'Ordenar y renumerar' },
+  { key: 'sheet.open', label: 'Botón planilla Cronulla vs Code' },
   { key: 'users.invite', label: 'Enviar invitaciones' },
   { key: 'users.manage', label: 'Gestionar usuarios y permisos' },
 ];
