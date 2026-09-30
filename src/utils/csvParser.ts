@@ -47,7 +47,11 @@ const NAMED_FIELDS: Record<string, keyof DefectItem> = {
   'LEVEL': 'level',
   'TECHNICIAN START': 'technicianStart',
   'DATE 1ST PHOTO': 'date1stPhoto',
+  'DATE START': 'date1stPhoto',
   'TIME 1ST PHOTO': 'time1stPhoto',
+  'TECHNICIAN DURING': 'technicianDuring',
+  'DATE DURING': 'dateDuring',
+  'TIME DURING': 'timeDuring',
   'TECHNICIAN COMPLETED': 'technicianCompleted',
   'DATE COMPLETED': 'dateCompleted',
   'TIME COMPLETED': 'timeCompleted',
@@ -435,4 +439,92 @@ export function exportInspectionCsv(items: DefectItem[]): string {
   });
 
   return [header.join(','), ...rows].join('\n');
+}
+
+// ───────────────────── Export with chosen columns ─────────────────────
+
+// Measurements as numbers ("0,5" too); M^2 and LM are at least 1, blank without measurements
+// (the same rule as the Cronulla vs Code sheet).
+const num = (v?: string) => {
+  const n = parseFloat(String(v ?? '').replace(',', '.'));
+  return Number.isNaN(n) ? null : n;
+};
+const atLeastOne = (n: number | null) => (n === null ? '' : String(Math.max(1, Math.round(n * 100) / 100)));
+
+const photoSlots = (item: DefectItem): string[] => {
+  const slots = Array(9).fill('');
+  PHASE_OFFSETS.forEach(([phase, offset]) =>
+    item.photos.filter(p => p.phase === phase).slice(0, 3).forEach((p, i) => (slots[offset + i] = p.url))
+  );
+  return slots;
+};
+
+// Each option of the export dialog and the CSV columns it writes. Headers match the ones the
+// importer and the sheet read, so an export with ID can be imported back.
+export interface ExportColumn {
+  key: string;
+  label: string; // Spanish source text, translated by the dialog
+  headers: string[];
+  values: (item: DefectItem) => string[];
+}
+
+export const EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'no', label: 'Nº', headers: ['NO'], values: i => [i.rowNo] },
+  { key: 'project', label: 'Proyecto', headers: ['NAME PROJECT'], values: i => [i.projectName] },
+  { key: 'stage', label: 'Stage', headers: ['ORIENTATION'], values: i => [i.orientation] },
+  { key: 'defect', label: 'Defecto', headers: ['DEFECT'], values: i => [i.defect] },
+  { key: 'urgency', label: 'Urgencia', headers: ['URGENCY'], values: i => [i.urgency] },
+  { key: 'drop', label: 'Drop', headers: ['DROP'], values: i => [i.drop] },
+  { key: 'level', label: 'Nivel', headers: ['LEVEL'], values: i => [i.level] },
+  { key: 'status', label: 'Estado', headers: ['STATUS'], values: i => [i.status] },
+  { key: 'photosBefore', label: 'Fotos Antes (1-3)', headers: ['PHOTO 1', 'PHOTO 2', 'PHOTO 3'], values: i => photoSlots(i).slice(0, 3) },
+  { key: 'photosDuring', label: 'Fotos Durante (4-6)', headers: ['PHOTO 4', 'PHOTO 5', 'PHOTO 6'], values: i => photoSlots(i).slice(3, 6) },
+  { key: 'photosAfter', label: 'Fotos Después (7-9)', headers: ['PHOTO 7', 'PHOTO 8', 'PHOTO 9'], values: i => photoSlots(i).slice(6, 9) },
+  {
+    key: 'start',
+    label: 'Inicio (técnico, fecha, hora)',
+    headers: ['TECHNICIAN START', 'DATE START', 'TIME 1ST PHOTO'],
+    values: i => [i.technicianStart, i.date1stPhoto, i.time1stPhoto],
+  },
+  {
+    key: 'during',
+    label: 'Durante (técnico, fecha, hora)',
+    headers: ['TECHNICIAN DURING', 'DATE DURING', 'TIME DURING'],
+    values: i => [i.technicianDuring || '', i.dateDuring || '', i.timeDuring || ''],
+  },
+  {
+    key: 'completed',
+    label: 'Completado (técnico, fecha, hora)',
+    headers: ['TECHNICIAN COMPLETED', 'DATE COMPLETED', 'TIME COMPLETED'],
+    values: i => [i.technicianCompleted, i.dateCompleted, i.timeCompleted],
+  },
+  { key: 'comment', label: 'Comentario', headers: ['COMMENT'], values: i => [i.comment] },
+  { key: 'base', label: 'Base (m)', headers: ['BASE (M)'], values: i => [i.baseM] },
+  { key: 'height', label: 'Alto (m)', headers: ['HEIGHT (M)'], values: i => [i.heightM] },
+  {
+    key: 'm2',
+    label: 'M² (Base × Alto, mínimo 1)',
+    headers: ['M^2'],
+    values: i => {
+      const b = num(i.baseM);
+      const h = num(i.heightM);
+      return [atLeastOne(b === null || h === null ? null : b * h)];
+    },
+  },
+  { key: 'linear', label: 'Metros Lineales (m)', headers: ['LINEAR METERS'], values: i => [i.linearMeters] },
+  { key: 'lm', label: 'LM (mínimo 1)', headers: ['LM'], values: i => [atLeastOne(num(i.linearMeters))] },
+  { key: 'quantity', label: 'Cantidad', headers: ['QUANTITY'], values: i => [i.quantity] },
+  { key: 'tags', label: 'Etiquetas', headers: ['CUSTOM TAGS'], values: i => [(i.customTags || []).join(';')] },
+  { key: 'id', label: 'ID (para volver a importar)', headers: ['ID'], values: i => [i.id] },
+];
+
+export function exportCsvColumns(items: DefectItem[], keys: string[]): string {
+  const chosen = EXPORT_COLUMNS.filter(c => keys.includes(c.key));
+  const escape = (v: string | undefined | null) => {
+    const s = v === undefined || v === null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = chosen.flatMap(c => c.headers);
+  const rows = items.map(item => chosen.flatMap(c => c.values(item)).map(escape).join(','));
+  return [header.map(escape).join(','), ...rows].join('\n');
 }

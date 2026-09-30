@@ -10,6 +10,7 @@ import { EditDefectModal } from './components/EditDefectModal';
 import { ImportCsvModal } from './components/ImportCsvModal';
 import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName, storeUserName } from './components/RoleSelectScreen';
 import { UsersPanel } from './components/UsersPanel';
+import { ExportCsvModal } from './components/ExportCsvModal';
 import { Profile, canEdit, fetchMyProfile, signOut } from './lib/auth';
 import { HistoryPanel } from './components/HistoryPanel';
 import { diffForHistory, logHistory } from './lib/history';
@@ -18,7 +19,7 @@ import { SortBar, SortState, sortDefects, parseStoredSort } from './components/S
 import { Pagination } from './components/Pagination';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
 import { INITIAL_DEFECTS } from './data/initialData';
-import { exportInspectionCsv } from './utils/csvParser';
+import { exportCsvColumns } from './utils/csvParser';
 import { sortPhotosByPhase } from './lib/photoOrder';
 import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
@@ -1193,8 +1194,13 @@ export default function App() {
   }, []);
 
   // Export CSV
-  const handleExportCsv = useCallback(() => {
-    const csvData = exportInspectionCsv(items);
+  // Export CSV: the dialog chooses the columns and whether only the filtered defects go.
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const handleExportCsv = useCallback(() => setIsExportOpen(true), []);
+  const handleDownloadCsv = useCallback((columns: string[], onlyFiltered: boolean) => {
+    setIsExportOpen(false);
+    // In the order shown on screen.
+    const csvData = exportCsvColumns(onlyFiltered ? sortedItems : sortDefects(items, sort), columns);
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1205,7 +1211,7 @@ export default function App() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast(t('Archivo CSV exportado exitosamente'));
-  }, [items, showToast, t]);
+  }, [items, sortedItems, sort, showToast, t]);
 
   // Import CSV handler
   const handleImportCsv = useCallback(
@@ -1553,6 +1559,15 @@ export default function App() {
           onOpenDefect={handleOpenDefectFromHistory}
           canClear={canDelete}
           items={items}
+        />
+      )}
+
+      {isExportOpen && (
+        <ExportCsvModal
+          totalCount={items.length}
+          filteredCount={filteredItems.length}
+          onClose={() => setIsExportOpen(false)}
+          onExport={handleDownloadCsv}
         />
       )}
 
