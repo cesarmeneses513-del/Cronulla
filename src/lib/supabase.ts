@@ -68,6 +68,11 @@ export async function fetchDefects(): Promise<DefectItem[]> {
 // Numbers every defect 1, 2, 3… in Stage, Drop, Level order (supabase/renumber.sql).
 export async function renumberDefects(): Promise<void> {
   if (!supabase) throw new Error('Supabase no configurado');
+  // Administrators only once the database is closed (accounts-lockdown.sql); before that only the
+  // plain function exists.
+  const checked = await supabase.rpc('renumber_defects_checked');
+  if (!checked.error) return;
+  if (checked.error.code !== 'PGRST202') throw checked.error;
   const { error } = await supabase.rpc('renumber_defects');
   if (error) throw error;
 }
