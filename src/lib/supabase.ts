@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { DefectItem } from '../types/inspection';
+import { shrinkPhoto } from './shrinkPhoto';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -258,7 +259,8 @@ const readAsDataUrl = (file: File) =>
   });
 
 // Uploads to Supabase Storage and returns a public URL; falls back to an inline data URL offline.
-export async function uploadPhoto(file: File): Promise<string> {
+export async function uploadPhoto(original: File): Promise<string> {
+  const file = await shrinkPhoto(original);
   if (!supabase) return readAsDataUrl(file);
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
