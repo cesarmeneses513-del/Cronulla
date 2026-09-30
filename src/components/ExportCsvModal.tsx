@@ -70,8 +70,8 @@ export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filt
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className={`w-full ${showFilters ? 'max-w-3xl' : 'max-w-xl'} bg-white rounded-xl shadow-2xl border border-slate-200`} onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className={`w-full ${showFilters ? 'max-w-3xl' : 'max-w-xl'} my-auto bg-white rounded-xl shadow-2xl border border-slate-200`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Download className="w-4 h-4 text-slate-500" />
@@ -117,8 +117,17 @@ export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filt
             </div>
             {/* The same filter options as the filters panel: changing them updates the count above */}
             {showFilters && (
-              <div className="mt-2 p-3 rounded-lg border border-slate-200 bg-slate-50 max-h-[50vh] overflow-y-auto">
+              <div className="mt-2 p-3 rounded-lg border border-slate-200 bg-slate-50">
                 <FilterPanel items={items} filters={filters} onFilterChange={onFilterChange} compact />
+                <div className="flex justify-end pt-3">
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    {t('Listo')}
+                  </button>
+                </div>
               </div>
             )}
           </div>

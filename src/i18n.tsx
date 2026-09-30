@@ -26,6 +26,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Importar': { en: 'Import', fa: 'وارد کردن' },
   'Exportar': { en: 'Export', fa: 'صادر کردن' },
   'Datos': { en: 'Data', fa: 'داده‌ها' },
+  'Listo': { en: 'Done', fa: 'تمام' },
   'Buscar': { en: 'Search', fa: 'جستجو' },
   'Con fotos': { en: 'With photos', fa: 'با عکس' },
   'No hay filtros puestos: se exportan todos los defectos.': { en: 'No filters in use: all defects are exported.', fa: 'فیلتری فعال نیست: همه نقص\u200cها صادر می\u200cشوند.' },

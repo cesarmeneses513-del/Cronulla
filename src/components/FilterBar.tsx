@@ -279,7 +279,7 @@ export const FilterPanel: React.FC<{
       {/* Defect Type */}
       <div className="space-y-1.5">
         <label className="font-semibold text-slate-700 block">{t('Tipo de Defecto')}</label>
-        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
+        <div className="flex flex-wrap gap-1">
           {uniqueDefects.slice(0, 12).map(df => {
             const isSelected = filters.defects.includes(df);
             const count = stageItems.filter(i => i.defect === df).length;
@@ -305,7 +305,7 @@ export const FilterPanel: React.FC<{
       <div className="space-y-1.5">
         <label className="font-semibold text-slate-700 block">{t('Línea (Drop) & Nivel')}</label>
         <div className="space-y-2">
-          <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
+          <div className="flex flex-wrap gap-1 items-center">
             <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Drop:')}</span>
             {uniqueDrops.map(dr => {
               const isSelected = filters.drops.includes(dr);
@@ -325,7 +325,7 @@ export const FilterPanel: React.FC<{
             })}
           </div>
 
-          <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
+          <div className="flex flex-wrap gap-1 items-center">
             <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Piso:')}</span>
             {uniqueLevels.map(lv => {
               const isSelected = filters.levels.includes(lv);
@@ -350,7 +350,7 @@ export const FilterPanel: React.FC<{
       {/* Status: the three on one line */}
       <div className="space-y-1.5">
         <label className="font-semibold text-slate-700 block">{t('Estado')}</label>
-        <div className={`flex gap-1 pr-1 ${compact ? 'flex-wrap' : 'flex-nowrap overflow-x-auto'}`}>
+        <div className="flex flex-wrap gap-1">
           {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
             const isSelected = filters.statuses.includes(st);
             const count = stageItems.filter(i => i.status === st).length;
@@ -389,7 +389,7 @@ export const FilterPanel: React.FC<{
       {/* Technicians */}
       <div className="space-y-1.5">
         <label className="font-semibold text-slate-700 block">{t('Última modificación por')}</label>
-        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
+        <div className="flex flex-wrap gap-1">
           {uniqueTechnicians.map(tc => {
             const isSelected = filters.technicians.includes(tc);
             return (
