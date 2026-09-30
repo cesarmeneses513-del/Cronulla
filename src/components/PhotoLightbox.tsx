@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { DEFECT_TYPES } from '../lib/defectTypes';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { PhaseChips } from './PhaseChips';
 import { SuggestInput } from './SuggestInput';
@@ -589,10 +590,7 @@ const LightboxEditForm: React.FC<{
   // Start over whenever the row itself changes (saved, or edited elsewhere).
   useEffect(() => setDraft(draftOf(item)), [item]);
 
-  const defectNames = useMemo(
-    () => Array.from(new Set(allItems.map(i => i.defect).filter(Boolean))).sort(),
-    [allItems]
-  );
+  const defectNames = useMemo(() => DEFECT_TYPES.map(d => d.name), []);
   const dirty = EDIT_FIELDS.some(f => draft[f] !== String(item[f] ?? ''));
   const set = (f: EditField) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value;

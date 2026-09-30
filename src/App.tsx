@@ -1138,11 +1138,12 @@ export default function App() {
       // Next free number; the administrator's "Sort and renumber" puts it in place later.
       rowNo: `${items.reduce((max, i) => Math.max(max, parseInt(i.rowNo, 10) || 0), 0) + 1}`,
       projectName: 'CRONULLA JOB',
-      orientation: 'STAGE 1',
-      defect: 'RENDER REPAIR',
+      // Blank: the form asks for them, so nothing is saved by mistake with made-up values.
+      orientation: '',
+      defect: '',
       urgency: 'LOW',
-      drop: '1',
-      level: '1',
+      drop: '',
+      level: '',
       photos: [],
       status: 'BEFORE',
       technicianStart: '',

@@ -1,14 +1,14 @@
 import React, { useState, useRef } from 'react';
-import { X, Plus, Trash2, ArrowUp, ArrowDown, Save, Camera, Ruler, User } from 'lucide-react';
+import { X, Plus, Trash2, ArrowUp, ArrowDown, Save, Camera, Ruler, User, AlertTriangle } from 'lucide-react';
 import { DefectItem, UrgencyLevel, DefectStatus, PhotoPhase, DefectPhoto } from '../types/inspection';
 import { uploadPhoto } from '../lib/supabase';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
 import { useCan } from '../lib/permissions';
+import { DEFECT_TYPES, STAGES, measuresFor } from '../lib/defectTypes';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { stageImageFor } from '../data/stageImages';
 import { StageImageViewer } from './StageImageViewer';
 import { PhasePicker } from './PhasePicker';
-import { SuggestInput } from './SuggestInput';
 import { sortPhotosByPhase } from '../lib/photoOrder';
 
 interface EditDefectModalProps {
@@ -18,32 +18,6 @@ interface EditDefectModalProps {
   onSave: (updatedItem: DefectItem) => void;
   canDelete?: boolean;
 }
-
-const COMMON_DEFECTS = [
-  'RENDER REPAIR',
-  'RESEALING WORKS',
-  'SKIM RENDERING',
-  'SEAL WINDOW FRAME',
-  'RENDER REPAIR TO SLAB EDGE',
-  'RUST SPOT',
-  'Rust Pipe',
-  'BALUSTRADE',
-  'NARROW',
-  'CONTROL JOINT',
-  'CONCRETE SPALLING',
-  'DILAPITACION'
-];
-
-const COMMON_STAGES = [
-  'STAGE 1',
-  'STAGE 2',
-  'STAGE 3',
-  'STAGE 4',
-  'STAGE 5',
-  'STAGE 6',
-  'STAGE 7',
-  'STAGE 8'
-];
 
 export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   item,
@@ -62,11 +36,40 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   const [pending, setPending] = useState<{ file?: File; url?: string; preview: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Everything must be filled in before saving, including the measurements the defect type needs.
+  const [missing, setMissing] = useState<string[]>([]);
+  const measures = measuresFor(formData.defect);
+  const filled = (v?: string) => !!String(v ?? '').trim();
+  const measureOk = {
+    area: filled(formData.baseM) && filled(formData.heightM),
+    linear: filled(formData.linearMeters),
+    quantity: filled(formData.quantity),
+  };
+  const measureLabel = { area: t('Base × Altura (m)'), linear: t('Metros Lineales (m)'), quantity: t('Cantidad') };
+  const validate = (): string[] => {
+    const list: string[] = [];
+    if (!filled(formData.orientation)) list.push(t('Etapa / Orientación'));
+    if (!filled(formData.defect)) list.push(t('Tipo de Defecto'));
+    if (!filled(formData.drop)) list.push(t('Línea (Drop)'));
+    if (!filled(formData.level)) list.push(t('Nivel / Piso'));
+    if (filled(formData.defect) && !measures.some(m => measureOk[m])) {
+      list.push(measures.length > 1 ? t('una medida: {list}', { list: measures.map(m => measureLabel[m]).join(' / ') }) : measureLabel[measures[0]]);
+    }
+    return list;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const list = validate();
+    setMissing(list);
+    if (list.length > 0) {
+      e.currentTarget.closest('.overflow-y-auto')?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     onSave(formData);
     onClose();
   };
+  const bad = (ok: boolean) => (missing.length > 0 && !ok ? 'border-rose-400 bg-rose-50/40' : '');
 
   const handleAddTag = () => {
     if (!newTagInput.trim()) return;
@@ -166,7 +169,16 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} noValidate className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1">
+          {missing.length > 0 && (
+            <div className="flex items-start gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50 text-xs text-rose-800">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">{t('Completa todos los datos antes de guardar:')}</p>
+                <p className="mt-0.5">{missing.join(' · ')}</p>
+              </div>
+            </div>
+          )}
           {/* Main Attributes */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Row No & Project */}
@@ -177,8 +189,9 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               <input
                 type="text"
                 value={formData.rowNo}
-                onChange={e => setFormData({ ...formData, rowNo: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-mono focus:border-slate-400 focus:outline-hidden"
+                readOnly
+                title={t('Lo asigna la app (Ordenar y renumerar)')}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-mono bg-slate-100 text-slate-500 cursor-not-allowed focus:outline-hidden"
               />
             </div>
 
@@ -189,8 +202,8 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               <input
                 type="text"
                 value={formData.projectName}
-                onChange={e => setFormData({ ...formData, projectName: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:border-slate-400 focus:outline-hidden"
+                readOnly
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm bg-slate-100 text-slate-500 cursor-not-allowed focus:outline-hidden"
               />
             </div>
 
@@ -198,12 +211,18 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Etapa / Orientación')}
               </label>
-              <SuggestInput
+              <select
                 value={formData.orientation}
-                onChange={v => setFormData({ ...formData, orientation: v })}
-                options={COMMON_STAGES}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:border-slate-400 focus:outline-hidden"
-              />
+                onChange={e => setFormData({ ...formData, orientation: e.target.value })}
+                className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:border-slate-400 focus:outline-hidden ${bad(filled(formData.orientation))}`}
+              >
+                <option value="">{t('Elegir…')}</option>
+                {(STAGES.includes(formData.orientation) || !formData.orientation ? STAGES : [formData.orientation, ...STAGES]).map(s => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -213,12 +232,22 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Tipo de Defecto')}
               </label>
-              <SuggestInput
+              <select
                 value={formData.defect}
-                onChange={v => setFormData({ ...formData, defect: v })}
-                options={COMMON_DEFECTS}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-medium focus:border-slate-400 focus:outline-hidden"
-              />
+                onChange={e => setFormData({ ...formData, defect: e.target.value })}
+                className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-xs sm:text-sm font-medium focus:border-slate-400 focus:outline-hidden ${bad(filled(formData.defect))}`}
+              >
+                <option value="">{t('Elegir…')}</option>
+                {/* A type outside the list (older data) stays selectable so it isn't lost */}
+                {formData.defect && !DEFECT_TYPES.some(d => d.name === formData.defect) && (
+                  <option value={formData.defect}>{formData.defect}</option>
+                )}
+                {DEFECT_TYPES.map(d => (
+                  <option key={d.name} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -262,7 +291,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                 type="text"
                 value={formData.drop}
                 onChange={e => setFormData({ ...formData, drop: e.target.value })}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center font-bold focus:border-slate-400 focus:outline-hidden"
+                className={`${bad(filled(formData.drop))} w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center font-bold focus:border-slate-400 focus:outline-hidden`}
                 placeholder={t('Ej. 1')}
               />
             </div>
@@ -274,12 +303,14 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
               <input
                 type="text"
                 value={formData.level}
-                onChange={e => setFormData({ ...formData, level: e.target.value })}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center font-bold focus:border-slate-400 focus:outline-hidden"
+                onChange={e => setFormData({ ...formData, level: e.target.value.toUpperCase() })}
+                className={`${bad(filled(formData.level))} w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center font-bold focus:border-slate-400 focus:outline-hidden`}
                 placeholder={t('Ej. 4, G, R')}
               />
             </div>
 
+            {/* Only the measurements this defect type needs */}
+            {measures.includes('linear') && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Metros Lineales (m)')}
@@ -288,12 +319,15 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                 type="text"
                 value={formData.linearMeters}
                 onChange={e => setFormData({ ...formData, linearMeters: e.target.value })}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center focus:border-slate-400 focus:outline-hidden"
+                inputMode="decimal"
+                className={`${bad(measureOk.linear || (measures.length > 1 && measures.some(m => measureOk[m])))} w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center focus:border-slate-400 focus:outline-hidden`}
                 placeholder="0.0"
               />
             </div>
+            )}
 
-            <div>
+            {measures.includes('area') && (
+            <div className={measures.length === 1 ? 'col-span-2 sm:col-span-2' : ''}>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Base × Altura (m)')}
               </label>
@@ -302,7 +336,8 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   type="text"
                   value={formData.baseM}
                   onChange={e => setFormData({ ...formData, baseM: e.target.value })}
-                  className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center focus:border-slate-400 focus:outline-hidden"
+                  inputMode="decimal"
+                  className={`${bad(filled(formData.baseM) || (measures.length > 1 && measures.some(m => measureOk[m])))} w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center focus:border-slate-400 focus:outline-hidden`}
                   placeholder={t('Base')}
                 />
                 <span className="text-slate-400">×</span>
@@ -310,12 +345,15 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   type="text"
                   value={formData.heightM}
                   onChange={e => setFormData({ ...formData, heightM: e.target.value })}
-                  className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center focus:border-slate-400 focus:outline-hidden"
+                  inputMode="decimal"
+                  className={`${bad(filled(formData.heightM) || (measures.length > 1 && measures.some(m => measureOk[m])))} w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center focus:border-slate-400 focus:outline-hidden`}
                   placeholder={t('Alto')}
                 />
               </div>
             </div>
+            )}
 
+            {measures.includes('quantity') && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {t('Cantidad')}
@@ -325,10 +363,11 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                 inputMode="decimal"
                 value={formData.quantity}
                 onChange={e => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center focus:border-slate-400 focus:outline-hidden"
+                className={`${bad(measureOk.quantity || (measures.length > 1 && measures.some(m => measureOk[m])))} w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-mono text-center focus:border-slate-400 focus:outline-hidden`}
                 placeholder="0"
               />
             </div>
+            )}
           </div>
 
           {/* Comment & Notes */}
