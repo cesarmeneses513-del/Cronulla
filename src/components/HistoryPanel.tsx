@@ -138,7 +138,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const rows = records.map(r => ({ record: r, text: describeHistory(r, t) }));
+    const rows = records.map(r => ({ record: r, text: describeHistory(r, t, id => currentNo.get(id)) }));
     if (!q) return rows;
     return rows.filter(
       ({ record, text }) =>

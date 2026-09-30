@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { X, Download, Check, SlidersHorizontal } from 'lucide-react';
 import { useI18n, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
-import { FilterState } from '../types/inspection';
+import { DefectItem, FilterState } from '../types/inspection';
+import { FilterPanel } from './FilterBar';
 import { EXPORT_COLUMNS } from '../utils/csvParser';
 
 const COLUMNS_KEY = 'cronulla_export_columns';
@@ -21,16 +22,16 @@ const storedColumns = (): string[] => {
 interface ExportCsvModalProps {
   totalCount: number;
   filteredCount: number;
-  // The filters in use, listed so it's clear what "only the filtered ones" means.
+  // The filters, editable right here (what "only the filtered ones" exports).
+  items: DefectItem[];
   filters: FilterState;
-  // Closes the dialog and opens the filters panel.
-  onEditFilters: () => void;
+  onFilterChange: (next: FilterState) => void;
   onClose: () => void;
   // `onlyFiltered`: just the defects the current filters show.
   onExport: (columns: string[], onlyFiltered: boolean) => void;
 }
 
-export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filteredCount, filters, onEditFilters, onClose, onExport }) => {
+export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filteredCount, items, filters, onFilterChange, onClose, onExport }) => {
   const { t } = useI18n();
   const [showFilters, setShowFilters] = useState(false);
   // Active filters as "label: values" lines.
@@ -49,6 +50,8 @@ export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filt
   const [chosen, setChosen] = useState<string[]>(storedColumns);
   const filtered = filteredCount < totalCount;
   const [onlyFiltered, setOnlyFiltered] = useState(filtered);
+  // Filters changed here: export what they show.
+  useEffect(() => setOnlyFiltered(filtered), [filtered]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -68,7 +71,7 @@ export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filt
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="w-full max-w-xl bg-white rounded-xl shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+      <div className={`w-full ${showFilters ? 'max-w-3xl' : 'max-w-xl'} bg-white rounded-xl shadow-2xl border border-slate-200`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Download className="w-4 h-4 text-slate-500" />
@@ -112,23 +115,10 @@ export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filt
                 )}
               </button>
             </div>
+            {/* The same filter options as the filters panel: changing them updates the count above */}
             {showFilters && (
-              <div className="mt-2 p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-1.5 text-xs">
-                {activeFilters.length === 0 ? (
-                  <p className="text-slate-500">{t('No hay filtros puestos: se exportan todos los defectos.')}</p>
-                ) : (
-                  activeFilters.map(f => (
-                    <div key={f.label} className="flex flex-wrap items-center gap-1">
-                      <span className="font-semibold text-slate-700 me-1">{f.label}:</span>
-                      {f.values.map(v => (
-                        <span key={v} className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-800">{v}</span>
-                      ))}
-                    </div>
-                  ))
-                )}
-                <button onClick={onEditFilters} className="pt-1 font-semibold text-slate-900 hover:underline">
-                  {t('Cambiar filtros')}
-                </button>
+              <div className="mt-2 p-3 rounded-lg border border-slate-200 bg-slate-50 max-h-[50vh] overflow-y-auto">
+                <FilterPanel items={items} filters={filters} onFilterChange={onFilterChange} compact />
               </div>
             )}
           </div>

@@ -101,7 +101,7 @@ export function diffForHistory(before: DefectItem[], after: DefectItem[], label:
           records.push({
             ...base,
             action: 'photo_move',
-            details: { from: lost.get(url)!.rowNo, to: item.rowNo, phase, url: loggableUrl(url) },
+            details: { from: lost.get(url)!.rowNo, fromId: lost.get(url)!.id, to: item.rowNo, phase, url: loggableUrl(url) },
           });
         } else {
           records.push({ ...base, action: 'photo_add', details: { phase, url: loggableUrl(url) } });
@@ -258,7 +258,9 @@ const displayValue = (key: string | undefined, value: string, t: TFunction) => {
   return value.length > 60 ? `${value.slice(0, 60)}…` : value;
 };
 
-export function describeHistory(r: HistoryRecord, t: TFunction): string {
+// `currentNo`: a defect's number now (numbers change with "Sort and renumber"); the entry keeps
+// the numbers it had then, used when the defect no longer exists or older entries lack its id.
+export function describeHistory(r: HistoryRecord, t: TFunction, currentNo?: (defectId: string) => string | undefined): string {
   const d = r.details || {};
   const phase = (p: string) => t(PHASE_LABEL[p] || p);
   switch (r.action) {
@@ -267,7 +269,10 @@ export function describeHistory(r: HistoryRecord, t: TFunction): string {
     case 'photo_remove':
       return t('quitó una foto ({phase})', { phase: phase(d.phase) });
     case 'photo_move':
-      return t('movió una foto de la fila #{from} a la #{to}', { from: d.from, to: d.to });
+      return t('movió una foto de la fila #{from} a la #{to}', {
+        from: (d.fromId && currentNo?.(d.fromId)) || d.from,
+        to: (r.defect_id && currentNo?.(r.defect_id)) || d.to,
+      });
     case 'photo_phase':
       return t('cambió la fase de una foto: {from} → {to}', { from: phase(d.from), to: phase(d.to) });
     case 'photo_reorder':

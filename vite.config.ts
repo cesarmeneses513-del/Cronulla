@@ -6,6 +6,21 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      rolldownOptions: {
+        output: {
+          // Libraries in their own files: they rarely change, so phones keep them cached and a
+          // new version of the app only downloads the app's own code.
+          codeSplitting: {
+            groups: [
+              { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+              { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
+              { name: 'vendor', test: /node_modules/ },
+            ],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

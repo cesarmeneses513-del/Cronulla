@@ -357,23 +357,20 @@ function writeRows_(items) {
     });
   });
 
+  // Rows without an ID are someone typing a new defect here (not sent to the web yet): they go
+  // right after the web's rows, whatever row they were on, so the rewrite never covers them.
+  const typing = oldValues.filter(r => !String(r[idIdx]).trim() && r.some((v, c) => c !== numberIdx && String(v).trim() !== ''));
+  const all = values.concat(typing);
+
   const oldRows = Math.max(sheet.getLastRow() - 1, 0);
-  if (values.length > 0) {
-    sheet.getRange(2, 1, values.length, width).setValues(values);
-    formatDateTimeColumns_(sheet, headers, values.length);
+  if (all.length > 0) {
+    sheet.getRange(2, 1, all.length, width).setValues(all);
+    formatDateTimeColumns_(sheet, headers, all.length);
   }
   writeSnapshot_(items.map(i => i.id));
 
-  // Clear leftover app rows (the app now has fewer). Rows without an ID are someone typing
-  // a new defect in the sheet, so leave those alone.
-  if (oldRows > values.length) {
-    const idCol = headers.indexOf(ID_HEADER) + 1;
-    const start = values.length + 2;
-    const ids = sheet.getRange(start, idCol, oldRows - values.length, 1).getValues();
-    ids.forEach((row, i) => {
-      if (String(row[0]).trim()) sheet.getRange(start + i, 1, 1, width).clearContent();
-    });
-  }
+  // Clear what's left below (the web now has fewer defects).
+  if (oldRows > all.length) sheet.getRange(all.length + 2, 1, oldRows - all.length, width).clearContent();
 }
 
 /**

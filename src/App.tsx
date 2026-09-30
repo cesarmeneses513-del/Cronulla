@@ -1,25 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { FilterBar, ViewMode } from './components/FilterBar';
 import { DefectRowCard } from './components/DefectRowCard';
-import { PhotoMosaicView } from './components/PhotoMosaicView';
-import { ElevationMatrixView } from './components/ElevationMatrixView';
-import { TableView } from './components/TableView';
-import { PhotoLightbox } from './components/PhotoLightbox';
-import { EditDefectModal } from './components/EditDefectModal';
-import { ImportCsvModal } from './components/ImportCsvModal';
 import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName, storeUserName } from './components/RoleSelectScreen';
-import { UsersPanel } from './components/UsersPanel';
-import { ExportCsvModal } from './components/ExportCsvModal';
 import { Profile, canEdit, fetchMyProfile, signOut } from './lib/auth';
-import { HistoryPanel } from './components/HistoryPanel';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
 import { SortBar, SortState, sortDefects, parseStoredSort } from './components/SortBar';
 import { Pagination } from './components/Pagination';
 import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
-import { INITIAL_DEFECTS } from './data/initialData';
-import { exportCsvColumns } from './utils/csvParser';
 import { sortPhotosByPhase } from './lib/photoOrder';
 import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
@@ -36,6 +25,17 @@ import {
   renumberDefects,
 } from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X, RefreshCw } from 'lucide-react';
+
+// Views and dialogs load the first time they're shown, so the app opens faster on phones.
+const PhotoMosaicView = lazy(() => import('./components/PhotoMosaicView').then(m => ({ default: m.PhotoMosaicView })));
+const ElevationMatrixView = lazy(() => import('./components/ElevationMatrixView').then(m => ({ default: m.ElevationMatrixView })));
+const TableView = lazy(() => import('./components/TableView').then(m => ({ default: m.TableView })));
+const PhotoLightbox = lazy(() => import('./components/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
+const EditDefectModal = lazy(() => import('./components/EditDefectModal').then(m => ({ default: m.EditDefectModal })));
+const ImportCsvModal = lazy(() => import('./components/ImportCsvModal').then(m => ({ default: m.ImportCsvModal })));
+const UsersPanel = lazy(() => import('./components/UsersPanel').then(m => ({ default: m.UsersPanel })));
+const ExportCsvModal = lazy(() => import('./components/ExportCsvModal').then(m => ({ default: m.ExportCsvModal })));
+const HistoryPanel = lazy(() => import('./components/HistoryPanel').then(m => ({ default: m.HistoryPanel })));
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
 const ROLE_KEY = 'cronulla_role';
@@ -273,8 +273,14 @@ export default function App() {
     } catch (e) {
       console.warn('Failed to load stored defects', e);
     }
-    return INITIAL_DEFECTS;
+    // Without Supabase (local use only) the sample data is loaded below.
+    return [];
   });
+  useEffect(() => {
+    if (supabase || items.length > 0) return;
+    import('./data/initialData').then(m => setItems(prev => (prev.length > 0 ? prev : m.INITIAL_DEFECTS)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Save changes to localStorage
   useEffect(() => {
@@ -1196,12 +1202,13 @@ export default function App() {
   // Export CSV
   // Export CSV: the dialog chooses the columns and whether only the filtered defects go.
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [filterOpenRequest, setFilterOpenRequest] = useState(0);
   const handleExportCsv = useCallback(() => setIsExportOpen(true), []);
   const handleDownloadCsv = useCallback((columns: string[], onlyFiltered: boolean) => {
     setIsExportOpen(false);
     // In the order shown on screen.
-    const csvData = exportCsvColumns(onlyFiltered ? sortedItems : sortDefects(items, sort), columns);
+    const list = onlyFiltered ? sortedItems : sortDefects(items, sort);
+    import('./utils/csvParser').then(({ exportCsvColumns }) => {
+    const csvData = exportCsvColumns(list, columns);
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1212,6 +1219,7 @@ export default function App() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast(t('Archivo CSV exportado exitosamente'));
+    });
   }, [items, sortedItems, sort, showToast, t]);
 
   // Import CSV handler
@@ -1417,7 +1425,6 @@ export default function App() {
         onViewModeChange={setViewMode}
         filteredCount={filteredItems.length}
         readOnly={readOnly}
-        openRequest={filterOpenRequest}
       />
 
       {/* Main View Area */}
@@ -1428,6 +1435,7 @@ export default function App() {
           viewMode === 'table' ? 'lg:max-w-none lg:px-4' : ''
         }`}
       >
+        <Suspense fallback={<div className="flex justify-center py-16 text-slate-400"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
         {filteredItems.length === 0 && viewMode !== 'matrix' ? (
           emptyState
         ) : viewMode === 'rows' ? (
@@ -1489,6 +1497,7 @@ export default function App() {
           {pager}
           </>
         )}
+        </Suspense>
       </main>
 
       {/* Bulk selection bar */}
@@ -1526,6 +1535,7 @@ export default function App() {
         </div>
       )}
 
+      <Suspense fallback={null}>
       {/* Lightbox Modal */}
       {lightboxItem && (
         <PhotoLightbox
@@ -1545,22 +1555,26 @@ export default function App() {
       )}
 
       {/* Edit Defect Modal */}
-      <EditDefectModal
-        item={editingItem}
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={edited => handleSaveDefect(edited, editingItem || undefined)}
-        canDelete={canDelete}
-      />
+      {isEditModalOpen && (
+        <EditDefectModal
+          item={editingItem}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={edited => handleSaveDefect(edited, editingItem || undefined)}
+          canDelete={canDelete}
+        />
+      )}
 
       {/* Import CSV Modal */}
-      <ImportCsvModal
-        isOpen={isImportModalOpen && canDelete}
-        onClose={() => setIsImportModalOpen(false)}
-        onImport={handleImportCsv}
-        existingItems={items}
-        allowReplace={canDelete}
-      />
+      {isImportModalOpen && canDelete && (
+        <ImportCsvModal
+          isOpen={isImportModalOpen && canDelete}
+          onClose={() => setIsImportModalOpen(false)}
+          onImport={handleImportCsv}
+          existingItems={items}
+          allowReplace={canDelete}
+        />
+      )}
 
       {/* Change history */}
       {isHistoryOpen && !readOnly && (
@@ -1576,12 +1590,9 @@ export default function App() {
         <ExportCsvModal
           totalCount={items.length}
           filteredCount={filteredItems.length}
+          items={items}
           filters={filters}
-          onEditFilters={() => {
-            setIsExportOpen(false);
-            setFilterOpenRequest(n => n + 1);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
+          onFilterChange={setFilters}
           onClose={() => setIsExportOpen(false)}
           onExport={handleDownloadCsv}
         />
@@ -1590,6 +1601,7 @@ export default function App() {
       {isUsersOpen && isAccountAdmin && account && (
         <UsersPanel me={account} onClose={() => setIsUsersOpen(false)} />
       )}
+      </Suspense>
 
       {/* Quiet footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">

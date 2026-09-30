@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Search, X, SlidersHorizontal, LayoutGrid, Rows3, Grid3X3, Table2, Check } from 'lucide-react';
 import { DefectItem, FilterState } from '../types/inspection';
 import { canonicalPerson } from '../lib/people';
@@ -14,8 +14,6 @@ interface FilterBarProps {
   onViewModeChange: (mode: ViewMode) => void;
   filteredCount: number;
   readOnly?: boolean;
-  // Changes when something asks to open the filters panel (e.g. the export dialog).
-  openRequest?: number;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -26,36 +24,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onViewModeChange,
   filteredCount,
   readOnly = false,
-  openRequest,
 }) => {
   const { t } = useI18n();
   const [showAdvanced, setShowAdvanced] = useState(false);
-  useEffect(() => {
-    if (openRequest) setShowAdvanced(true);
-  }, [openRequest]);
-
-  // Extract unique values
-  const uniqueStages = Array.from(new Set(items.map(i => i.orientation).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b, undefined, { numeric: true })
-  );
-  // Like the elevation view: once a stage is chosen, the other filters offer (and count) only that
-  // stage's defects. Values already selected stay listed so they can be turned off.
-  const stageItems =
-    filters.orientations.length > 0 ? items.filter(i => filters.orientations.includes(i.orientation)) : items;
-  const withSelected = (values: string[], selected: string[]) => Array.from(new Set([...values, ...selected]));
-  const uniqueDefects = withSelected(stageItems.map(i => i.defect).filter(Boolean), filters.defects).sort();
-  const uniqueDrops = withSelected(stageItems.map(i => i.drop).filter(Boolean), filters.drops).sort((a, b) => Number(a) - Number(b));
-  const uniqueLevels = withSelected(stageItems.map(i => i.level).filter(Boolean), filters.levels).sort((a, b) => {
-    if (a === 'G') return -1;
-    if (b === 'G') return 1;
-    if (a === 'R') return 1;
-    if (b === 'R') return -1;
-    return Number(a) - Number(b);
-  });
-  const uniqueTechnicians = withSelected(
-    stageItems.map(i => canonicalPerson(i.modifiedBy || '')).filter(Boolean),
-    filters.technicians
-  ).sort();
 
   const activeFilterCount =
     (filters.searchQuery ? 1 : 0) +
@@ -84,14 +55,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     });
   };
 
-  const toggleFilterItem = (category: keyof FilterState, value: string) => {
-    const list = (filters[category] as string[]) || [];
-    const next = list.includes(value) ? list.filter(v => v !== value) : [...list, value];
-    onFilterChange({
-      ...filters,
-      [category]: next,
-    });
-  };
 
   return (
     <div className="bg-white border-b border-slate-200">
@@ -203,209 +166,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
         </div>
 
-        {/* Filters panel: Stage, Defect, Drop & Level, Status, Technician, Urgency */}
+        {/* Filters panel: Stage, Defect, Drop & Level, Status, Photos, Technician, Urgency */}
         {showAdvanced && (
-          <div className="pt-3 border-t border-slate-100 space-y-4 text-xs">
-            {/* Stage (larger buttons, as before) */}
-            {uniqueStages.length > 0 && (
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700 block">{t('Stage')}</label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => onFilterChange({ ...filters, orientations: [] })}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
-                      filters.orientations.length === 0
-                        ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span>{t('Todos')}</span>
-                    <span className={`text-[10px] tabular-nums ${filters.orientations.length === 0 ? 'text-slate-300' : 'text-slate-500'}`}>
-                      ({items.length})
-                    </span>
-                  </button>
-                  {uniqueStages.map(stg => {
-                    const isSelected = filters.orientations.includes(stg);
-                    const count = items.filter(i => i.orientation === stg).length;
-                    return (
-                      <button
-                        key={stg}
-                        onClick={() => toggleFilterItem('orientations', stg)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
-                          isSelected
-                            ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3 h-3" />}
-                        <span>{stg}</span>
-                        <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                          ({count})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Defect Type */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">{t('Tipo de Defecto')}</label>
-              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
-                {uniqueDefects.slice(0, 12).map(df => {
-                  const isSelected = filters.defects.includes(df);
-                  const count = stageItems.filter(i => i.defect === df).length;
-                  return (
-                    <button
-                      key={df}
-                      onClick={() => toggleFilterItem('defects', df)}
-                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors truncate max-w-[160px] ${
-                        isSelected
-                          ? 'bg-slate-800 text-white border-slate-800 font-medium'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                      }`}
-                      title={df}
-                    >
-                      {df} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Drop & Level */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">{t('Línea (Drop) & Nivel')}</label>
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
-                  <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Drop:')}</span>
-                  {uniqueDrops.map(dr => {
-                    const isSelected = filters.drops.includes(dr);
-                    return (
-                      <button
-                        key={dr}
-                        onClick={() => toggleFilterItem('drops', dr)}
-                        className={`w-6 h-6 flex items-center justify-center rounded text-[10px] border transition-colors ${
-                          isSelected
-                            ? 'bg-slate-900 text-white border-slate-900 font-bold'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        {dr}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
-                  <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Piso:')}</span>
-                  {uniqueLevels.map(lv => {
-                    const isSelected = filters.levels.includes(lv);
-                    return (
-                      <button
-                        key={lv}
-                        onClick={() => toggleFilterItem('levels', lv)}
-                        className={`min-w-6 h-6 px-1 flex items-center justify-center rounded text-[10px] border transition-colors ${
-                          isSelected
-                            ? 'bg-slate-900 text-white border-slate-900 font-bold'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        {lv}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Status: the three on one line */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">{t('Estado')}</label>
-              <div className="flex flex-nowrap gap-1 overflow-x-auto pr-1">
-                {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
-                  const isSelected = filters.statuses.includes(st);
-                  const count = stageItems.filter(i => i.status === st).length;
-                  return (
-                    <button
-                      key={st}
-                      onClick={() => toggleFilterItem('statuses', st)}
-                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
-                        isSelected
-                          ? 'bg-slate-800 text-white border-slate-800 font-medium'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {t(STATUS_LABEL[st])} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Photos: defects that don't have any photo yet */}
-              <label className="font-semibold text-slate-700 block pt-2">{t('Fotos')}</label>
-              <div className="flex flex-wrap gap-1 pr-1">
-                <button
-                  onClick={() => onFilterChange({ ...filters, noPhotosOnly: !filters.noPhotosOnly })}
-                  className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
-                    filters.noPhotosOnly
-                      ? 'bg-slate-800 text-white border-slate-800 font-medium'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  {t('Sin fotos')} ({stageItems.filter(i => i.photos.length === 0).length})
-                </button>
-              </div>
-            </div>
-
-            {/* Technicians */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">{t('Última modificación por')}</label>
-              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
-                {uniqueTechnicians.map(tc => {
-                  const isSelected = filters.technicians.includes(tc);
-                  return (
-                    <button
-                      key={tc}
-                      onClick={() => toggleFilterItem('technicians', tc)}
-                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${
-                        isSelected
-                          ? 'bg-slate-800 text-white border-slate-800 font-medium'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {tc}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Urgency (last, small) */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 block">{t('Urgencia')}</label>
-              <div className="flex flex-wrap gap-1 pr-1">
-                {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
-                  const isSelected = filters.urgencies.includes(ug);
-                  const count = stageItems.filter(i => i.urgency === ug).length;
-                  return (
-                    <button
-                      key={ug}
-                      onClick={() => toggleFilterItem('urgencies', ug)}
-                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
-                        isSelected
-                          ? 'bg-slate-800 text-white border-slate-800 font-medium'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {t(URGENCY_LABEL[ug])} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            </div>
+          <div className="pt-3 border-t border-slate-100">
+            <FilterPanel items={items} filters={filters} onFilterChange={onFilterChange} />
           </div>
         )}
 
@@ -420,6 +184,253 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
+
+// The filter options (Stage, Defect type, Drop & Level, Status, Photos, Last modified by, Urgency).
+// Used in the filters panel and in the export dialog; `compact` for narrow places.
+export const FilterPanel: React.FC<{
+  items: DefectItem[];
+  filters: FilterState;
+  onFilterChange: (next: FilterState) => void;
+  compact?: boolean;
+}> = ({ items, filters, onFilterChange, compact = false }) => {
+  const { t } = useI18n();
+  // Extract unique values
+  const uniqueStages = Array.from(new Set(items.map(i => i.orientation).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true })
+  );
+  // Like the elevation view: once a stage is chosen, the other filters offer (and count) only that
+  // stage's defects. Values already selected stay listed so they can be turned off.
+  const stageItems =
+    filters.orientations.length > 0 ? items.filter(i => filters.orientations.includes(i.orientation)) : items;
+  const withSelected = (values: string[], selected: string[]) => Array.from(new Set([...values, ...selected]));
+  const uniqueDefects = withSelected(stageItems.map(i => i.defect).filter(Boolean), filters.defects).sort();
+  const uniqueDrops = withSelected(stageItems.map(i => i.drop).filter(Boolean), filters.drops).sort((a, b) => Number(a) - Number(b));
+  const uniqueLevels = withSelected(stageItems.map(i => i.level).filter(Boolean), filters.levels).sort((a, b) => {
+    if (a === 'G') return -1;
+    if (b === 'G') return 1;
+    if (a === 'R') return 1;
+    if (b === 'R') return -1;
+    return Number(a) - Number(b);
+  });
+  const uniqueTechnicians = withSelected(
+    stageItems.map(i => canonicalPerson(i.modifiedBy || '')).filter(Boolean),
+    filters.technicians
+  ).sort();
+
+  const toggleFilterItem = (category: keyof FilterState, value: string) => {
+    const list = (filters[category] as string[]) || [];
+    const next = list.includes(value) ? list.filter(v => v !== value) : [...list, value];
+    onFilterChange({
+      ...filters,
+      [category]: next,
+    });
+  };
+
+  return (
+    <div className="space-y-4 text-xs">
+      {/* Stage (larger buttons, as before) */}
+      {uniqueStages.length > 0 && (
+        <div className="space-y-1.5">
+          <label className="font-semibold text-slate-700 block">{t('Stage')}</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onFilterChange({ ...filters, orientations: [] })}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
+                filters.orientations.length === 0
+                  ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <span>{t('Todos')}</span>
+              <span className={`text-[10px] tabular-nums ${filters.orientations.length === 0 ? 'text-slate-300' : 'text-slate-500'}`}>
+                ({items.length})
+              </span>
+            </button>
+            {uniqueStages.map(stg => {
+              const isSelected = filters.orientations.includes(stg);
+              const count = items.filter(i => i.orientation === stg).length;
+              return (
+                <button
+                  key={stg}
+                  onClick={() => toggleFilterItem('orientations', stg)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all ${
+                    isSelected
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {isSelected && <Check className="w-3 h-3" />}
+                  <span>{stg}</span>
+                  <span className={`text-[10px] tabular-nums ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className={`grid grid-cols-1 gap-4 ${compact ? 'sm:grid-cols-2' : 'md:grid-cols-3'}`}>
+      {/* Defect Type */}
+      <div className="space-y-1.5">
+        <label className="font-semibold text-slate-700 block">{t('Tipo de Defecto')}</label>
+        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
+          {uniqueDefects.slice(0, 12).map(df => {
+            const isSelected = filters.defects.includes(df);
+            const count = stageItems.filter(i => i.defect === df).length;
+            return (
+              <button
+                key={df}
+                onClick={() => toggleFilterItem('defects', df)}
+                className={`px-2 py-0.5 rounded text-[11px] border transition-colors truncate max-w-[160px] ${
+                  isSelected
+                    ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                }`}
+                title={df}
+              >
+                {df} ({count})
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Drop & Level */}
+      <div className="space-y-1.5">
+        <label className="font-semibold text-slate-700 block">{t('Línea (Drop) & Nivel')}</label>
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
+            <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Drop:')}</span>
+            {uniqueDrops.map(dr => {
+              const isSelected = filters.drops.includes(dr);
+              return (
+                <button
+                  key={dr}
+                  onClick={() => toggleFilterItem('drops', dr)}
+                  className={`w-6 h-6 flex items-center justify-center rounded text-[10px] border transition-colors ${
+                    isSelected
+                      ? 'bg-slate-900 text-white border-slate-900 font-bold'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {dr}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap gap-1 items-center max-h-16 overflow-y-auto pr-1">
+            <span className="text-[10px] text-slate-400 font-bold mr-1">{t('Piso:')}</span>
+            {uniqueLevels.map(lv => {
+              const isSelected = filters.levels.includes(lv);
+              return (
+                <button
+                  key={lv}
+                  onClick={() => toggleFilterItem('levels', lv)}
+                  className={`min-w-6 h-6 px-1 flex items-center justify-center rounded text-[10px] border transition-colors ${
+                    isSelected
+                      ? 'bg-slate-900 text-white border-slate-900 font-bold'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {lv}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Status: the three on one line */}
+      <div className="space-y-1.5">
+        <label className="font-semibold text-slate-700 block">{t('Estado')}</label>
+        <div className={`flex gap-1 pr-1 ${compact ? 'flex-wrap' : 'flex-nowrap overflow-x-auto'}`}>
+          {(['BEFORE', 'IN PROGRESS', 'COMPLETED'] as const).map(st => {
+            const isSelected = filters.statuses.includes(st);
+            const count = stageItems.filter(i => i.status === st).length;
+            return (
+              <button
+                key={st}
+                onClick={() => toggleFilterItem('statuses', st)}
+                className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
+                  isSelected
+                    ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {t(STATUS_LABEL[st])} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Photos: defects that don't have any photo yet */}
+        <label className="font-semibold text-slate-700 block pt-2">{t('Fotos')}</label>
+        <div className="flex flex-wrap gap-1 pr-1">
+          <button
+            onClick={() => onFilterChange({ ...filters, noPhotosOnly: !filters.noPhotosOnly })}
+            className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
+              filters.noPhotosOnly
+                ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            {t('Sin fotos')} ({stageItems.filter(i => i.photos.length === 0).length})
+          </button>
+        </div>
+      </div>
+
+      {/* Technicians */}
+      <div className="space-y-1.5">
+        <label className="font-semibold text-slate-700 block">{t('Última modificación por')}</label>
+        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
+          {uniqueTechnicians.map(tc => {
+            const isSelected = filters.technicians.includes(tc);
+            return (
+              <button
+                key={tc}
+                onClick={() => toggleFilterItem('technicians', tc)}
+                className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${
+                  isSelected
+                    ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {tc}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {/* Urgency (last, small) */}
+      <div className="space-y-1.5">
+        <label className="font-semibold text-slate-700 block">{t('Urgencia')}</label>
+        <div className="flex flex-wrap gap-1 pr-1">
+          {(['HIGH', 'MEDIUM', 'LOW'] as const).map(ug => {
+            const isSelected = filters.urgencies.includes(ug);
+            const count = stageItems.filter(i => i.urgency === ug).length;
+            return (
+              <button
+                key={ug}
+                onClick={() => toggleFilterItem('urgencies', ug)}
+                className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
+                  isSelected
+                    ? 'bg-slate-800 text-white border-slate-800 font-medium'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {t(URGENCY_LABEL[ug])} ({count})
+              </button>
+            );
+          })}
+        </div>
+      </div>
       </div>
     </div>
   );
