@@ -13,6 +13,7 @@ export type Permission =
   | 'csv.import'
   | 'csv.export'
   | 'renumber'
+  | 'users.invite'
   | 'users.manage';
 
 export type RoleKey = 'admin' | 'project_manager' | 'team_leader' | 'technician' | 'client';
@@ -39,6 +40,7 @@ export const PERMISSIONS: { key: Permission; label: string }[] = [
   { key: 'csv.import', label: 'Importar CSV' },
   { key: 'csv.export', label: 'Exportar CSV' },
   { key: 'renumber', label: 'Ordenar y renumerar' },
+  { key: 'users.invite', label: 'Enviar invitaciones' },
   { key: 'users.manage', label: 'Gestionar usuarios y permisos' },
 ];
 
@@ -46,7 +48,7 @@ const ALL = PERMISSIONS.map(p => p.key);
 export const DEFAULT_PERMISSIONS: Record<RoleKey, Permission[]> = {
   admin: ALL,
   project_manager: ALL.filter(p => p !== 'csv.import' && p !== 'users.manage'),
-  team_leader: ['defects.create', 'defects.edit', 'photos.add', 'photos.move', 'photos.delete', 'history.view', 'csv.export'],
+  team_leader: ['defects.create', 'defects.edit', 'photos.add', 'photos.move', 'photos.delete', 'history.view', 'csv.export', 'users.invite'],
   technician: ['defects.create', 'defects.edit', 'photos.add', 'history.view'],
   client: ['csv.export'],
 };

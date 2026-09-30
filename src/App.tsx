@@ -237,6 +237,8 @@ export default function App() {
   );
   const canDelete = can('defects.delete');
   const isAccountAdmin = !!account && can('users.manage');
+  // Data → Users: managing accounts, or just sending invitations.
+  const canOpenUsers = !!account && (can('users.manage') || can('users.invite'));
   const [isUsersOpen, setIsUsersOpen] = useState(false);
 
   const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user', profile?: Profile) => {
@@ -1424,7 +1426,7 @@ export default function App() {
         readOnly={readOnly}
         isAdmin={effectiveRole === 'admin'}
         onLogout={handleLogout}
-        onOpenUsers={isAccountAdmin ? () => setIsUsersOpen(true) : undefined}
+        onOpenUsers={canOpenUsers ? () => setIsUsersOpen(true) : undefined}
         userName={account?.name || getStoredUserName()}
         viaPin={!readOnly && !account && (() => {
           try {
@@ -1622,8 +1624,8 @@ export default function App() {
         />
       )}
 
-      {isUsersOpen && isAccountAdmin && account && (
-        <UsersPanel me={account} onClose={() => setIsUsersOpen(false)} />
+      {isUsersOpen && canOpenUsers && account && (
+        <UsersPanel me={account} canManage={isAccountAdmin} onClose={() => setIsUsersOpen(false)} />
       )}
       </Suspense>
 

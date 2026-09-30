@@ -36,7 +36,9 @@ const inviteMessage = (inv: Invitation, roleLabel: string, t: ReturnType<typeof 
   );
 
 // Administrators: accounts, invitations and what each role may do.
-export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me, onClose }) => {
+// `canManage`: roles, accounts and permissions. Without it (only "Enviar invitaciones") the
+// panel just invites, as Facade Technician or Client.
+export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: () => void }> = ({ me, canManage, onClose }) => {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>('users');
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
@@ -49,9 +51,11 @@ export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me,
 
   const roleLabel = (role: string) => t(ROLES.find(r => r.role === role)?.label || 'Pendiente');
 
+  const inviteRoles = canManage ? ROLES : ROLES.filter(r => r.role === 'technician' || r.role === 'client');
+
   const load = () => {
     setError('');
-    Promise.all([listProfiles(), listInvitations()])
+    Promise.all([canManage ? listProfiles() : Promise.resolve([] as Profile[]), listInvitations()])
       .then(([p, i]) => {
         setProfiles(p);
         setInvitations(i);
@@ -137,7 +141,7 @@ export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me,
         <div className="flex gap-1 px-5 sm:px-6 mt-4 border-b border-slate-200">
           {([
             ['users', t('Usuarios'), Users],
-            ['permissions', t('Permisos'), ShieldCheck],
+            ...(canManage ? ([['permissions', t('Permisos'), ShieldCheck]] as const) : []),
           ] as const).map(([key, label, Icon]) => (
             <button
               key={key}
@@ -164,8 +168,8 @@ export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me,
                 <Loader2 className="w-5 h-5 animate-spin" />
               </div>
             ) : (
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="hidden md:grid grid-cols-[1.6fr_1.3fr_1.1fr_0.7fr_40px] gap-3 px-4 py-2.5 bg-slate-50 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+              <div className="border border-slate-200 rounded-xl">
+                <div className="hidden md:grid grid-cols-[1.6fr_1.3fr_1.1fr_0.7fr_40px] gap-3 px-4 py-2.5 bg-slate-50 rounded-t-xl text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                   <span>{t('Nombre')}</span>
                   <span>{t('Rol de acceso')}</span>
                   <span>{t('Cargo')}</span>
@@ -259,14 +263,14 @@ export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me,
                         <div className="text-sm font-semibold text-slate-900 truncate">{inv.name || '—'}</div>
                         <div className="text-xs text-slate-500 truncate">{inv.email}</div>
                       </div>
-                      <select value={inv.role} disabled={busy === inv.email} onChange={e => changeInvitation(inv, { role: e.target.value as RoleKey })} className={select}>
-                        {ROLES.map(r => (
+                      <select value={inv.role} disabled={busy === inv.email || !canManage} onChange={e => changeInvitation(inv, { role: e.target.value as RoleKey })} className={select}>
+                        {(canManage ? ROLES : ROLES.filter(r => r.role === inv.role || inviteRoles.includes(r))).map(r => (
                           <option key={r.role} value={r.role}>
                             {t(r.label)}
                           </option>
                         ))}
                       </select>
-                      <select value={inv.job_title} disabled={busy === inv.email} onChange={e => changeInvitation(inv, { job_title: e.target.value })} className={select}>
+                      <select value={inv.job_title} disabled={busy === inv.email || !canManage} onChange={e => changeInvitation(inv, { job_title: e.target.value })} className={select}>
                         <option value="">—</option>
                         {JOB_TITLES.map(j => (
                           <option key={j} value={j}>
@@ -280,7 +284,7 @@ export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me,
                         onToggle={() => setMenu(m => (m === inv.email ? null : inv.email))}
                         items={[
                           { label: t('Enviar invitación'), onClick: () => setSharing(inv) },
-                          {
+                          ...(canManage ? [{
                             label: t('Cancelar invitación'),
                             danger: true,
                             onClick: () =>
@@ -288,7 +292,7 @@ export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me,
                                 await deleteInvitation(inv.email);
                                 setInvitations(list => list.filter(x => x.email !== inv.email));
                               }),
-                          },
+                          }] : []),
                         ]}
                         onPicked={() => setMenu(null)}
                       />
@@ -336,7 +340,7 @@ export const UsersPanel: React.FC<{ me: Profile; onClose: () => void }> = ({ me,
             <div className="grid grid-cols-2 gap-3">
               <Field label={t('Rol de acceso')}>
                 <select value={inviting.role} onChange={e => setInviting({ ...inviting, role: e.target.value as RoleKey })} className={select}>
-                  {ROLES.map(r => (
+                  {inviteRoles.map(r => (
                     <option key={r.role} value={r.role}>
                       {t(r.label)}
                     </option>

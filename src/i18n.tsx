@@ -26,6 +26,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Importar': { en: 'Import', fa: 'وارد کردن' },
   'Exportar': { en: 'Export', fa: 'صادر کردن' },
   'Datos': { en: 'Data', fa: 'داده‌ها' },
+  'Enviar invitaciones': { en: 'Send invitations', fa: 'ارسال دعوت‌نامه' },
   "Oficina": { en: "Office", fa: "دفتر" },
   "Usuarios y permisos": { en: "Users & permissions", fa: "کاربران و دسترسی‌ها" },
   "Invitar usuario": { en: "Invite user", fa: "دعوت کاربر" },
