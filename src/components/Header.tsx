@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { RefreshCw, Download, Upload, ListOrdered, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
+import { RefreshCw, Download, Upload, ListOrdered, Users, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -16,6 +16,8 @@ interface HeaderProps {
   onOpenImportModal: () => void;
   // Administrators: sort and renumber all defects.
   onRenumber?: () => void;
+  // Administrators signed in with an account: manage the accounts.
+  onOpenUsers?: () => void;
   readOnly: boolean;
   isAdmin?: boolean;
   onLogout: () => void;
@@ -34,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   onExportCsv,
   onOpenImportModal,
   onRenumber,
+  onOpenUsers,
   readOnly,
   isAdmin = false,
   onLogout,
@@ -205,6 +208,13 @@ export const Header: React.FC<HeaderProps> = ({
                   <button onClick={() => { setDataOpen(false); onRenumber(); }} className={menuItem}>
                     <ListOrdered className="w-3.5 h-3.5" />
                     {t('Ordenar y renumerar')}
+                  </button>
+                )}
+
+                {onOpenUsers && (
+                  <button onClick={() => { setDataOpen(false); onOpenUsers(); }} className={menuItem}>
+                    <Users className="w-3.5 h-3.5" />
+                    {t('Usuarios')}
                   </button>
                 )}
 

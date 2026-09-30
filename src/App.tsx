@@ -8,7 +8,9 @@ import { TableView } from './components/TableView';
 import { PhotoLightbox } from './components/PhotoLightbox';
 import { EditDefectModal } from './components/EditDefectModal';
 import { ImportCsvModal } from './components/ImportCsvModal';
-import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName } from './components/RoleSelectScreen';
+import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName, storeUserName } from './components/RoleSelectScreen';
+import { UsersPanel } from './components/UsersPanel';
+import { Profile, canEdit, fetchMyProfile, signOut } from './lib/auth';
 import { HistoryPanel } from './components/HistoryPanel';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
@@ -37,6 +39,8 @@ import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, Chec
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
 const ROLE_KEY = 'cronulla_role';
 const ACCESS_KEY = 'cronulla_access';
+// 'account' when the editor signed in with an account, 'pin' with the temporary PIN.
+const AUTH_KEY = 'cronulla_auth';
 const SORT_KEY = 'cronulla_sort';
 
 type SyncStatus = 'local' | 'loading' | 'synced' | 'saving' | 'error';
@@ -210,16 +214,50 @@ export default function App() {
   });
   const canDelete = !readOnly && access === 'admin';
 
-  const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user') => {
+  // Signed in with an account: its profile (level, name). Null with the PIN or as a client.
+  const [account, setAccount] = useState<Profile | null>(null);
+  const isAccountAdmin = account?.role === 'admin';
+  const [isUsersOpen, setIsUsersOpen] = useState(false);
+
+  const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user', profile?: Profile) => {
     setRole(next);
     setAccess(level);
+    setAccount(profile || null);
     try {
       if (next) sessionStorage.setItem(ROLE_KEY, next);
       else sessionStorage.removeItem(ROLE_KEY);
       if (next === 'editor') sessionStorage.setItem(ACCESS_KEY, level);
       else sessionStorage.removeItem(ACCESS_KEY);
+      if (next === 'editor' && profile) sessionStorage.setItem(AUTH_KEY, 'account');
+      else sessionStorage.removeItem(AUTH_KEY);
     } catch {}
   }, []);
+
+  const handleLogout = useCallback(() => {
+    if (account) signOut();
+    handleSelectRole(null);
+  }, [account, handleSelectRole]);
+
+  // Signed in with an account: its current level on every load (an administrator may have
+  // changed it or removed the access meanwhile).
+  useEffect(() => {
+    let authed = false;
+    try {
+      authed = sessionStorage.getItem(AUTH_KEY) === 'account';
+    } catch {}
+    if (!authed || !supabase) return;
+    fetchMyProfile()
+      .then(profile => {
+        if (profile && canEdit(profile.role)) {
+          storeUserName(profile.name);
+          handleSelectRole('editor', profile.role === 'admin' ? 'admin' : 'user', profile);
+        } else {
+          signOut();
+          handleSelectRole(null);
+        }
+      })
+      .catch(() => {});
+  }, [handleSelectRole]);
 
   // Load initial data from localStorage if present
   const [items, setItems] = useState<DefectItem[]>(() => {
@@ -1346,7 +1384,8 @@ export default function App() {
         onRenumber={supabase && canDelete ? handleRenumber : undefined}
         readOnly={readOnly}
         isAdmin={canDelete}
-        onLogout={() => handleSelectRole(null)}
+        onLogout={handleLogout}
+        onOpenUsers={isAccountAdmin ? () => setIsUsersOpen(true) : undefined}
         onUndo={handleUndo}
         undoLabel={history.length > 0 ? history[history.length - 1].label : null}
         onOpenHistory={() => setIsHistoryOpen(true)}
@@ -1515,6 +1554,10 @@ export default function App() {
           canClear={canDelete}
           items={items}
         />
+      )}
+
+      {isUsersOpen && isAccountAdmin && account && (
+        <UsersPanel me={account} onClose={() => setIsUsersOpen(false)} />
       )}
 
       {/* Quiet footer */}
