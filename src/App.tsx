@@ -401,6 +401,8 @@ export default function App() {
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // Undone actions, for Redo (Ctrl + Y). Each holds the undo itself: redoing reverts it.
+  const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
 
   // Reload everything from the database. Pending local edits are saved first so none are lost.
   // `quiet`: automatic refresh (e.g. when the phone comes back to the app), without a toast.
@@ -488,6 +490,7 @@ export default function App() {
     itemsRef.current = after;
     setItems(after);
     setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), { label, before, after }]);
+    setRedoStack([]); // a new action ends what could be redone
     logHistory(getStoredUserName(), diffForHistory(before, after, label));
   }, []);
 
@@ -499,6 +502,7 @@ export default function App() {
     const next = revertEntry(current, entry);
     itemsRef.current = next;
     setItems(next);
+    setRedoStack(r => [...r.slice(-(MAX_HISTORY - 1)), { label: entry.label, before: current, after: next }]);
     logHistory(getStoredUserName(), [
       { action: 'undo', defect_id: null, row_no: null, details: { label: entry.label } },
       ...diffForHistory(current, next, entry.label).filter(r => r.action !== 'bulk'),
@@ -506,18 +510,39 @@ export default function App() {
     showToast(t('Deshecho: {label}', { label: entry.label }));
   }, [history, readOnly, showToast, t]);
 
-  // Cmd/Ctrl + Z outside text fields.
+  // Redo: does again the last action that was undone (and it can be undone once more).
+  const handleRedo = useCallback(() => {
+    const undo = redoStack[redoStack.length - 1];
+    if (!undo || readOnly) return;
+    setRedoStack(redoStack.slice(0, -1));
+    const current = itemsRef.current;
+    const next = revertEntry(current, undo);
+    itemsRef.current = next;
+    setItems(next);
+    setHistory(h => [...h.slice(-(MAX_HISTORY - 1)), { label: undo.label, before: current, after: next }]);
+    logHistory(getStoredUserName(), [
+      { action: 'undo', defect_id: null, row_no: null, details: { label: t('Rehacer: {label}', { label: undo.label }) } },
+      ...diffForHistory(current, next, undo.label).filter(r => r.action !== 'bulk'),
+    ]);
+    showToast(t('Rehecho: {label}', { label: undo.label }));
+  }, [redoStack, readOnly, showToast, t]);
+
+  // Outside text fields: Cmd/Ctrl + Z undoes; Ctrl + Y (or Cmd/Ctrl + Shift + Z) redoes.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      const redo = key === 'y' || (key === 'z' && e.shiftKey);
+      if (!redo && key !== 'z') return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       e.preventDefault();
-      handleUndo();
+      if (redo) handleRedo();
+      else handleUndo();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleUndo]);
+  }, [handleUndo, handleRedo]);
 
   // Modal States
   const [editingItem, setEditingItem] = useState<DefectItem | null>(null);

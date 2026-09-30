@@ -308,6 +308,8 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Solo en este navegador': { en: 'Only in this browser', fa: 'فقط در این مرورگر' },
   'Revisa la consola del navegador para más detalles': { en: 'Check the browser console for details', fa: 'برای جزئیات، کنسول مرورگر را ببینید' },
   'Deshecho: {label}': { en: 'Undone: {label}', fa: 'برگردانده شد: {label}' },
+  'Rehecho: {label}': { en: 'Redone: {label}', fa: 'دوباره انجام شد: {label}' },
+  'Rehacer: {label}': { en: 'Redo: {label}', fa: 'انجام دوباره: {label}' },
   'Foto reordenada en la fila #{row}': { en: 'Photo reordered in row #{row}', fa: 'ترتیب عکس در ردیف #{row} تغییر کرد' },
   'Foto trasladada de Fila #{a} ({da}) a Fila #{b} ({db})': {
     en: 'Photo moved from row #{a} ({da}) to row #{b} ({db})',
