@@ -11,9 +11,15 @@ interface HeaderProps {
   items: DefectItem[];
   filteredCount: number;
   totalPhotos: number;
-  onNewDefect: () => void;
-  onExportCsv: () => void;
-  onOpenImportModal: () => void;
+  // Each action is passed only when the person's role allows it (missing = button hidden).
+  onNewDefect?: () => void;
+  onExportCsv?: () => void;
+  onOpenImportModal?: () => void;
+  onOpenHistoryAllowed?: boolean;
+  // Shortcut to the synced sheet (people who manage users).
+  showSheetLink?: boolean;
+  // The person's role, shown in the badge (e.g. "Project Manager").
+  roleLabel?: string;
   // Administrators: sort and renumber all defects.
   onRenumber?: () => void;
   // Administrators signed in with an account: manage the accounts.
@@ -38,6 +44,9 @@ export const Header: React.FC<HeaderProps> = ({
   onNewDefect,
   onExportCsv,
   onOpenImportModal,
+  onOpenHistoryAllowed = false,
+  showSheetLink = false,
+  roleLabel,
   onRenumber,
   onOpenUsers,
   userName,
@@ -149,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
             <span className="flex flex-col leading-tight">
-              <span>{readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}</span>
+              <span>{roleLabel ? t(roleLabel) : readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}</span>
               {!readOnly && userName && (
                 <span className="max-w-[9rem] truncate text-[9px] font-medium text-amber-700/80" title={userName}>
                   {userName}
@@ -161,8 +170,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <LanguageSwitcher />
 
-          {!readOnly && (
-          <>
+          {onOpenHistoryAllowed && (
           <button
             onClick={onOpenHistory}
             title={t('Historial de cambios')}
@@ -171,7 +179,9 @@ export const Header: React.FC<HeaderProps> = ({
             <History className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('Historial')}</span>
           </button>
+          )}
 
+          {!readOnly && (
           <button
             onClick={onUndo}
             disabled={!undoLabel}
@@ -181,7 +191,9 @@ export const Header: React.FC<HeaderProps> = ({
             <Undo2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('Deshacer')}</span>
           </button>
+          )}
 
+          {(onOpenImportModal || onExportCsv || onRenumber || onOpenUsers || showSheetLink) && (
           <div ref={dataRef} className="relative">
             <button
               onClick={() => setDataOpen(o => !o)}
@@ -195,16 +207,15 @@ export const Header: React.FC<HeaderProps> = ({
 
             {dataOpen && (
               <div className="absolute end-0 top-full mt-1.5 z-40 min-w-48 p-1.5 bg-white border border-slate-200 rounded-xl shadow-xl">
-                {/* Importing can replace the whole list: administrators only */}
-                {isAdmin && (
+                {onOpenImportModal && (
                   <button onClick={() => { setDataOpen(false); onOpenImportModal(); }} className={menuItem}>
                     <Upload className="w-3.5 h-3.5" />
                     {t('Importar')} CSV
                   </button>
                 )}
 
-                {/* Shortcut to the synced spreadsheet: administrators, on computers only */}
-                {isAdmin && (
+                {/* Shortcut to the synced spreadsheet, on computers only */}
+                {showSheetLink && (
                   <a
                     href={CVC_SHEET_URL}
                     target="_blank"
@@ -218,7 +229,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </a>
                 )}
 
-                {isAdmin && onRenumber && (
+                {onRenumber && (
                   <button onClick={() => { setDataOpen(false); onRenumber(); }} className={menuItem}>
                     <ListOrdered className="w-3.5 h-3.5" />
                     {t('Ordenar y renumerar')}
@@ -232,14 +243,18 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 )}
 
-                <button onClick={() => { setDataOpen(false); onExportCsv(); }} className={menuItem}>
-                  <Download className="w-3.5 h-3.5" />
-                  {t('Exportar')} CSV
-                </button>
+                {onExportCsv && (
+                  <button onClick={() => { setDataOpen(false); onExportCsv(); }} className={menuItem}>
+                    <Download className="w-3.5 h-3.5" />
+                    {t('Exportar')} CSV
+                  </button>
+                )}
               </div>
             )}
           </div>
+          )}
 
+          {onNewDefect && (
           <button
             onClick={onNewDefect}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors whitespace-nowrap"
@@ -247,7 +262,6 @@ export const Header: React.FC<HeaderProps> = ({
             <Plus className="w-4 h-4" />
             <span>{t('Nuevo Defecto')}</span>
           </button>
-          </>
           )}
 
           <button

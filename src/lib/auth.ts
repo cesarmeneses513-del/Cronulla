@@ -1,21 +1,37 @@
 import { supabase } from './supabase';
+import type { RoleKey } from './permissions';
 
-// Accounts (supabase/accounts.sql). Each person signs in with email and password; their level
-// is kept in `profiles` and given by an administrator.
-export type AccountRole = 'admin' | 'user' | 'pending' | 'disabled';
+// Accounts (supabase/accounts.sql + roles.sql). Each person signs in with email and password;
+// their role, job title and whether they're active are kept in `profiles`.
+export type AccountRole = RoleKey | 'pending';
 
 export interface Profile {
   id: string;
   email: string;
   name: string;
   role: AccountRole;
+  job_title?: string;
+  active?: boolean;
+  created_at?: string;
+}
+
+export interface Invitation {
+  email: string;
+  name: string;
+  role: RoleKey;
+  job_title: string;
+  invited_by?: string;
   created_at?: string;
 }
 
 const PROFILES = 'profiles';
 
-// Levels that can edit (admin also deletes and manages users).
-export const canEdit = (role?: AccountRole | null) => role === 'admin' || role === 'user';
+// Accounts that can use the app with their role (not pending, not inactive). Before roles.sql
+// the old levels "user" / "disabled" may still come back.
+export const isUsable = (p?: Profile | null) =>
+  !!p && p.active !== false && p.role !== 'pending' && (p.role as string) !== 'disabled';
+// Old "user" level = Facade Technician.
+export const roleOf = (p: Profile): RoleKey => ((p.role as string) === 'user' ? 'technician' : (p.role as RoleKey));
 
 export async function fetchMyProfile(): Promise<Profile | null> {
   if (!supabase) return null;
@@ -51,7 +67,8 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
-// Administrators: everyone's account.
+// ─────────────── Administrators ───────────────
+
 export async function listProfiles(): Promise<Profile[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from(PROFILES).select('*').order('created_at');
@@ -59,8 +76,36 @@ export async function listProfiles(): Promise<Profile[]> {
   return data as Profile[];
 }
 
-export async function updateProfile(id: string, changes: Partial<Pick<Profile, 'name' | 'role'>>): Promise<void> {
+export async function updateProfile(
+  id: string,
+  changes: Partial<Pick<Profile, 'name' | 'role' | 'job_title' | 'active'>>
+): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.from(PROFILES).update(changes).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('delete_account', { target: id });
+  if (error) throw error;
+}
+
+export async function listInvitations(): Promise<Invitation[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('invitations').select('*').order('created_at');
+  if (error) return []; // before roles.sql
+  return data as Invitation[];
+}
+
+export async function saveInvitation(inv: Invitation): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from('invitations').upsert({ ...inv, email: inv.email.trim().toLowerCase() });
+  if (error) throw error;
+}
+
+export async function deleteInvitation(email: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from('invitations').delete().eq('email', email);
   if (error) throw error;
 }

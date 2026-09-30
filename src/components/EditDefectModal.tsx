@@ -3,6 +3,7 @@ import { X, Plus, Trash2, ArrowUp, ArrowDown, Save, Camera, Ruler, User } from '
 import { DefectItem, UrgencyLevel, DefectStatus, PhotoPhase, DefectPhoto } from '../types/inspection';
 import { uploadPhoto } from '../lib/supabase';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { useCan } from '../lib/permissions';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { stageImageFor } from '../data/stageImages';
 import { StageImageViewer } from './StageImageViewer';
@@ -52,6 +53,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   canDelete = true,
 }) => {
   const { t } = useI18n();
+  const can = useCan();
   if (!isOpen || !item) return null;
 
   const [formData, setFormData] = useState<DefectItem>({ ...item });
@@ -419,6 +421,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                 {t('Gestión de Fotografías ({n})', { n: formData.photos.length })}
               </label>
 
+              {can('photos.add') && (
               <div className="flex items-center gap-2">
                 <input
                   ref={fileInputRef}
@@ -443,6 +446,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
                   {t('+ Pegar URL')}
                 </button>
               </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

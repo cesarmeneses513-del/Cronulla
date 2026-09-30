@@ -25,6 +25,7 @@ import { PhasePicker } from './PhasePicker';
 import { stageImageFor } from '../data/stageImages';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { useLongPress } from '../lib/useLongPress';
+import { useCan } from '../lib/permissions';
 
 interface DefectRowCardProps {
   item: DefectItem;
@@ -72,6 +73,9 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   canDelete = true,
 }) => {
   const { t } = useI18n();
+  const can = useCan();
+  const canAddPhotos = !readOnly && can('photos.add');
+  const canMovePhotos = !readOnly && can('photos.move');
   const longPress = useLongPress(onLongPress ? () => onLongPress(item.id) : undefined);
   const [isDragOver, setIsDragOver] = useState(false);
   // Quick edit of the measurements, on the card itself.
@@ -274,6 +278,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
               <Edit2 className="w-3.5 h-3.5" />
             </button>
 
+            {can('defects.create') && (
             <button
               onClick={() => onDuplicate(item)}
               title={t('Duplicar este registro')}
@@ -281,6 +286,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             >
               <Copy className="w-3.5 h-3.5" />
             </button>
+            )}
 
             {canDelete && (
             <button
@@ -303,14 +309,14 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
               <span>{t('Fotografías ({n})', { n: item.photos.length })}</span>
-              {!readOnly && (
+              {canMovePhotos && (
                 <span className="hidden sm:inline text-[11px] font-normal text-slate-400">
                   {t('Arrastra para ordenar o mover a otra fila')}
                 </span>
               )}
             </span>
 
-            {!readOnly && (
+            {canAddPhotos && (
             <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
@@ -413,8 +419,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
 
                     {/* Photo thumbnail */}
                     <div
-                      draggable={!readOnly}
-                      onDragStart={readOnly ? undefined : e => handlePhotoDragStart(e, photo, pIdx)}
+                      draggable={canMovePhotos}
+                      onDragStart={canMovePhotos ? e => handlePhotoDragStart(e, photo, pIdx) : undefined}
                       onDragOver={
                         readOnly
                           ? undefined
@@ -461,7 +467,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </button>
-                        {!readOnly && canDelete && (
+                        {!readOnly && can('photos.delete') && (
                           <button
                             onClick={() => onDeletePhoto(item.id, pIdx)}
                             title={t('Quitar foto')}
@@ -478,7 +484,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
             )}
 
             {/* Quick Add Button */}
-            {!readOnly && (
+            {canAddPhotos && (
             <div className="flex flex-col items-center">
               <span className="w-24 sm:w-28 mb-1.5 py-0.5 text-[10px] font-bold text-center text-slate-400 uppercase tracking-wider">
                 {t('+ NUEVA')}

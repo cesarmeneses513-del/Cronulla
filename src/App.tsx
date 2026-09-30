@@ -3,7 +3,8 @@ import { Header } from './components/Header';
 import { FilterBar, ViewMode } from './components/FilterBar';
 import { DefectRowCard } from './components/DefectRowCard';
 import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName, storeUserName } from './components/RoleSelectScreen';
-import { Profile, canEdit, fetchMyProfile, signOut } from './lib/auth';
+import { Profile, isUsable, roleOf, fetchMyProfile, signOut } from './lib/auth';
+import { Permission, PermissionsContext, RoleKey, ROLES, defaultTable, fetchPermissionTable } from './lib/permissions';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
 import { SortBar, SortState, sortDefects, parseStoredSort } from './components/SortBar';
@@ -213,11 +214,29 @@ export default function App() {
       return 'user';
     }
   });
-  const canDelete = !readOnly && access === 'admin';
 
-  // Signed in with an account: its profile (level, name). Null with the PIN or as a client.
+  // Signed in with an account: its profile (role, name). Null with the PIN or as a guest client.
   const [account, setAccount] = useState<Profile | null>(null);
-  const isAccountAdmin = account?.role === 'admin';
+
+  // What the person may do: their account's role in the permissions table (Data → Users →
+  // Permissions). The temporary PINs: 1407 = administrator, 1111 = Team Leader. Guests only view.
+  const [permTable, setPermTable] = useState(defaultTable);
+  useEffect(() => {
+    fetchPermissionTable().then(setPermTable);
+  }, [account]);
+  const effectiveRole: RoleKey | null = account
+    ? roleOf(account)
+    : role === 'editor'
+    ? access === 'admin'
+      ? 'admin'
+      : 'team_leader'
+    : null;
+  const can = useCallback(
+    (p: Permission) => !!effectiveRole && !!permTable[effectiveRole]?.has(p),
+    [effectiveRole, permTable]
+  );
+  const canDelete = can('defects.delete');
+  const isAccountAdmin = !!account && can('users.manage');
   const [isUsersOpen, setIsUsersOpen] = useState(false);
 
   const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user', profile?: Profile) => {
@@ -229,7 +248,7 @@ export default function App() {
       else sessionStorage.removeItem(ROLE_KEY);
       if (next === 'editor') sessionStorage.setItem(ACCESS_KEY, level);
       else sessionStorage.removeItem(ACCESS_KEY);
-      if (next === 'editor' && profile) sessionStorage.setItem(AUTH_KEY, 'account');
+      if (next && profile) sessionStorage.setItem(AUTH_KEY, 'account');
       else sessionStorage.removeItem(AUTH_KEY);
     } catch {}
   }, []);
@@ -249,9 +268,10 @@ export default function App() {
     if (!authed || !supabase) return;
     fetchMyProfile()
       .then(profile => {
-        if (profile && canEdit(profile.role)) {
+        if (profile && isUsable(profile)) {
           storeUserName(profile.name);
-          handleSelectRole('editor', profile.role === 'admin' ? 'admin' : 'user', profile);
+          const r = roleOf(profile);
+          handleSelectRole(r === 'client' ? 'client' : 'editor', r === 'admin' ? 'admin' : 'user', profile);
         } else {
           signOut();
           handleSelectRole(null);
@@ -989,7 +1009,7 @@ export default function App() {
   // Handler: Delete photo
   const handleDeletePhoto = useCallback(
     (itemId: string, photoIndex: number) => {
-      if (!canDelete) return;
+      if (!can('photos.delete')) return;
       updateItems(
         prev =>
           prev.map(i => {
@@ -1003,7 +1023,7 @@ export default function App() {
       );
       showToast(t('Fotografía eliminada'), true);
     },
-    [showToast, updateItems, t, canDelete]
+    [showToast, updateItems, t, can]
   );
 
   // Handler: Quick update status
@@ -1324,6 +1344,7 @@ export default function App() {
   );
 
   return (
+    <PermissionsContext.Provider value={can}>
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
       {/* A newer version was published: offer to load it */}
       {newVersion && (
@@ -1393,12 +1414,15 @@ export default function App() {
         items={items}
         filteredCount={filteredItems.length}
         totalPhotos={totalPhotos}
-        onNewDefect={handleNewDefect}
-        onExportCsv={handleExportCsv}
-        onOpenImportModal={() => canDelete && setIsImportModalOpen(true)}
-        onRenumber={supabase && canDelete ? handleRenumber : undefined}
+        onNewDefect={can('defects.create') ? handleNewDefect : undefined}
+        onExportCsv={can('csv.export') ? handleExportCsv : undefined}
+        onOpenImportModal={can('csv.import') ? () => setIsImportModalOpen(true) : undefined}
+        onRenumber={supabase && can('renumber') ? handleRenumber : undefined}
+        onOpenHistoryAllowed={can('history.view')}
+        showSheetLink={can('users.manage')}
+        roleLabel={effectiveRole ? ROLES.find(r => r.role === effectiveRole)?.label : undefined}
         readOnly={readOnly}
-        isAdmin={canDelete}
+        isAdmin={effectiveRole === 'admin'}
         onLogout={handleLogout}
         onOpenUsers={isAccountAdmin ? () => setIsUsersOpen(true) : undefined}
         userName={account?.name || getStoredUserName()}
@@ -1451,7 +1475,7 @@ export default function App() {
             onDeletePhoto={handleDeletePhoto}
             onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
             readOnly={readOnly}
-            canDelete={canDelete}
+            canDelete={can('photos.delete')}
           />
           {pager}
           </>
@@ -1546,11 +1570,11 @@ export default function App() {
           onNavigatePhoto={handleNavigatePhoto}
           onDeletePhoto={handleDeletePhoto}
           onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
-          onMovePhotos={canDelete ? handleMovePhotos : undefined}
+          onMovePhotos={can('photos.move') ? handleMovePhotos : undefined}
           onSaveItem={readOnly ? undefined : handleSaveDefect}
           defectNav={lightboxNav}
           readOnly={readOnly}
-          canDelete={canDelete}
+          canDelete={can('photos.delete')}
         />
       )}
 
@@ -1561,27 +1585,27 @@ export default function App() {
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           onSave={edited => handleSaveDefect(edited, editingItem || undefined)}
-          canDelete={canDelete}
+          canDelete={can('photos.delete')}
         />
       )}
 
       {/* Import CSV Modal */}
-      {isImportModalOpen && canDelete && (
+      {isImportModalOpen && can('csv.import') && (
         <ImportCsvModal
-          isOpen={isImportModalOpen && canDelete}
+          isOpen
           onClose={() => setIsImportModalOpen(false)}
           onImport={handleImportCsv}
           existingItems={items}
-          allowReplace={canDelete}
+          allowReplace={can('csv.import')}
         />
       )}
 
       {/* Change history */}
-      {isHistoryOpen && !readOnly && (
+      {isHistoryOpen && can('history.view') && (
         <HistoryPanel
           onClose={() => setIsHistoryOpen(false)}
           onOpenDefect={handleOpenDefectFromHistory}
-          canClear={canDelete}
+          canClear={can('users.manage')}
           items={items}
         />
       )}
@@ -1616,5 +1640,6 @@ export default function App() {
         </p>
       </footer>
     </div>
+    </PermissionsContext.Provider>
   );
 }

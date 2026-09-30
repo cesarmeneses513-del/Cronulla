@@ -4,7 +4,7 @@ import { useI18n } from '../i18n';
 import { canonicalPerson } from '../lib/people';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { supabase } from '../lib/supabase';
-import { Profile, canEdit, fetchMyProfile, signIn, signUp, signOut } from '../lib/auth';
+import { Profile, isUsable, roleOf, fetchMyProfile, signIn, signUp, signOut } from '../lib/auth';
 
 export type AppRole = 'editor' | 'client';
 
@@ -51,14 +51,16 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
   const [name, setName] = useState(getStoredUserName);
   const { t } = useI18n();
 
-  // An account that can edit enters as editor; otherwise say why not.
+  // An active account enters with its role (clients see the gallery); otherwise say why not.
   const enterWith = (profile: Profile | null) => {
-    if (profile && canEdit(profile.role)) {
+    if (profile && isUsable(profile)) {
       storeUserName(profile.name);
-      onSelect('editor', profile.role === 'admin' ? 'admin' : 'user', profile);
+      const role = roleOf(profile);
+      onSelect(role === 'client' ? 'client' : 'editor', role === 'admin' ? 'admin' : 'user', profile);
       return true;
     }
-    if (profile?.role === 'disabled') setMessage({ kind: 'error', text: t('Esta cuenta está desactivada.') });
+    if (profile && (profile.active === false || (profile.role as string) === 'disabled'))
+      setMessage({ kind: 'error', text: t('Esta cuenta está desactivada.') });
     else if (profile) setMessage({ kind: 'info', text: t('Tu cuenta está creada. Un administrador debe darte acceso; mientras tanto puedes ver la galería como cliente.') });
     return false;
   };
