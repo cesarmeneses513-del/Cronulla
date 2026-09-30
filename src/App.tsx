@@ -19,6 +19,7 @@ import { INITIAL_DEFECTS } from './data/initialData';
 import { exportInspectionCsv } from './utils/csvParser';
 import { sortPhotosByPhase } from './lib/photoOrder';
 import { canonicalPerson } from './lib/people';
+import { useNewVersion } from './lib/useNewVersion';
 import {
   supabase,
   fetchDefects,
@@ -31,7 +32,7 @@ import {
   RENUMBER_CLIENT,
   renumberDefects,
 } from './lib/supabase';
-import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X } from 'lucide-react';
+import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X, RefreshCw } from 'lucide-react';
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
 const ROLE_KEY = 'cronulla_role';
@@ -1185,6 +1186,22 @@ export default function App() {
   );
 
 
+  // A newer version of the app was published. Old tabs (phones keep them open for days) caused
+  // lost changes, so the page reloads itself when it is shown again and nothing is waiting to be
+  // saved or being edited; otherwise a banner asks to update.
+  const newVersion = useNewVersion();
+  const safeToReloadRef = useRef(false);
+  safeToReloadRef.current =
+    itemsRef.current === syncedRef.current && !isEditModalOpen && !isImportModalOpen && !lightboxItem;
+  useEffect(() => {
+    if (!newVersion) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && safeToReloadRef.current) window.location.reload();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [newVersion]);
+
   if (!role) {
     return <RoleSelectScreen onSelect={handleSelectRole} />;
   }
@@ -1255,6 +1272,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
+      {/* A newer version was published: offer to load it */}
+      {newVersion && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] sm:w-auto flex items-center justify-center gap-3 bg-sky-600 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-2xl">
+          <span>{t('Hay una versión nueva de la app.')}</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white text-sky-700 rounded-lg font-bold hover:bg-sky-50"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            {t('Actualizar')}
+          </button>
+        </div>
+      )}
+
       {/* Toast notification */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 border border-slate-700 animate-in slide-in-from-bottom-3 duration-200">
