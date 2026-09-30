@@ -138,6 +138,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Sin medidas especificadas': { en: 'No measurements', fa: 'بدون اندازه' },
   'Inicio:': { en: 'Start:', fa: 'شروع:' },
   'Listo:': { en: 'Done:', fa: 'تمام:' },
+  'Durante:': { en: 'During:', fa: 'در حین:' },
 
   // Table
   'Fotos': { en: 'Photos', fa: 'عکس‌ها' },
