@@ -86,8 +86,8 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
   const fieldCls = `${boxCls} bg-white text-slate-900`;
   const readOnlyField = `${boxCls} bg-slate-100 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-200`;
   const labelCls = 'block mb-1.5 text-xs font-semibold text-slate-700 truncate';
-  const panelCls = 'p-4 bg-slate-50 border border-slate-200 rounded-xl';
-  const panelTitleCls = 'mb-3 text-[11px] font-bold tracking-wider text-slate-500 uppercase';
+  const panelCls = 'px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl';
+  const panelTitleCls = 'mb-1.5 text-[10px] font-bold tracking-wider text-slate-500 uppercase';
 
   const handleAddTag = () => {
     if (!newTagInput.trim()) return;
@@ -378,10 +378,10 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           <div>
             <label className={labelCls}>{t('Comentarios y Notas de Campo')}</label>
             <textarea
-              rows={2}
+              rows={1}
               value={formData.comment}
               onChange={e => setFormData({ ...formData, comment: e.target.value })}
-              className={`${fieldCls} h-auto min-h-20 py-2 resize-y`}
+              className={`${fieldCls} h-auto min-h-10 py-2 resize-y`}
               placeholder={t('Ej. INTRODUCE NEW JOINT, fisuras observadas, requiere andamio...')}
             />
           </div>
@@ -458,7 +458,7 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
           {/* Photo Management */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-700 block">
+              <label className="text-[11px] font-bold tracking-wider text-slate-700 uppercase block">
                 {t('Gestión de Fotografías ({n})', { n: formData.photos.length })}
               </label>
 
