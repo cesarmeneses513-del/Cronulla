@@ -959,10 +959,21 @@ export default function App() {
 
   // Handler: Save from Edit Modal
   const handleSaveDefect = useCallback(
-    (edited: DefectItem) => {
+    (editedInForm: DefectItem, openedAs?: DefectItem) => {
       // Photos added, re-phased or removed update each phase's technician/date/time;
       // a new defect without photos stamps by its status.
-      const previous = itemsRef.current.find(i => i.id === edited.id);
+      const previous = itemsRef.current.find(i => i.id === editedInForm.id);
+      // The edit form works on a copy taken when it opened. Photos added meanwhile (an upload
+      // that finished after opening it) or changes by others are kept: only what was changed
+      // in the form is applied.
+      const edited =
+        openedAs && previous && previous !== openedAs
+          ? {
+              ...mergeItem(withoutModified(openedAs), withoutModified(editedInForm), withoutModified(previous)),
+              modifiedAt: previous.modifiedAt,
+              modifiedBy: previous.modifiedBy,
+            }
+          : editedInForm;
       const stamped =
         !previous && edited.photos.length === 0
           ? stampTechnician(edited, [edited.status])
@@ -1427,7 +1438,7 @@ export default function App() {
         item={editingItem}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        onSave={handleSaveDefect}
+        onSave={edited => handleSaveDefect(edited, editingItem || undefined)}
         canDelete={canDelete}
       />
 
@@ -1442,7 +1453,12 @@ export default function App() {
 
       {/* Change history */}
       {isHistoryOpen && !readOnly && (
-        <HistoryPanel onClose={() => setIsHistoryOpen(false)} onOpenDefect={handleOpenDefectFromHistory} canClear={canDelete} />
+        <HistoryPanel
+          onClose={() => setIsHistoryOpen(false)}
+          onOpenDefect={handleOpenDefectFromHistory}
+          canClear={canDelete}
+          items={items}
+        />
       )}
 
       {/* Quiet footer */}

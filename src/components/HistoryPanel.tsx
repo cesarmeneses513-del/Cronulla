@@ -37,6 +37,9 @@ interface HistoryPanelProps {
   onOpenDefect?: (defectId: string, photoUrl?: string) => boolean;
   // Only administrators can clear the history.
   canClear?: boolean;
+  // The defects as they are now: entries show each defect's current number, which changes
+  // with "Sort and renumber" (the number saved with the entry is the one it had then).
+  items?: { id: string; rowNo: string }[];
 }
 
 const KIND_TABS: { kind: HistoryFilter['kind']; label: string; dot?: string }[] = [
@@ -47,7 +50,7 @@ const KIND_TABS: { kind: HistoryFilter['kind']; label: string; dot?: string }[] 
   { kind: 'deleted', label: 'Borrados', dot: 'bg-rose-500' },
 ];
 
-export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefect, canClear = true }) => {
+export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefect, canClear = true, items = [] }) => {
   const { t, lang } = useI18n();
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,8 +62,13 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
   const [rowNoInput, setRowNoInput] = useState('');
   const [people, setPeople] = useState<string[]>([]);
   const [missing, setMissing] = useState<number | null>(null);
+  const currentNo = useMemo(() => new Map(items.map(i => [i.id, i.rowNo])), [items]);
+  const noOf = (r: HistoryRecord) => (r.defect_id && currentNo.get(r.defect_id)) || r.row_no || '';
+  // A number typed in the filter means the defect that has it now.
+  const idOfNo = useMemo(() => new Map(items.map(i => [i.rowNo, i.id])), [items]);
+  const withDefect = (f: HistoryFilter): HistoryFilter => ({ ...f, defectId: f.rowNo ? idOfNo.get(f.rowNo.trim()) : undefined });
   const filterRef = useRef(filter);
-  filterRef.current = filter;
+  filterRef.current = withDefect(filter);
 
   // Defect number: applied a moment after typing stops.
   useEffect(() => {
@@ -136,9 +144,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
       ({ record, text }) =>
         text.toLowerCase().includes(q) ||
         (record.user_name || '').toLowerCase().includes(q) ||
-        (record.row_no || '').toLowerCase().includes(q)
+        noOf(record).toLowerCase().includes(q)
     );
-  }, [records, query, t]);
+  }, [records, query, t, currentNo]);
 
   const dayLabel = (iso: string) => {
     const d = new Date(iso);
@@ -319,9 +327,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
                             <User className="w-3 h-3 text-slate-400" />
                             {record.user_name || t('Sin nombre')}
                           </span>
-                          {record.row_no && (
+                          {noOf(record) && (
                             <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 rounded border border-slate-200">
-                              #{record.row_no}
+                              #{noOf(record)}
                             </span>
                           )}
                           <span className="text-slate-400 font-mono tabular-nums ms-auto">

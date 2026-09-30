@@ -170,6 +170,9 @@ export interface HistoryFilter {
   user?: string;
   day?: string; // yyyy-mm-dd, in local time
   rowNo?: string;
+  // The defect that has that number now: entries are matched by defect, since numbers change
+  // when the defects are renumbered.
+  defectId?: string;
 }
 
 // Local calendar day → UTC range, so "today" means the viewer's today.
@@ -183,7 +186,7 @@ const dayRange = (day: string) => {
 export function matchesHistoryFilter(r: HistoryRecord, f: HistoryFilter): boolean {
   if (f.kind && !HISTORY_KINDS[f.kind].includes(r.action)) return false;
   if (f.user && r.user_name !== f.user) return false;
-  if (f.rowNo && String(r.row_no || '') !== f.rowNo.trim()) return false;
+  if (f.defectId ? r.defect_id !== f.defectId : f.rowNo && String(r.row_no || '') !== f.rowNo.trim()) return false;
   if (f.day && r.created_at) {
     const [from, to] = dayRange(f.day);
     if (r.created_at < from || r.created_at >= to) return false;
@@ -197,7 +200,8 @@ export async function fetchHistory(limit: number, olderThan?: string, filter: Hi
   if (olderThan) query = query.lt('created_at', olderThan);
   if (filter.kind) query = query.in('action', HISTORY_KINDS[filter.kind]);
   if (filter.user) query = query.eq('user_name', filter.user);
-  if (filter.rowNo && filter.rowNo.trim()) query = query.eq('row_no', filter.rowNo.trim());
+  if (filter.defectId) query = query.eq('defect_id', filter.defectId);
+  else if (filter.rowNo && filter.rowNo.trim()) query = query.eq('row_no', filter.rowNo.trim());
   if (filter.day) {
     const [from, to] = dayRange(filter.day);
     query = query.gte('created_at', from).lt('created_at', to);

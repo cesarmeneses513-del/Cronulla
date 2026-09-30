@@ -159,7 +159,10 @@ export async function syncDefects(
   const edited = new Set<string>();
   next.forEach((item, position) => {
     const old = prevById.get(item.id);
-    if (!old || old.item !== item || old.position !== position) {
+    // Rows that only moved in the list are not written: the list is shown sorted by No, and
+    // rewriting hundreds of rows for a new or deleted defect was slow and let a phone with an
+    // older copy of a row overwrite it.
+    if (!old || old.item !== item) {
       upserts.push({ id: item.id, position, data: withoutModified(item) });
       if (item.modifiedAt || item.modifiedBy) stamps.set(item.id, { modifiedAt: item.modifiedAt, modifiedBy: item.modifiedBy });
       if ((!old || old.item !== item) && item.modifiedBy) edited.add(item.id);
