@@ -4,6 +4,7 @@ import { FilterBar, ViewMode } from './components/FilterBar';
 import { DefectRowCard } from './components/DefectRowCard';
 import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName, storeUserName } from './components/RoleSelectScreen';
 import { Profile, isUsable, roleOf, fetchMyProfile, signOut } from './lib/auth';
+import { joinPresence } from './lib/presence';
 import { Permission, PermissionsContext, RoleKey, ROLES, defaultTable, fetchPermissionTable } from './lib/permissions';
 import { DEFECT_TYPES, DefectTypesContext, fetchDefectTypes } from './lib/defectTypes';
 import { diffForHistory, logHistory } from './lib/history';
@@ -250,7 +251,9 @@ export default function App() {
   const defectTypesValue = useMemo(() => ({ types: defectTypes, reload: reloadDefectTypes }), [defectTypes, reloadDefectTypes]);
   const isAccountAdmin = !!account && can('users.manage');
   // Data → Users: managing accounts, or just sending invitations.
-  const canOpenUsers = !!account && (can('users.manage') || can('users.invite'));
+  const canOpenUsers = !!account && (can('users.manage') || can('users.invite') || can('team.view'));
+  // Signed in: shows as connected to the people who can see the team.
+  useEffect(() => (account ? joinPresence(account) : undefined), [account]);
   const [isUsersOpen, setIsUsersOpen] = useState(false);
 
   const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user', profile?: Profile) => {
@@ -1669,7 +1672,13 @@ export default function App() {
       )}
 
       {isUsersOpen && canOpenUsers && account && (
-        <UsersPanel me={account} canManage={isAccountAdmin} onClose={() => setIsUsersOpen(false)} />
+        <UsersPanel
+          me={account}
+          canManage={isAccountAdmin}
+          canInvite={isAccountAdmin || can('users.invite')}
+          canSeeTeam={can('team.view')}
+          onClose={() => setIsUsersOpen(false)}
+        />
       )}
       </Suspense>
 

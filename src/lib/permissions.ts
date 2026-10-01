@@ -16,6 +16,7 @@ export type Permission =
   | 'sheet.open'
   | 'types.manage'
   | 'comments.client'
+  | 'team.view'
   | 'users.invite'
   | 'users.manage';
 
@@ -46,6 +47,7 @@ export const PERMISSIONS: { key: Permission; label: string }[] = [
   { key: 'sheet.open', label: 'Botón planilla Cronulla vs Code' },
   { key: 'types.manage', label: 'Gestionar tipos de defecto' },
   { key: 'comments.client', label: 'Comentario del cliente' },
+  { key: 'team.view', label: 'Ver técnicos conectados' },
   { key: 'users.invite', label: 'Enviar invitaciones' },
   { key: 'users.manage', label: 'Gestionar usuarios y permisos' },
 ];
@@ -54,7 +56,7 @@ const ALL = PERMISSIONS.map(p => p.key);
 export const DEFAULT_PERMISSIONS: Record<RoleKey, Permission[]> = {
   admin: ALL,
   project_manager: ALL.filter(p => p !== 'csv.import' && p !== 'users.manage'),
-  team_leader: ['defects.create', 'defects.edit', 'photos.add', 'photos.move', 'photos.delete', 'history.view', 'csv.export', 'users.invite'],
+  team_leader: ['defects.create', 'defects.edit', 'photos.add', 'photos.move', 'photos.delete', 'history.view', 'csv.export', 'users.invite', 'team.view'],
   technician: ['defects.create', 'defects.edit', 'photos.add', 'history.view'],
   client: ['csv.export', 'comments.client'],
 };

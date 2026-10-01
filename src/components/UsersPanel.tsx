@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Users, Loader2, RefreshCw, UserPlus, MoreHorizontal, MessageCircle, Mail, Copy, Check, ShieldCheck } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { useOnlineIds } from '../lib/presence';
 import {
   Invitation,
   Profile,
@@ -8,6 +9,7 @@ import {
   deleteInvitation,
   listInvitations,
   listProfiles,
+  listTechnicians,
   roleOf,
   saveInvitation,
   updateProfile,
@@ -38,8 +40,25 @@ const inviteMessage = (inv: Invitation, roleLabel: string, t: ReturnType<typeof 
 // Administrators: accounts, invitations and what each role may do.
 // `canManage`: roles, accounts and permissions. Without it (only "Enviar invitaciones") the
 // panel just invites, as Facade Technician or Client.
-export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: () => void }> = ({ me, canManage, onClose }) => {
-  const { t } = useI18n();
+// `canInvite`: invitations. `canSeeTeam` (without canManage): the technicians, read-only.
+export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?: boolean; canSeeTeam?: boolean; onClose: () => void }> = ({
+  me,
+  canManage,
+  canInvite = canManage,
+  canSeeTeam = false,
+  onClose,
+}) => {
+  const { t, lang } = useI18n();
+  const onlineIds = useOnlineIds();
+  // "Last seen": how long ago, in the app's language.
+  const lastSeen = (iso?: string | null) => {
+    if (!iso) return t('Nunca conectado');
+    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    const rtf = new Intl.RelativeTimeFormat(lang === 'fa' ? 'fa' : lang, { numeric: 'auto' });
+    if (mins < 60) return rtf.format(-Math.max(mins, 1), 'minute');
+    if (mins < 60 * 24) return rtf.format(-Math.round(mins / 60), 'hour');
+    return rtf.format(-Math.round(mins / 1440), 'day');
+  };
   const [tab, setTab] = useState<Tab>('users');
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -55,7 +74,10 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: ()
 
   const load = () => {
     setError('');
-    Promise.all([canManage ? listProfiles() : Promise.resolve([] as Profile[]), listInvitations()])
+    Promise.all([
+      canManage ? listProfiles() : canSeeTeam ? listTechnicians() : Promise.resolve([] as Profile[]),
+      canInvite ? listInvitations() : Promise.resolve([]),
+    ])
       .then(([p, i]) => {
         setProfiles(p);
         setInvitations(i);
@@ -121,7 +143,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: ()
             <h2 className="text-xl font-bold text-slate-900">{t('Usuarios y permisos')}</h2>
           </div>
           <div className="flex items-center gap-2">
-            {tab === 'users' && (
+            {tab === 'users' && canInvite && (
               <button
                 onClick={() => setInviting({ email: '', name: '', role: 'technician', job_title: 'Inspector' })}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg"
@@ -189,10 +211,17 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: ()
                             {isMe && <span className="ms-1.5 text-[11px] font-medium text-slate-400">({t('tú')})</span>}
                           </div>
                           <div className="text-xs text-slate-500 truncate">{p.email}</div>
+                          {/* Connected now (green) or when they were last seen */}
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
+                            <span className={`w-2 h-2 rounded-full ${onlineIds.has(p.id) ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                            <span className={onlineIds.has(p.id) ? 'text-emerald-700 font-semibold' : 'text-slate-400'}>
+                              {onlineIds.has(p.id) ? t('Conectado ahora') : lastSeen(p.last_seen_at)}
+                            </span>
+                          </div>
                         </div>
                         <select
                           value={pending ? 'pending' : roleOf(p)}
-                          disabled={isMe || busy === p.id}
+                          disabled={isMe || busy === p.id || !canManage}
                           onChange={e => change(p, { role: e.target.value as RoleKey })}
                           className={select}
                         >
@@ -205,7 +234,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: ()
                         </select>
                         <select
                           value={p.job_title || ''}
-                          disabled={busy === p.id}
+                          disabled={busy === p.id || !canManage}
                           onChange={e => change(p, { job_title: e.target.value })}
                           className={select}
                         >
@@ -220,6 +249,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: ()
                           <StatusPill kind={pending ? 'pending' : active ? 'active' : 'inactive'} />
                           {busy === p.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
                         </div>
+                        {canManage ? (
                         <RowMenu
                           open={menu === p.id}
                           onToggle={() => setMenu(m => (m === p.id ? null : p.id))}
@@ -253,6 +283,9 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; onClose: ()
                           ]}
                           onPicked={() => setMenu(null)}
                         />
+                        ) : (
+                          <span />
+                        )}
                       </li>
                     );
                   })}

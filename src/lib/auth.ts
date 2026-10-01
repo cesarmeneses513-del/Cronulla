@@ -13,6 +13,7 @@ export interface Profile {
   job_title?: string;
   active?: boolean;
   created_at?: string;
+  last_seen_at?: string | null;
 }
 
 export interface Invitation {
@@ -73,6 +74,14 @@ export async function listProfiles(): Promise<Profile[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from(PROFILES).select('*').order('created_at');
   if (error) throw error;
+  return data as Profile[];
+}
+
+// Roles with "Ver técnicos conectados": the Facade Technicians (the database only returns those).
+export async function listTechnicians(): Promise<Profile[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from(PROFILES).select('*').eq('role', 'technician').order('name');
+  if (error) return [];
   return data as Profile[];
 }
 
