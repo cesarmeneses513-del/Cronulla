@@ -199,24 +199,30 @@ export async function syncDefects(
   const now = new Date().toISOString();
   // Separate requests: in one bulk upsert every row gets the same columns, and rows that only
   // moved must not overwrite who last changed them.
-  const withBy = extra === 0 ? upserts.filter(r => edited.has(r.id)) : [];
-  const withoutBy = extra === 0 ? upserts.filter(r => !edited.has(r.id)) : upserts;
-  for (let i = 0; i < withBy.length; i += WRITE_CHUNK) {
-    const { error } = await supabase.from(TABLE).upsert(
-      withBy.slice(i, i + WRITE_CHUNK).map(r => ({
-        ...r,
-        client_id: CLIENT_ID,
-        updated_at: now,
-        modified_by: stamps.get(r.id)?.modifiedBy,
-      }))
-    );
+  // New rows are inserted; rows that already exist are updated (an "insert or replace" would
+  // also need permission to create defects, which e.g. clients writing a comment don't have).
+  // Only rows changed here carry who changed them (moved rows keep the last person).
+  const row = (r: DefectRow) => ({
+    ...r,
+    client_id: CLIENT_ID,
+    updated_at: now,
+    ...(extra === 0 && edited.has(r.id) ? { modified_by: stamps.get(r.id)?.modifiedBy } : {}),
+  });
+  const inserts = upserts.filter(r => !prevById.has(r.id));
+  const updates = upserts.filter(r => prevById.has(r.id));
+  for (let i = 0; i < inserts.length; i += WRITE_CHUNK) {
+    const { error } = await supabase.from(TABLE).upsert(inserts.slice(i, i + WRITE_CHUNK).map(row));
     if (error) throw error;
   }
-  for (let i = 0; i < withoutBy.length; i += WRITE_CHUNK) {
-    const { error } = await supabase
-      .from(TABLE)
-      .upsert(withoutBy.slice(i, i + WRITE_CHUNK).map(r => ({ ...r, client_id: CLIENT_ID, updated_at: now })));
-    if (error) throw error;
+  for (let i = 0; i < updates.length; i += 8) {
+    const results = await Promise.all(
+      updates.slice(i, i + 8).map(r => {
+        const { id, ...rest } = row(r);
+        return supabase!.from(TABLE).update(rest).eq('id', id);
+      })
+    );
+    const failed = results.find(r => r.error);
+    if (failed?.error) throw failed.error;
   }
   for (let i = 0; i < deletes.length; i += DELETE_CHUNK) {
     const { error } = await supabase.from(TABLE).delete().in('id', deletes.slice(i, i + DELETE_CHUNK));

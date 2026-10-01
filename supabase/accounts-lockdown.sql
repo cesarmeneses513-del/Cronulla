@@ -8,6 +8,7 @@
 --   "Crear defectos"                add defects
 --   "Editar…", "Subir/Mover/Borrar fotos"  change defects (the web hides the finer actions)
 --   "Borrar defectos"               delete defects
+--   "Comentario del cliente"        write only the client comment of a defect (nothing else)
 --   "Ver Historial"                 read the history; any role that edits writes it
 --   "Ordenar y renumerar"           renumber
 --   administrators                  also clear the history
@@ -21,7 +22,15 @@ drop policy if exists "defects insert"      on public.defects;
 drop policy if exists "defects update"      on public.defects;
 drop policy if exists "defects delete"      on public.defects;
 create policy "defects read"   on public.defects for select to anon, authenticated using (true);
-create or replace function public.can_change_defects()
+insert into public.role_permissions (role, permission, allowed) values
+  ('admin', 'comments.client', true),
+  ('project_manager', 'comments.client', false),
+  ('team_leader', 'comments.client', false),
+  ('technician', 'comments.client', false),
+  ('client', 'comments.client', true)
+on conflict (role, permission) do nothing;
+
+create or replace function public.can_edit_defects()
 returns boolean
 language sql
 stable
@@ -31,6 +40,40 @@ as $$
   select public.has_permission('defects.edit') or public.has_permission('photos.add')
       or public.has_permission('photos.move') or public.has_permission('photos.delete');
 $$;
+
+create or replace function public.can_change_defects()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.can_edit_defects() or public.has_permission('comments.client');
+$$;
+
+-- Roles that may only comment (clients) can't change anything else of the defect.
+create or replace function public.only_client_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(auth.role(), '') = 'service_role' or public.can_edit_defects() then
+    return new;
+  end if;
+  if (new.data - 'clientComment' - 'clientCommentBy' - 'clientCommentDate')
+       is distinct from (old.data - 'clientComment' - 'clientCommentBy' - 'clientCommentDate')
+     or new.position is distinct from old.position then
+    raise exception 'Only the client comment can be changed';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists defects_only_client_comment on public.defects;
+create trigger defects_only_client_comment
+  before update on public.defects
+  for each row execute function public.only_client_comment();
 create policy "defects insert" on public.defects for insert to authenticated with check (public.has_permission('defects.create'));
 create policy "defects update" on public.defects for update to authenticated
   using (public.can_change_defects()) with check (public.can_change_defects());

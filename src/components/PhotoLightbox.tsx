@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { DefectItem, PhotoPhase } from '../types/inspection';
 import { useI18n, PHASE_LABEL, STATUS_LABEL, URGENCY_LABEL } from '../i18n';
+import { ClientComment } from './ClientComment';
 import { useDefectTypes } from '../lib/defectTypes';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { PhaseChips } from './PhaseChips';
@@ -34,6 +35,8 @@ interface PhotoLightboxProps {
   onClose: () => void;
   onNavigatePhoto: (item: DefectItem, newPhotoIndex: number) => void;
   onSaveItem?: (item: DefectItem) => void;
+  // Roles allowed to write the client's comment.
+  onSaveClientComment?: (itemId: string, text: string) => void;
   // Previous / next defect in the list being viewed (to edit rows one after another).
   defectNav?: { index: number; total: number; onPrev?: () => void; onNext?: () => void };
   onDeletePhoto: (itemId: string, photoIndex: number) => void;
@@ -51,6 +54,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   onClose,
   onNavigatePhoto,
   onSaveItem,
+  onSaveClientComment,
   defectNav,
   onDeletePhoto,
   onUpdatePhotoPhase,
@@ -394,6 +398,8 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           )}
 
           {!onSaveItem && technicians}
+
+          <ClientComment item={item} onSave={onSaveClientComment} dark />
 
           {/* Thumbnail list of photos in this defect */}
           <div className="pt-2 border-t border-white/10">

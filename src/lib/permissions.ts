@@ -15,6 +15,7 @@ export type Permission =
   | 'renumber'
   | 'sheet.open'
   | 'types.manage'
+  | 'comments.client'
   | 'users.invite'
   | 'users.manage';
 
@@ -44,6 +45,7 @@ export const PERMISSIONS: { key: Permission; label: string }[] = [
   { key: 'renumber', label: 'Ordenar y renumerar' },
   { key: 'sheet.open', label: 'Botón planilla Cronulla vs Code' },
   { key: 'types.manage', label: 'Gestionar tipos de defecto' },
+  { key: 'comments.client', label: 'Comentario del cliente' },
   { key: 'users.invite', label: 'Enviar invitaciones' },
   { key: 'users.manage', label: 'Gestionar usuarios y permisos' },
 ];
@@ -54,7 +56,7 @@ export const DEFAULT_PERMISSIONS: Record<RoleKey, Permission[]> = {
   project_manager: ALL.filter(p => p !== 'csv.import' && p !== 'users.manage'),
   team_leader: ['defects.create', 'defects.edit', 'photos.add', 'photos.move', 'photos.delete', 'history.view', 'csv.export', 'users.invite'],
   technician: ['defects.create', 'defects.edit', 'photos.add', 'history.view'],
-  client: ['csv.export'],
+  client: ['csv.export', 'comments.client'],
 };
 
 export type PermissionTable = Record<RoleKey, Set<Permission>>;

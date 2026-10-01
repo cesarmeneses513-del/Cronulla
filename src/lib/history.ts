@@ -29,6 +29,7 @@ const FIELDS: { key: keyof DefectItem; label: string }[] = [
   { key: 'level', label: 'Nivel' },
   { key: 'projectName', label: 'Proyecto' },
   { key: 'comment', label: 'Comentario' },
+  { key: 'clientComment', label: 'Comentario del cliente' },
   { key: 'technicianStart', label: 'Técnico inicio' },
   { key: 'date1stPhoto', label: 'Fecha inicio' },
   { key: 'technicianCompleted', label: 'Técnico final' },

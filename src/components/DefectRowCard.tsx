@@ -26,6 +26,7 @@ import { stageImageFor } from '../data/stageImages';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
 import { useLongPress } from '../lib/useLongPress';
 import { useCan } from '../lib/permissions';
+import { ClientComment } from './ClientComment';
 
 interface DefectRowCardProps {
   item: DefectItem;
@@ -42,6 +43,8 @@ interface DefectRowCardProps {
   onQuickUpdateUrgency: (itemId: string, urgency: UrgencyLevel) => void;
   // Saves the measurements edited right on the card.
   onSaveItem?: (item: DefectItem) => void;
+  // Roles allowed to write the client's comment.
+  onSaveClientComment?: (itemId: string, text: string) => void;
   readOnly?: boolean;
   selectable?: boolean;
   selected?: boolean;
@@ -65,6 +68,7 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
   onUpdatePhotoPhase,
   onQuickUpdateUrgency,
   onSaveItem,
+  onSaveClientComment,
   readOnly = false,
   selectable = false,
   selected = false,
@@ -581,6 +585,8 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
                 <span className="truncate font-medium">{item.comment}</span>
               </div>
             )}
+
+            <ClientComment item={item} onSave={onSaveClientComment} compact />
 
             {/* Custom tags */}
             {item.customTags && item.customTags.length > 0 && (

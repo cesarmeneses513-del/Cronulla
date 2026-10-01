@@ -207,6 +207,7 @@ export default function App() {
     }
   });
   const readOnly = role !== 'editor';
+  // Clients with an account may still save their comments (see canSave below).
   // Editors signed in with the administrator PIN can delete; the other editor PIN can't.
   const [access, setAccess] = useState<AccessLevel>(() => {
     try {
@@ -220,7 +221,7 @@ export default function App() {
   const [account, setAccount] = useState<Profile | null>(null);
 
   // What the person may do: their account's role in the permissions table (Data → Users →
-  // Permissions). The temporary PINs: 1407 = administrator, 1111 = Team Leader. Guests only view.
+  // Permissions). Guests (no account) only view.
   const [permTable, setPermTable] = useState(defaultTable);
   useEffect(() => {
     fetchPermissionTable().then(setPermTable);
@@ -237,6 +238,8 @@ export default function App() {
     [effectiveRole, permTable]
   );
   const canDelete = can('defects.delete');
+  // Who may write to the database: editors, and client accounts allowed to comment.
+  const canSave = !readOnly || can('comments.client');
 
   // Defect types catalogue (Edit defect → Manage types).
   const [defectTypes, setDefectTypes] = useState(DEFECT_TYPES);
@@ -276,7 +279,12 @@ export default function App() {
     try {
       authed = sessionStorage.getItem(AUTH_KEY) === 'account';
     } catch {}
-    if (!authed || !supabase) return;
+    if (!supabase) return;
+    if (!authed) {
+      // An editor session from the old PIN: accounts only now.
+      if (role === 'editor') handleSelectRole(null);
+      return;
+    }
     fetchMyProfile()
       .then(profile => {
         if (profile && isUsable(profile)) {
@@ -336,10 +344,12 @@ export default function App() {
         const remote = await fetchDefects();
         if (cancelled) return;
         if (remote.length === 0) {
-          // Empty database: seed it with what this browser has.
+          // Empty answer: show it as empty. This browser's saved copy is never uploaded in its
+          // place (it could be old, or the answer empty because of a permissions problem).
           syncedRef.current = [];
-          setItems(current => [...current]);
-          setSyncStatus('saving');
+          itemsRef.current = [];
+          setItems([]);
+          setSyncStatus('synced');
         } else {
           const normalized = normalizeItems(remote);
           syncedRef.current = normalized;
@@ -406,7 +416,7 @@ export default function App() {
 
   // Push local changes to Supabase (debounced, one save at a time).
   useEffect(() => {
-    if (!supabase || readOnly || syncedRef.current === null || items === syncedRef.current) return;
+    if (!supabase || !canSave || syncedRef.current === null || items === syncedRef.current) return;
     const timer = setTimeout(() => {
       const prev = syncedRef.current;
       if (!prev) return;
@@ -443,7 +453,7 @@ export default function App() {
         });
     }, 600);
     return () => clearTimeout(timer);
-  }, [items, readOnly]);
+  }, [items, canSave]);
 
   // View Mode
   const [viewMode, setViewMode] = useState<ViewMode>('rows');
@@ -493,7 +503,7 @@ export default function App() {
       try {
         await saveQueueRef.current;
         const synced = syncedRef.current;
-        if (!readOnly && synced && itemsRef.current !== synced) {
+        if (canSave && synced && itemsRef.current !== synced) {
           await syncDefects(synced, itemsRef.current, normalizeItems);
         }
         const started = itemsRef.current;
@@ -516,7 +526,7 @@ export default function App() {
         if (!quiet) setReloading(false);
       }
     },
-    [readOnly, showToast, t]
+    [canSave, showToast, t]
   );
   const handleReload = useCallback(() => refreshFromServer(false), [refreshFromServer]);
 
@@ -1053,6 +1063,25 @@ export default function App() {
     [updateItems, t]
   );
 
+  // Handler: the client's comment (client accounts, or any role with that permission)
+  const handleSaveClientComment = useCallback(
+    (itemId: string, text: string) => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+      const by = account?.name || getStoredUserName();
+      updateItems(
+        prev =>
+          prev.map(i =>
+            i.id === itemId ? { ...i, clientComment: text, clientCommentBy: text ? by : '', clientCommentDate: text ? date : '' } : i
+          ),
+        t('comentario del cliente')
+      );
+      showToast(t('Comentario guardado'));
+    },
+    [account, updateItems, showToast, t]
+  );
+
   // Handler: Open Edit Modal
   const handleOpenEdit = useCallback((item: DefectItem) => {
     setEditingItem(item);
@@ -1310,6 +1339,7 @@ export default function App() {
                 onQuickUpdateStatus={handleQuickUpdateStatus}
                 onQuickUpdateUrgency={handleQuickUpdateUrgency}
                 onSaveItem={handleSaveDefect}
+                onSaveClientComment={can('comments.client') ? handleSaveClientComment : undefined}
                 onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
                 readOnly={readOnly}
                 selectable={selectionActive}
@@ -1585,6 +1615,7 @@ export default function App() {
           onUpdatePhotoPhase={readOnly ? undefined : handleUpdatePhotoPhase}
           onMovePhotos={can('photos.move') ? handleMovePhotos : undefined}
           onSaveItem={readOnly ? undefined : handleSaveDefect}
+          onSaveClientComment={can('comments.client') ? handleSaveClientComment : undefined}
           defectNav={lightboxNav}
           readOnly={readOnly}
           canDelete={can('photos.delete')}

@@ -9,9 +9,8 @@ import { Profile, isUsable, roleOf, fetchMyProfile, signIn, signUp, signOut } fr
 export type AppRole = 'editor' | 'client';
 
 // Client-side gate only: it hides editing UI, it does not secure the database.
-// Editor access by PIN: 1407 = administrator (everything), 1111 = user (everything except deleting).
+// Editors sign in with their account; AccessLevel says whether that role is an administrator.
 export type AccessLevel = 'admin' | 'user';
-const EDITOR_PINS: Record<string, AccessLevel> = { '1407': 'admin', '1111': 'user' };
 const USER_KEY = 'cronulla_user';
 
 export const storeUserName = (name: string) => {
@@ -34,11 +33,10 @@ interface RoleSelectScreenProps {
   onSelect: (role: AppRole, access?: AccessLevel, account?: Profile) => void;
 }
 
-type Step = 'choose' | 'signin' | 'signup' | 'pin';
+type Step = 'choose' | 'signin' | 'signup';
 
 export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) => {
   const [step, setStep] = useState<Step>('choose');
-  const askingPin = step === 'pin';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -46,8 +44,6 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
   const [message, setMessage] = useState<{ kind: 'error' | 'info'; text: string } | null>(null);
   // Already signed in on this device: straight in.
   const [checking, setChecking] = useState(!!supabase);
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState(false);
   const [name, setName] = useState(getStoredUserName);
   const { t } = useI18n();
 
@@ -109,19 +105,6 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
     }
   };
 
-  const submitPin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const access = EDITOR_PINS[pin];
-    if (access) {
-      try {
-        localStorage.setItem(USER_KEY, name.trim());
-      } catch {}
-      onSelect('editor', access);
-    } else {
-      setError(true);
-      setPin('');
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-10 font-sans antialiased">
@@ -242,22 +225,11 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                 {step === 'signup' ? t('Ya tengo cuenta') : t('Crear cuenta nueva')}
               </button>
             </div>
-            {/* Until everyone has an account */}
-            <button
-              type="button"
-              onClick={() => {
-                setStep('pin');
-                setMessage(null);
-              }}
-              className="w-full text-[11px] text-slate-400 hover:text-slate-600"
-            >
-              {t('Entrar con PIN (temporal)')}
-            </button>
           </form>
-        ) : !askingPin ? (
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
-              onClick={() => setStep(supabase ? 'signin' : 'pin')}
+              onClick={() => setStep('signin')}
               className="group text-left bg-white border border-slate-200 hover:border-slate-900 rounded-xl p-6 shadow-xs hover:shadow-md transition-all"
             >
               <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mb-4">
@@ -293,71 +265,6 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
               </span>
             </button>
           </div>
-        ) : (
-          <form
-            onSubmit={submitPin}
-            className="max-w-sm mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4"
-          >
-            <div className="flex items-center gap-2">
-              <PencilLine className="w-4 h-4 text-amber-700" />
-              <h2 className="text-sm font-bold text-slate-900">{t('Acceso Editor')}</h2>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="editor-name" className="text-xs font-semibold text-slate-700">
-                {t('Tu nombre')}
-              </label>
-              <input
-                id="editor-name"
-                type="text"
-                autoComplete="name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-lg text-sm focus:outline-hidden focus:bg-white transition-colors"
-              />
-              <p className="text-[11px] text-slate-400">{t('Aparece en el historial de cambios')}</p>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="editor-pin" className="text-xs font-semibold text-slate-700">
-                {t('Contraseña')}
-              </label>
-              <input
-                id="editor-pin"
-                type="password"
-                inputMode="numeric"
-                autoFocus={!!name}
-                value={pin}
-                onChange={e => {
-                  setPin(e.target.value);
-                  setError(false);
-                }}
-                className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm tracking-widest focus:outline-hidden focus:bg-white transition-colors ${
-                  error ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-slate-400'
-                }`}
-              />
-              {error && <p className="text-xs text-rose-600">{t('Contraseña incorrecta')}</p>}
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep(supabase ? 'signin' : 'choose');
-                  setPin('');
-                  setError(false);
-                }}
-                className="inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-                {t('Volver')}
-              </button>
-              <button
-                type="submit"
-                disabled={!pin || !name.trim()}
-                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 rounded-lg transition-colors"
-              >
-                {t('Entrar')}
-              </button>
-            </div>
-          </form>
         )}
 
         <p className="text-center text-[11px] text-slate-400">

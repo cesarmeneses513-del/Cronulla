@@ -58,6 +58,8 @@ const FIELDS = {
   'TIME COMPLETED': 'timeCompleted',
   'MAPPING': 'mapping',
   'COMMENT': 'comment',
+  // Written by client accounts in the web (column AK).
+  'CLIENT COMMENT': 'clientComment',
   'BASE (M)': 'baseM',
   'HEIGHT (M)': 'heightM',
   'LINEAR METERS': 'linearMeters',
@@ -327,6 +329,7 @@ function writeRows_(items) {
   ensureDuringColumns_(sheet);
   renameHeader_(sheet, 'DATE 1ST PHOTO', 'DATE START');
   ensureComputedColumns_(sheet);
+  ensureHeader_(sheet, 'CLIENT COMMENT');
   ensureCompletedHighlight_(sheet);
   const headers = readHeaders_(sheet);
   const width = headers.length;
@@ -825,6 +828,12 @@ function ensureCompletedHighlight_(sheet) {
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setBackground(COMPLETED_GREEN).setRanges([range]).build()
   );
   sheet.setConditionalFormatRules(rules);
+}
+
+// Adds a column at the end (after ID) if the sheet doesn't have it yet.
+function ensureHeader_(sheet, header) {
+  if (readHeaders_(sheet).indexOf(header) >= 0) return;
+  sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
 }
 
 function renameHeader_(sheet, from, to) {

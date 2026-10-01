@@ -57,6 +57,7 @@ const NAMED_FIELDS: Record<string, keyof DefectItem> = {
   'TIME COMPLETED': 'timeCompleted',
   'MAPPING': 'mapping',
   'COMMENT': 'comment',
+  'CLIENT COMMENT': 'clientComment',
   'BASE (M)': 'baseM',
   'HEIGHT (M)': 'heightM',
   'LINEAR METERS': 'linearMeters',
@@ -499,6 +500,7 @@ export const EXPORT_COLUMNS: ExportColumn[] = [
     values: i => [i.technicianCompleted, i.dateCompleted, i.timeCompleted],
   },
   { key: 'comment', label: 'Comentario', headers: ['COMMENT'], values: i => [i.comment] },
+  { key: 'clientComment', label: 'Comentario del cliente', headers: ['CLIENT COMMENT'], values: i => [i.clientComment || ''] },
   { key: 'base', label: 'Base (m)', headers: ['BASE (M)'], values: i => [i.baseM] },
   { key: 'height', label: 'Alto (m)', headers: ['HEIGHT (M)'], values: i => [i.heightM] },
   {

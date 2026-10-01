@@ -35,6 +35,10 @@ export interface DefectItem {
   timeCompleted: string;
   mapping: string;
   comment: string;
+  // Comment from the client (client accounts can write it), who wrote it and when.
+  clientComment?: string;
+  clientCommentBy?: string;
+  clientCommentDate?: string;
   baseM: string;
   heightM: string;
   linearMeters: string;
