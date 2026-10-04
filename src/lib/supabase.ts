@@ -21,6 +21,7 @@ interface DefectRow {
   position: number;
   data: DefectItem;
   client_id?: string | null;
+  updated_at?: string | null;
   modified_at?: string | null;
   modified_by?: string | null;
 }
@@ -65,6 +66,81 @@ export async function fetchDefects(): Promise<DefectItem[]> {
   }
   return rows.map(withModified);
 }
+
+// ───────────── Light loading (saves Supabase download traffic) ─────────────
+// The app keeps a copy of the defects on the device with the time of its last sync. Opening or
+// coming back to the app then downloads only the list of ids (~40 KB, to see what was added or
+// deleted) and the rows changed since, instead of the whole table (~2 MB) every time.
+
+// Each row's updated_at: the version of every defect this device has.
+export type Stamps = Record<string, string>;
+const stampsOf = (rows: DefectRow[], into: Stamps = {}) => {
+  rows.forEach(r => r.updated_at && (into[r.id] = r.updated_at));
+  return into;
+};
+
+// Whole table, with each row's version.
+export async function fetchDefectsFull(): Promise<{ items: DefectItem[]; stamps: Stamps }> {
+  if (!supabase) throw new Error('Supabase no configurado');
+  const rows: DefectRow[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('id, position, updated_at, data' + EXTRA_COLUMNS[extra])
+      .order('position')
+      .order('id')
+      .range(from, from + 999);
+    if (error && from === 0 && extra < EXTRA_COLUMNS.length - 1) {
+      extra++;
+      return fetchDefectsFull();
+    }
+    if (error) throw error;
+    rows.push(...(data as unknown as DefectRow[]));
+    if (data.length < 1000) break;
+  }
+  return { items: rows.map(withModified), stamps: stampsOf(rows) };
+}
+
+// `base` (this device's copy, with the versions in `stamps`) brought up to date: only the list of
+// ids and versions (~25 KB) and the rows that are new or changed are downloaded.
+export async function fetchDefectsDelta(base: DefectItem[], stamps: Stamps): Promise<{ items: DefectItem[]; stamps: Stamps }> {
+  if (!supabase) throw new Error('Supabase no configurado');
+  const versions: { id: string; updated_at: string }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from(TABLE).select('id, updated_at').order('id').range(from, from + 999);
+    if (error) throw error;
+    versions.push(...(data as { id: string; updated_at: string }[]));
+    if (data.length < 1000) break;
+  }
+  const baseById = new Map(base.map(i => [i.id, i]));
+  const stale = versions.filter(v => !baseById.has(v.id) || stamps[v.id] !== v.updated_at).map(v => v.id);
+  const fresh = stale.length > 0 ? await fetchRowsByIds(stale) : [];
+  const freshById = new Map(fresh.map(r => [r.id, withModified(r)]));
+  const order = new Map(base.map((i, n) => [i.id, n]));
+  const items = versions
+    .map(v => freshById.get(v.id) || baseById.get(v.id))
+    .filter((i): i is DefectItem => !!i)
+    .sort((a, b) => (order.get(a.id) ?? 1e9) - (order.get(b.id) ?? 1e9));
+  const next: Stamps = {};
+  versions.forEach(v => (next[v.id] = v.updated_at));
+  return { items, stamps: next };
+}
+
+async function fetchRowsByIds(ids: string[]): Promise<DefectRow[]> {
+  const rows: DefectRow[] = [];
+  for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
+    const { data, error } = await supabase!
+      .from(TABLE)
+      .select('id, position, updated_at, data' + EXTRA_COLUMNS[extra])
+      .in('id', ids.slice(i, i + DELETE_CHUNK));
+    if (error) throw error;
+    rows.push(...(data as unknown as DefectRow[]));
+  }
+  return rows;
+}
+
+// Versions of the rows received live (realtime), so the copy on this device stays current.
+export const liveStamps: Stamps = {};
 
 // Numbers every defect 1, 2, 3… in Stage, Drop, Level order (supabase/renumber.sql).
 export async function renumberDefects(): Promise<void> {
@@ -247,6 +323,7 @@ export function subscribeToDefects(
         if (id) onDelete(id);
       } else {
         const row = payload.new as DefectRow;
+        if (row.updated_at) liveStamps[row.id] = row.updated_at;
         if (row.client_id !== CLIENT_ID) onUpsert(withModified(row), row.position, row.client_id);
       }
     })

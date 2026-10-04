@@ -17,7 +17,10 @@ import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
 import {
   supabase,
-  fetchDefects,
+  fetchDefectsFull,
+  fetchDefectsDelta,
+  liveStamps,
+  Stamps,
   fetchDefectsByIds,
   syncDefects,
   subscribeToDefects,
@@ -41,6 +44,17 @@ const ExportCsvModal = lazy(() => import('./components/ExportCsvModal').then(m =
 const HistoryPanel = lazy(() => import('./components/HistoryPanel').then(m => ({ default: m.HistoryPanel })));
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
+// The database's defects as last synced on this device, and when (see fetchDefectsDelta).
+const SNAPSHOT_KEY = 'cronulla_snapshot_v1';
+const readSnapshot = (): { savedAt: number; stamps: Stamps; items: DefectItem[] } | null => {
+  try {
+    const s = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || 'null');
+    return s && typeof s.savedAt === 'number' && s.stamps && Array.isArray(s.items) ? s : null;
+  } catch {
+    return null;
+  }
+};
+const SNAPSHOT_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const ROLE_KEY = 'cronulla_role';
 const ACCESS_KEY = 'cronulla_access';
 // 'account' when the editor signed in with an account, 'pin' with the temporary PIN.
@@ -302,8 +316,10 @@ export default function App() {
       .catch(() => {});
   }, [handleSelectRole]);
 
-  // Load initial data from localStorage if present
+  // Load initial data from this device's copy if present
   const [items, setItems] = useState<DefectItem[]>(() => {
+    const snap = supabase ? readSnapshot() : null;
+    if (snap && snap.items.length > 0) return normalizeItems(snap.items);
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -324,14 +340,33 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Save changes to localStorage
+  // Keep this device's copy: with Supabase, the last synced database state and its time (the
+  // next load only downloads what changed since); without it, the list itself.
+  const stampsRef = useRef<Stamps>(readSnapshot()?.stamps || {});
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      if (supabase) {
+        if (!syncedRef.current) return;
+        const stamps = { ...stampsRef.current, ...liveStamps };
+        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ savedAt: Date.now(), stamps, items: syncedRef.current }));
+        localStorage.removeItem(STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      }
     } catch (e) {
       console.warn('Failed to persist to localStorage', e);
     }
   }, [items]);
+
+  // From the database: only what changed since this device's copy when it's recent, otherwise
+  // everything. Saves most of Supabase's download traffic (opening and coming back to the app).
+  const loadFromServer = useCallback(async (base: DefectItem[] | null, savedAt = Date.now()) => {
+    const stamps = { ...stampsRef.current, ...liveStamps };
+    const fresh = Date.now() - savedAt < SNAPSHOT_MAX_AGE && Object.keys(stamps).length > 0;
+    const result = base && base.length > 0 && fresh ? await fetchDefectsDelta(base, stamps) : await fetchDefectsFull();
+    stampsRef.current = result.stamps;
+    return result.items;
+  }, []);
 
   // Supabase sync. `syncedRef` is the last snapshot known to match the database;
   // null until the first load succeeds, so a failed load never overwrites remote data.
@@ -344,7 +379,8 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const remote = await fetchDefects();
+        const snap = readSnapshot();
+        const remote = await loadFromServer(snap ? normalizeItems(snap.items) : null, snap?.savedAt);
         if (cancelled) return;
         if (remote.length === 0) {
           // Empty answer: show it as empty. This browser's saved copy is never uploaded in its
@@ -510,7 +546,7 @@ export default function App() {
           await syncDefects(synced, itemsRef.current, normalizeItems);
         }
         const started = itemsRef.current;
-        const normalized = normalizeItems(await fetchDefects());
+        const normalized = normalizeItems(await loadFromServer(syncedRef.current));
         // Anything edited on this device while loading is kept (and saved by the next sync).
         const current = itemsRef.current;
         const startedById = new Map(started.map(i => [i.id, i]));
@@ -529,7 +565,7 @@ export default function App() {
         if (!quiet) setReloading(false);
       }
     },
-    [canSave, showToast, t]
+    [canSave, showToast, t, loadFromServer]
   );
   const handleReload = useCallback(() => refreshFromServer(false), [refreshFromServer]);
 

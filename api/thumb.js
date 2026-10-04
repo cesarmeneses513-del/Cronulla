@@ -9,7 +9,7 @@ const ALLOWED = [
   'https://storage.googleapis.com/glide-prod.appspot.com/',
   'https://jawmcsrcgqvndjhhvovl.supabase.co/storage/',
 ];
-const WIDTHS = [160, 320, 480, 640];
+const WIDTHS = [160, 320, 480, 640, 1600];
 
 export async function GET(request) {
   const params = new URL(request.url).searchParams;
@@ -28,7 +28,7 @@ export async function GET(request) {
     const output = await sharp(input, { failOn: 'none' })
       .rotate() // respect the phone's EXIF orientation
       .resize({ width, withoutEnlargement: true })
-      .webp({ quality: 70 })
+      .webp({ quality: width >= 1600 ? 82 : 70 })
       .toBuffer();
     return new Response(output, {
       headers: {

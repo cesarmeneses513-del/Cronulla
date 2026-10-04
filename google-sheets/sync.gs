@@ -142,9 +142,22 @@ function syncIfChanged(force) {
     // (Cronulla → Enviar la planilla a la web) or the user chooses "Traer datos de la web".
     if (force !== true && props.getProperty('pushFailed')) return;
     const signature = fetchSignature_();
-    if (signature === props.getProperty('signature')) return;
+    const previous = props.getProperty('signature') || '';
+    if (signature === previous) return;
 
-    writeRows_(fetchAllDefects_());
+    // Saves Supabase download traffic: when only some defects changed (same count, none new),
+    // just those rows are downloaded and updated in place. The whole sheet is downloaded and
+    // re-sorted / renumbered when defects were added or deleted, from the menu, or when the last
+    // full rewrite is over FULL_REWRITE_EVERY old.
+    const lastFull = Number(props.getProperty('lastFullAt') || 0);
+    const sameCount = previous && previous.split('|')[0] === signature.split('|')[0];
+    const since = previous.split('|')[1];
+    const patched =
+      force !== true && sameCount && since && Date.now() - lastFull < FULL_REWRITE_EVERY && patchRows_(fetchChangedSince_(since));
+    if (!patched) {
+      writeRows_(fetchAllDefects_());
+      props.setProperty('lastFullAt', String(Date.now()));
+    }
     props.setProperty('signature', signature);
   } finally {
     lock.releaseLock();
@@ -160,6 +173,50 @@ function fetchSignature_() {
   const total = String(res.getHeaders()['Content-Range'] || res.getHeaders()['content-range'] || '').split('/')[1];
   const rows = JSON.parse(res.getContentText());
   return total + '|' + (rows[0] ? rows[0].updated_at : '');
+}
+
+const FULL_REWRITE_EVERY = 30 * 60 * 1000;
+const MAX_PATCHED_ROWS = 60;
+
+// Defects changed since `since` (with a small overlap).
+function fetchChangedSince_(since) {
+  const from = new Date(new Date(since).getTime() - 2 * 60 * 1000).toISOString();
+  const res = UrlFetchApp.fetch(
+    SUPABASE_URL + '/rest/v1/defects?select=data&updated_at=gte.' + encodeURIComponent(from) + '&limit=' + (MAX_PATCHED_ROWS + 1),
+    { headers: headers_() }
+  );
+  return JSON.parse(res.getContentText()).map(r => r.data);
+}
+
+// Updates the rows of these defects in place (matched by ID). False when that isn't possible
+// (too many, or one isn't in the sheet yet): the caller then rewrites the whole sheet.
+function patchRows_(items) {
+  if (items.length === 0) return true;
+  if (items.length > MAX_PATCHED_ROWS) return false;
+  const sheet = getSheet_();
+  const headers = readHeaders_(sheet);
+  const idIdx = headers.indexOf(ID_HEADER);
+  const numberIdx = headers.lastIndexOf(NUMBER_HEADER);
+  const n = sheet.getLastRow() - 1;
+  if (idIdx < 0 || n < 1) return false;
+  const ids = sheet.getRange(2, idIdx + 1, n, 1).getValues().map(r => String(r[0]).trim());
+  const rowOf = {};
+  ids.forEach((id, i) => id && (rowOf[id] = i + 2));
+  if (items.some(item => !rowOf[item.id])) return false;
+  items.forEach(item => {
+    const row = rowOf[item.id];
+    const current = sheet.getRange(row, 1, 1, headers.length).getValues()[0];
+    const slots = photoSlots_(item);
+    const values = headers.map((h, c) => {
+      // The sheet's own columns (its number, column A, notes…) stay as they are.
+      if (c === numberIdx || !writtenByWeb_(h)) return current[c];
+      const v = columnValue_(h, item, slots);
+      return v === undefined || v === null ? '' : v;
+    });
+    sheet.getRange(row, 1, 1, headers.length).setValues([values]);
+  });
+  formatDateTimeColumns_(sheet, headers, n);
+  return true;
 }
 
 function fetchAllDefects_() {

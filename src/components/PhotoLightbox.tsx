@@ -295,7 +295,11 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
           }}
         >
           <img
-            src={currentPhotoUrl}
+            key={currentPhotoUrl}
+            // Screen-size copy from Vercel's cache: the original leaves Supabase only once, not on
+            // every view (Download still saves the original).
+            src={thumbUrl(currentPhotoUrl, 1600)}
+            onError={fallbackTo(currentPhotoUrl)}
             alt={`Fotografía ${photoIndex + 1} (${currentPhase}) de defecto ${item.defect}`}
             referrerPolicy="no-referrer"
             className="max-h-[40vh] md:max-h-[75vh] max-w-[85vw] object-contain rounded-lg shadow-2xl border border-white/10"
