@@ -63,6 +63,8 @@ const FIELDS = {
 };
 const PHOTO_HEADERS = ['PHOTO 1', 'PHOTO 2', 'PHOTO 3', 'PHOTO 4', 'PHOTO 5', 'PHOTO 6', 'PHOTO 7', 'PHOTO 8', 'PHOTO 9'];
 const TRACKED = Object.keys(FIELDS).concat(PHOTO_HEADERS);
+// Web → this tab (when turned on) runs at most this often.
+const WEB_TO_SHEET_EVERY = 10 * 60 * 1000;
 
 const URGENCY_VALUES = { LOW: 'LOW', BAJA: 'LOW', MEDIUM: 'MEDIUM', MEDIA: 'MEDIUM', HIGH: 'HIGH', ALTA: 'HIGH' };
 const STATUS_VALUES = {
@@ -232,7 +234,19 @@ function syncLocked_() {
   idWrites.forEach(([r, id]) => sheet.getRange(r, idIdx + 1).setValue(id));
 
   const ids = Object.keys(seen);
-  const web = fetchByIds_(ids);
+  // Only the rows that changed here since last time (or are new) are looked up in the web.
+  // Downloading every row on every run (each minute, day and night) used ~3 GB of Supabase
+  // traffic a day. Menu actions and the first run still check everything.
+  const checkAll = baseline || forceAll || addMissing || fillGaps;
+  const needed = new Set(
+    checkAll
+      ? ids
+      : ids.filter(id => {
+          const old = snapshot[id];
+          return !old || TRACKED.some(h => !sameValue_(old[h], seen[id][h]));
+        })
+  );
+  const web = needed.size > 0 ? fetchByIds_(Array.from(needed)) : {};
   const now = new Date().toISOString();
   const upserts = [];
   const inserts = [];
@@ -241,6 +255,7 @@ function syncLocked_() {
   let position = null;
 
   ids.forEach(id => {
+    if (!needed.has(id)) return; // unchanged since last time
     const rec = seen[id];
     const old = snapshot[id];
     const current = web[id];
@@ -343,7 +358,10 @@ function syncLocked_() {
   let wroteSheet = false;
   if (props.getProperty('webToSheet') === 'on' && !baseline) {
     const sig = webSignature_();
-    if (sig !== props.getProperty('webSig')) {
+    // At most every WEB_TO_SHEET_EVERY: it downloads every row (Supabase traffic).
+    const lastWebToSheet = Number(props.getProperty('webToSheetAt') || 0);
+    if (sig !== props.getProperty('webSig') && Date.now() - lastWebToSheet >= WEB_TO_SHEET_EVERY) {
+      props.setProperty('webToSheetAt', String(Date.now()));
       const w = pushWebToSheet_(sheet, headers, gone, readWebSnapshot_(), false);
       result.toSheetCells = w.cells;
       result.toSheetRows = w.appended;

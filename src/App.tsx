@@ -20,6 +20,7 @@ import {
   fetchDefectsFull,
   fetchDefectsDelta,
   liveStamps,
+  mergeStamps,
   Stamps,
   fetchDefectsByIds,
   syncDefects,
@@ -49,7 +50,9 @@ const SNAPSHOT_KEY = 'cronulla_snapshot_v1';
 const readSnapshot = (): { savedAt: number; stamps: Stamps; items: DefectItem[] } | null => {
   try {
     const s = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || 'null');
-    return s && typeof s.savedAt === 'number' && s.stamps && Array.isArray(s.items) ? s : null;
+    const ok = s && typeof s.savedAt === 'number' && s.stamps && Array.isArray(s.items);
+    // Versions were text in the first release of this: those copies are downloaded again once.
+    return ok && Object.values(s.stamps).every(v => typeof v === 'number') ? s : null;
   } catch {
     return null;
   }
@@ -347,7 +350,7 @@ export default function App() {
     try {
       if (supabase) {
         if (!syncedRef.current) return;
-        const stamps = { ...stampsRef.current, ...liveStamps };
+        const stamps = mergeStamps(stampsRef.current, liveStamps);
         localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ savedAt: Date.now(), stamps, items: syncedRef.current }));
         localStorage.removeItem(STORAGE_KEY);
       } else {
@@ -361,7 +364,7 @@ export default function App() {
   // From the database: only what changed since this device's copy when it's recent, otherwise
   // everything. Saves most of Supabase's download traffic (opening and coming back to the app).
   const loadFromServer = useCallback(async (base: DefectItem[] | null, savedAt = Date.now()) => {
-    const stamps = { ...stampsRef.current, ...liveStamps };
+    const stamps = mergeStamps(stampsRef.current, liveStamps);
     const fresh = Date.now() - savedAt < SNAPSHOT_MAX_AGE && Object.keys(stamps).length > 0;
     const result = base && base.length > 0 && fresh ? await fetchDefectsDelta(base, stamps) : await fetchDefectsFull();
     stampsRef.current = result.stamps;

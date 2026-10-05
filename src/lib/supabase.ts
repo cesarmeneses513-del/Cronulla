@@ -72,11 +72,19 @@ export async function fetchDefects(): Promise<DefectItem[]> {
 // coming back to the app then downloads only the list of ids (~40 KB, to see what was added or
 // deleted) and the rows changed since, instead of the whole table (~2 MB) every time.
 
-// Each row's updated_at: the version of every defect this device has.
-export type Stamps = Record<string, string>;
+// Each row's updated_at (as a number, so it compares the same however it was written): the
+// version of every defect this device has.
+export type Stamps = Record<string, number>;
+const stampOf = (updatedAt?: string | null) => (updatedAt ? new Date(updatedAt).getTime() : 0);
 const stampsOf = (rows: DefectRow[], into: Stamps = {}) => {
-  rows.forEach(r => r.updated_at && (into[r.id] = r.updated_at));
+  rows.forEach(r => r.updated_at && (into[r.id] = stampOf(r.updated_at)));
   return into;
+};
+// The newer of two sets of versions, row by row.
+export const mergeStamps = (a: Stamps, b: Stamps): Stamps => {
+  const out = { ...a };
+  Object.keys(b).forEach(id => (out[id] = Math.max(out[id] || 0, b[id])));
+  return out;
 };
 
 // Whole table, with each row's version.
@@ -113,7 +121,7 @@ export async function fetchDefectsDelta(base: DefectItem[], stamps: Stamps): Pro
     if (data.length < 1000) break;
   }
   const baseById = new Map(base.map(i => [i.id, i]));
-  const stale = versions.filter(v => !baseById.has(v.id) || stamps[v.id] !== v.updated_at).map(v => v.id);
+  const stale = versions.filter(v => !baseById.has(v.id) || stamps[v.id] !== stampOf(v.updated_at)).map(v => v.id);
   const fresh = stale.length > 0 ? await fetchRowsByIds(stale) : [];
   const freshById = new Map(fresh.map(r => [r.id, withModified(r)]));
   const order = new Map(base.map((i, n) => [i.id, n]));
@@ -122,7 +130,7 @@ export async function fetchDefectsDelta(base: DefectItem[], stamps: Stamps): Pro
     .filter((i): i is DefectItem => !!i)
     .sort((a, b) => (order.get(a.id) ?? 1e9) - (order.get(b.id) ?? 1e9));
   const next: Stamps = {};
-  versions.forEach(v => (next[v.id] = v.updated_at));
+  versions.forEach(v => (next[v.id] = stampOf(v.updated_at)));
   return { items, stamps: next };
 }
 
@@ -323,7 +331,7 @@ export function subscribeToDefects(
         if (id) onDelete(id);
       } else {
         const row = payload.new as DefectRow;
-        if (row.updated_at) liveStamps[row.id] = row.updated_at;
+        if (row.updated_at) liveStamps[row.id] = stampOf(row.updated_at);
         if (row.client_id !== CLIENT_ID) onUpsert(withModified(row), row.position, row.client_id);
       }
     })
