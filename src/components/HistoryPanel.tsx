@@ -39,7 +39,7 @@ interface HistoryPanelProps {
   canClear?: boolean;
   // The defects as they are now: entries show each defect's current number, which changes
   // with "Sort and renumber" (the number saved with the entry is the one it had then).
-  items?: { id: string; rowNo: string }[];
+  items?: { id: string; rowNo: string; orientation?: string; drop?: string; level?: string }[];
 }
 
 const KIND_TABS: { kind: HistoryFilter['kind']; label: string; dot?: string }[] = [
@@ -64,6 +64,16 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
   const [missing, setMissing] = useState<number | null>(null);
   const currentNo = useMemo(() => new Map(items.map(i => [i.id, i.rowNo])), [items]);
   const noOf = (r: HistoryRecord) => (r.defect_id && currentNo.get(r.defect_id)) || r.row_no || '';
+  // Where the defect is (stage · drop · level): as it is now, or as saved when it was deleted.
+  const placeById = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
+  const placeOf = (r: HistoryRecord) => {
+    const d = (r.defect_id && placeById.get(r.defect_id)) || {
+      orientation: r.details?.stage as string | undefined,
+      drop: r.details?.drop as string | undefined,
+      level: r.details?.level as string | undefined,
+    };
+    return [d.orientation, d.drop && `D${d.drop}`, d.level && `L${d.level}`].filter(Boolean).join(' · ');
+  };
   // A number typed in the filter means the defect that has it now.
   const idOfNo = useMemo(() => new Map(items.map(i => [i.rowNo, i.id])), [items]);
   const withDefect = (f: HistoryFilter): HistoryFilter => ({ ...f, defectId: f.rowNo ? idOfNo.get(f.rowNo.trim()) : undefined });
@@ -331,6 +341,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ onClose, onOpenDefec
                             <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 rounded border border-slate-200">
                               #{noOf(record)}
                             </span>
+                          )}
+                          {placeOf(record) && (
+                            <span className="text-[10px] font-medium text-slate-500 whitespace-nowrap">{placeOf(record)}</span>
                           )}
                           <span className="text-slate-400 font-mono tabular-nums ms-auto">
                             {record.created_at &&

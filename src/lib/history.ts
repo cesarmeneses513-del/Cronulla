@@ -136,7 +136,13 @@ export function diffForHistory(before: DefectItem[], after: DefectItem[], label:
     records.push({ action: 'add', defect_id: item.id, row_no: item.rowNo, details: { defect: item.defect } })
   );
   removed.forEach(item =>
-    records.push({ action: 'delete', defect_id: item.id, row_no: item.rowNo, details: { defect: item.defect } })
+    // Where it was is kept with the entry: once deleted, the defect can't be looked up any more.
+    records.push({
+      action: 'delete',
+      defect_id: item.id,
+      row_no: item.rowNo,
+      details: { defect: item.defect, stage: item.orientation, drop: item.drop, level: item.level },
+    })
   );
 
   return records;
