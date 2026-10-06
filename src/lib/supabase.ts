@@ -349,18 +349,22 @@ const readAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-// Uploads to Supabase Storage and returns a public URL; falls back to an inline data URL offline.
+// Uploads to Supabase Storage and returns a public URL. A failed upload is retried and then
+// reported (throws): keeping the photo inside the defect made that row hundreds of KB.
 export async function uploadPhoto(original: File): Promise<string> {
   const file = await shrinkPhoto(original);
   if (!supabase) return readAsDataUrl(file);
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
-    contentType: file.type || undefined,
-  });
-  if (error) {
-    console.warn('Photo upload failed, storing inline', error);
-    return readAsDataUrl(file);
+  for (let attempt = 0; ; attempt++) {
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
+      contentType: file.type || undefined,
+      upsert: false,
+    });
+    // "Already exists": an earlier attempt did arrive, only its answer was lost.
+    if (!error || /exists|duplicate/i.test(error.message)) break;
+    if (attempt === 2) throw error;
+    await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
   }
   return supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
 }

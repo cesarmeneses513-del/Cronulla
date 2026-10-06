@@ -30,6 +30,7 @@ import {
   withoutModified,
   RENUMBER_CLIENT,
   renumberDefects,
+  uploadPhoto,
 } from './lib/supabase';
 import { Plus, Check, Info, AlertTriangle, Cloud, CloudOff, Loader2, Undo2, CheckSquare, Trash2, X, RefreshCw } from 'lucide-react';
 
@@ -409,12 +410,20 @@ export default function App() {
         // A renumbering only changed the "No". Its copy of the rest can be older than what this
         // device has (it may arrive late, after a photo was deleted here), so only the number is taken.
         if (clientId === RENUMBER_CLIENT && itemsRef.current.some(i => i.id === item.id)) {
-          const withNo = (list: DefectItem[]) =>
-            list.map(i => (i.id === item.id && i.rowNo !== item.rowNo ? { ...i, rowNo: item.rowNo } : i));
-          // The same list when nothing is waiting to be saved: keep it shared, so no save follows.
+          const withNo = (i: DefectItem) => (i.id === item.id && i.rowNo !== item.rowNo ? { ...i, rowNo: item.rowNo } : i);
+          // A row that isn't waiting to be saved is the same object in both lists and must stay
+          // so: two separate copies would look like an edit made here, and the next save would
+          // write every renumbered row again.
           const inSync = itemsRef.current === syncedRef.current;
-          if (syncedRef.current) syncedRef.current = withNo(syncedRef.current);
-          itemsRef.current = inSync && syncedRef.current ? syncedRef.current : withNo(itemsRef.current);
+          const oldSynced = syncedRef.current?.find(i => i.id === item.id);
+          const newSynced = oldSynced && withNo(oldSynced);
+          if (syncedRef.current && oldSynced !== newSynced) {
+            syncedRef.current = syncedRef.current.map(i => (i === oldSynced ? newSynced! : i));
+          }
+          itemsRef.current =
+            inSync && syncedRef.current
+              ? syncedRef.current
+              : itemsRef.current.map(i => (i.id !== item.id ? i : i === oldSynced ? newSynced! : withNo(i)));
           setItems(itemsRef.current);
           return;
         }
@@ -1350,6 +1359,34 @@ export default function App() {
   // lost changes, so the page reloads itself when it is shown again and nothing is waiting to be
   // saved or being edited; otherwise a banner asks to update.
   const newVersion = useNewVersion();
+
+  // Photos kept inside a defect (an upload that failed before uploads reported their errors):
+  // an administrator's device moves them to the photo storage, and the defect keeps the link.
+  const movingInlineRef = useRef(false);
+  useEffect(() => {
+    if (!supabase || !isAccountAdmin || movingInlineRef.current) return;
+    const inline = (p: DefectPhoto) => p.url.startsWith('data:image');
+    const target = items.find(i => i.photos.some(inline));
+    if (!target) return;
+    movingInlineRef.current = true;
+    (async () => {
+      try {
+        for (const photo of target.photos.filter(inline)) {
+          const [head, body] = photo.url.split(',');
+          const type = head.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+          const bytes = Uint8Array.from(atob(body), c => c.charCodeAt(0));
+          const url = await uploadPhoto(new File([bytes], `photo.${type.split('/')[1] || 'jpg'}`, { type }));
+          itemsRef.current = itemsRef.current.map(i =>
+            i.id === target.id ? { ...i, photos: i.photos.map(x => (x.url === photo.url ? { ...x, url } : x)) } : i
+          );
+          setItems(itemsRef.current);
+        }
+        movingInlineRef.current = false;
+      } catch (e) {
+        console.warn('Could not move an inline photo to the storage', e); // tried again on the next visit
+      }
+    })();
+  }, [items, isAccountAdmin]);
   const safeToReloadRef = useRef(false);
   safeToReloadRef.current =
     itemsRef.current === syncedRef.current && !isEditModalOpen && !isImportModalOpen && !lightboxItem;

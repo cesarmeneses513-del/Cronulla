@@ -150,6 +150,10 @@ const DICT: Record<string, { en: string; fa: string }> = {
   },
   'Defectos ordenados y renumerados': { en: 'Defects sorted and renumbered', fa: 'نقص‌ها مرتب و شماره‌گذاری شدند' },
   'No se pudo renumerar. Inténtalo de nuevo.': { en: 'Could not renumber. Please try again.', fa: 'شماره‌گذاری انجام نشد. دوباره تلاش کنید.' },
+  'No se pudo subir la foto. Revisa la conexión e inténtalo de nuevo.': {
+    en: 'The photo could not be uploaded. Check your connection and try again.',
+    fa: 'عکس بارگذاری نشد. اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.',
+  },
   'Nuevo Defecto': { en: 'New defect', fa: 'نقص جدید' },
   'Cambiar de modo': { en: 'Switch mode', fa: 'تغییر حالت' },
   'Salir': { en: 'Exit', fa: 'خروج' },

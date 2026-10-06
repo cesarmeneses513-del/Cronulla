@@ -158,7 +158,14 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
     const p = pending;
     closePending();
     if (!p) return;
-    const url = p.file ? await uploadPhoto(p.file) : p.url!;
+    let url: string;
+    try {
+      url = p.file ? await uploadPhoto(p.file) : p.url!;
+    } catch (e) {
+      console.error('Photo upload failed', e);
+      window.alert(t('No se pudo subir la foto. Revisa la conexión e inténtalo de nuevo.'));
+      return;
+    }
     setFormData(prev => {
       const newPhoto: DefectPhoto = { url, phase, slot: prev.photos.length + 1 };
       return { ...prev, photos: sortPhotosByPhase([...prev.photos, newPhoto]) };

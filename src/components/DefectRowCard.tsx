@@ -190,7 +190,14 @@ export const DefectRowCard: React.FC<DefectRowCardProps> = ({
     const p = pending;
     closePending();
     if (!p) return;
-    const url = p.file ? await uploadPhoto(p.file) : p.url!;
+    let url: string;
+    try {
+      url = p.file ? await uploadPhoto(p.file) : p.url!;
+    } catch (e) {
+      console.error('Photo upload failed', e);
+      window.alert(t('No se pudo subir la foto. Revisa la conexión e inténtalo de nuevo.'));
+      return;
+    }
     onAddPhoto(item.id, url, phase);
   };
 
