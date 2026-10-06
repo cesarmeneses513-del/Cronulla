@@ -512,6 +512,7 @@ export default function App() {
     technicians: [],
     hasPhotosOnly: false,
     noPhotosOnly: false,
+    clientCommentOnly: false,
   });
 
   // Toast notification state
@@ -749,6 +750,9 @@ export default function App() {
         return false;
       }
       if (f.noPhotosOnly && item.photos.length > 0) {
+        return false;
+      }
+      if (f.clientCommentOnly && !item.clientComment?.trim()) {
         return false;
       }
 
@@ -1418,6 +1422,7 @@ export default function App() {
             technicians: [],
             hasPhotosOnly: false,
             noPhotosOnly: false,
+            clientCommentOnly: false,
           })
         }
         className="inline-flex items-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors"

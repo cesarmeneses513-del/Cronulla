@@ -62,6 +62,8 @@ export interface FilterState {
   hasPhotosOnly: boolean;
   // Only defects without any photo.
   noPhotosOnly?: boolean;
+  // Only defects the client has commented on.
+  clientCommentOnly?: boolean;
 }
 
 export interface DragPhotoPayload {

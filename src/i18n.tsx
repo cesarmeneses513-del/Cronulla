@@ -26,6 +26,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Importar': { en: 'Import', fa: 'وارد کردن' },
   'Exportar': { en: 'Export', fa: 'صادر کردن' },
   'Datos': { en: 'Data', fa: 'داده‌ها' },
+  "Con comentario del cliente": { en: "With client comment", fa: "با نظر مشتری" },
   "Ver técnicos conectados": { en: "See connected technicians", fa: "دیدن تکنیسین‌های آنلاین" },
   "Conectado ahora": { en: "Online now", fa: "اکنون آنلاین" },
   "Nunca conectado": { en: "Never connected", fa: "هرگز وصل نشده" },

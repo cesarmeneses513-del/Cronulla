@@ -45,6 +45,7 @@ export const ExportCsvModal: React.FC<ExportCsvModalProps> = ({ totalCount, filt
     { label: t('Urgencia'), values: filters.urgencies.map(u => t(URGENCY_LABEL[u] || u)) },
     { label: t('Última modificación por'), values: filters.technicians },
     { label: t('Fotos'), values: [...(filters.hasPhotosOnly ? [t('Con fotos')] : []), ...(filters.noPhotosOnly ? [t('Sin fotos')] : [])] },
+    { label: t('Comentario del cliente'), values: filters.clientCommentOnly ? [t('Con comentario del cliente')] : [] },
   ].filter(f => f.values.length > 0);
   const filterCount = activeFilters.reduce((n, f) => n + f.values.length, 0);
   const [chosen, setChosen] = useState<string[]>(storedColumns);

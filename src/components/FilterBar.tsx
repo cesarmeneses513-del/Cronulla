@@ -38,7 +38,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     filters.levels.length +
     filters.technicians.length +
     (filters.hasPhotosOnly ? 1 : 0) +
-    (filters.noPhotosOnly ? 1 : 0);
+    (filters.noPhotosOnly ? 1 : 0) +
+    (filters.clientCommentOnly ? 1 : 0);
 
   const clearAllFilters = () => {
     onFilterChange({
@@ -52,6 +53,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       technicians: [],
       hasPhotosOnly: false,
       noPhotosOnly: false,
+      clientCommentOnly: false,
     });
   };
 
@@ -382,6 +384,21 @@ export const FilterPanel: React.FC<{
             }`}
           >
             {t('Sin fotos')} ({stageItems.filter(i => i.photos.length === 0).length})
+          </button>
+        </div>
+
+        {/* Client comments: defects the client has commented on */}
+        <label className="font-semibold text-slate-700 block pt-2">{t('Comentario del cliente')}</label>
+        <div className="flex flex-wrap gap-1 pr-1">
+          <button
+            onClick={() => onFilterChange({ ...filters, clientCommentOnly: !filters.clientCommentOnly })}
+            className={`px-2 py-0.5 rounded text-[11px] border transition-colors whitespace-nowrap ${
+              filters.clientCommentOnly
+                ? 'bg-sky-700 text-white border-sky-700 font-medium'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            {t('Con comentario del cliente')} ({stageItems.filter(i => i.clientComment?.trim()).length})
           </button>
         </div>
       </div>
