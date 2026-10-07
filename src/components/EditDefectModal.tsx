@@ -577,7 +577,6 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
 
           {/* Technicians and dates are filled in automatically from who adds each photo */}
           {pending && <PhasePicker preview={pending.preview} onPick={addPendingPhoto} onCancel={closePending} />}
-          {managingTypes && <ManageTypesModal items={allItems} onClose={() => setManagingTypes(false)} />}
 
           {/* Modal Footer */}
           <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
@@ -597,6 +596,8 @@ export const EditDefectModal: React.FC<EditDefectModalProps> = ({
             </button>
           </div>
         </form>
+        {/* Outside the form: its buttons must not submit the defect being edited. */}
+        {managingTypes && <ManageTypesModal items={allItems} onClose={() => setManagingTypes(false)} />}
       </div>
     </div>
   );

@@ -57,7 +57,7 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
               {t('Ocultar un tipo lo quita de las listas; los defectos que ya lo tienen lo conservan. Un tipo que ningún defecto usa se puede renombrar o borrar.')}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md">
+          <button type="button" onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -82,6 +82,7 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
                 {used === 0 && (
                   <>
                     <button
+                      type="button"
                       onClick={() => {
                         const name = window.prompt(t('Nuevo nombre'), type.name)?.trim().toUpperCase();
                         if (!name || name === type.name) return;
@@ -93,6 +94,7 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
                       {t('Renombrar')}
                     </button>
                     <button
+                      type="button"
                       onClick={() => window.confirm(t('¿Borrar el tipo {name}?', { name: type.name })) && run(type.name, () => deleteDefectType(type.name))}
                       className="text-xs text-rose-500 hover:text-rose-700"
                     >
@@ -118,6 +120,7 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
           <form
             onSubmit={e => {
               e.preventDefault();
+              e.stopPropagation();
               const name = adding.name.trim().toUpperCase();
               if (!name || adding.measures.length === 0) return;
               if (types.some(x => x.name === name)) return setError(t('Ya existe un tipo con ese nombre.'));
@@ -174,6 +177,7 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
 
         <div className="flex items-center justify-between px-5 py-4">
           <button
+            type="button"
             onClick={() => setAdding({ name: '', measures: ['area'] })}
             disabled={!!adding}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-800 border border-slate-300 hover:bg-slate-50 disabled:opacity-40 rounded-lg"
@@ -181,7 +185,7 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
             <Plus className="w-4 h-4" />
             {t('Agregar tipo')}
           </button>
-          <button onClick={onClose} className="px-4 py-2 text-xs font-semibold text-slate-800 border border-slate-300 hover:bg-slate-50 rounded-lg">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-semibold text-slate-800 border border-slate-300 hover:bg-slate-50 rounded-lg">
             {t('Listo')}
           </button>
         </div>
