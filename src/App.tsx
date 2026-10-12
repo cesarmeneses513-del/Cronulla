@@ -561,10 +561,20 @@ export default function App() {
         const started = itemsRef.current;
         const normalized = normalizeItems(await loadFromServer(syncedRef.current));
         // Anything edited on this device while loading is kept (and saved by the next sync).
+        // Live updates that arrived meanwhile (other people's changes, the new numbers of a
+        // renumbering) are not edits made here: those rows are the same object in the saved
+        // copy, and counting them made this device write hundreds of rows again.
         const current = itemsRef.current;
         const startedById = new Map(started.map(i => [i.id, i]));
-        const editedById = new Map(current.filter(i => startedById.get(i.id) !== i).map(i => [i.id, i]));
-        const next = editedById.size > 0 ? normalized.map(i => editedById.get(i.id) || i) : normalized;
+        const savedById = new Map((syncedRef.current || []).map(i => [i.id, i]));
+        const editedById = new Map(
+          current.filter(i => startedById.get(i.id) !== i && savedById.get(i.id) !== i).map(i => [i.id, i])
+        );
+        // A defect created here while loading isn't in the server's answer yet: it stays at the end.
+        const loadedIds = new Set(normalized.map(i => i.id));
+        const createdHere = current.filter(i => editedById.has(i.id) && !startedById.has(i.id) && !loadedIds.has(i.id));
+        const next =
+          editedById.size > 0 ? [...normalized.map(i => editedById.get(i.id) || i), ...createdHere] : normalized;
         syncedRef.current = normalized;
         itemsRef.current = next;
         setItems(next);
