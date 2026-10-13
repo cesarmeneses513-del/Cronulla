@@ -380,16 +380,22 @@ function writtenByWeb_(h) {
   return h === ID_HEADER || !!COMPUTED[h] || (sentToWeb_(h) && SHEET_ONLY_HEADERS.indexOf(h) < 0);
 }
 
-// The sheet's own columns that hold formulas (in the header cell, e.g. an ARRAYFORMULA, or in
-// the rows): the script never writes them, so the formulas stay. Columns the web fills (and
-// the last "No") are always written.
+// Columns (by letter) the script never writes, whatever they hold: add or remove letters here.
+const UNTOUCHED_COLUMNS = ['AL', 'AM'];
+const columnIndex_ = letters =>
+  String(letters).toUpperCase().split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+
+// Columns the script never writes: the ones in UNTOUCHED_COLUMNS, and the sheet's own columns
+// that hold formulas (in the header cell, e.g. an ARRAYFORMULA, or in the rows), so the
+// formulas stay. Columns the web fills (and the last "No") are always written.
 function formulaColumns_(sheet, headers) {
   const numberIdx = headers.lastIndexOf(NUMBER_HEADER);
   const formulas = sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 1), headers.length).getFormulas();
+  const untouched = UNTOUCHED_COLUMNS.map(columnIndex_);
   const cols = {};
   headers.forEach((h, c) => {
     if (c === numberIdx || writtenByWeb_(h)) return;
-    if (formulas.some(r => r[c])) cols[c] = true;
+    if (untouched.indexOf(c) >= 0 || formulas.some(r => r[c])) cols[c] = true;
   });
   return cols;
 }
