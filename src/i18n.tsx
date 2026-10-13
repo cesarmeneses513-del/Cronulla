@@ -37,6 +37,8 @@ const DICT: Record<string, { en: string; fa: string }> = {
   "Comentario guardado": { en: "Comment saved", fa: "نظر ذخیره شد" },
   "Guardar": { en: "Save", fa: "ذخیره" },
   'Borrar tipo': { en: 'Delete', fa: 'حذف' },
+  'Medida': { en: 'Unit', fa: 'واحد' },
+  'Guardar medida': { en: 'Save unit', fa: 'ذخیره واحد' },
   "Gestionar tipos de defecto": { en: "Manage defect types", fa: "مدیریت انواع نقص" },
   "Gestionar tipos": { en: "Manage types", fa: "مدیریت انواع" },
   "Ocultar un tipo lo quita de las listas; los defectos que ya lo tienen lo conservan. Un tipo que ningún defecto usa se puede renombrar o borrar.": { en: "Hiding a type removes it from the pickers; defects that already have it keep it. A type no defect uses can be renamed or deleted.", fa: "پنهان کردن یک نوع آن را از فهرست‌ها حذف می‌کند؛ نقص‌هایی که آن را دارند حفظش می‌کنند. نوعی که هیچ نقصی از آن استفاده نمی‌کند قابل تغییر نام یا حذف است." },

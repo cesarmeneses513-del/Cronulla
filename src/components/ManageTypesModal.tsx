@@ -25,6 +25,8 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState<DefectType | null>(null);
+  // The type whose measurement is being changed, with the choice so far.
+  const [editing, setEditing] = useState<DefectType | null>(null);
 
   const usage = useMemo(() => {
     const n = new Map<string, number>();
@@ -68,49 +70,102 @@ export const ManageTypesModal: React.FC<{ items: DefectItem[]; onClose: () => vo
           {types.map(type => {
             const used = usage.get(type.name) || 0;
             return (
-              <li key={type.name} className="flex items-center gap-3 py-2.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 min-w-0">
-                    <span className={`text-sm font-semibold truncate ${type.hidden ? 'text-slate-400' : 'text-slate-900'}`}>{type.name}</span>
-                    <span className="text-[11px] text-slate-400 shrink-0">{measureText(type.measures)}</span>
+              <li key={type.name} className="py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span className={`text-sm font-semibold truncate ${type.hidden ? 'text-slate-400' : 'text-slate-900'}`}>{type.name}</span>
+                      <span className="text-[11px] text-slate-400 shrink-0">{measureText(type.measures)}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {used > 0 ? t('Usado en {n} defectos', { n: used }) : <span className="italic text-slate-400">{t('Sin uso')}</span>}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    {used > 0 ? t('Usado en {n} defectos', { n: used }) : <span className="italic text-slate-400">{t('Sin uso')}</span>}
-                  </div>
+                  {busy === type.name && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
+                  <button
+                    type="button"
+                    onClick={() => setEditing(editing?.name === type.name ? null : { ...type })}
+                    className="text-xs text-slate-500 hover:text-slate-900"
+                  >
+                    {t('Medida')}
+                  </button>
+                  {used === 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const name = window.prompt(t('Nuevo nombre'), type.name)?.trim().toUpperCase();
+                          if (!name || name === type.name) return;
+                          if (types.some(x => x.name === name)) return setError(t('Ya existe un tipo con ese nombre.'));
+                          run(type.name, () => renameDefectType(type, name));
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-900"
+                      >
+                        {t('Renombrar')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.confirm(t('¿Borrar el tipo {name}?', { name: type.name })) && run(type.name, () => deleteDefectType(type.name))}
+                        className="text-xs text-rose-500 hover:text-rose-700"
+                      >
+                        {t('Borrar tipo')}
+                      </button>
+                    </>
+                  )}
+                  <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={!!type.hidden}
+                      onChange={e => run(type.name, () => saveDefectType({ ...type, hidden: e.target.checked }))}
+                      className="w-4 h-4 accent-blue-700"
+                    />
+                    {t('Oculto')}
+                  </label>
                 </div>
-                {busy === type.name && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
-                {used === 0 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const name = window.prompt(t('Nuevo nombre'), type.name)?.trim().toUpperCase();
-                        if (!name || name === type.name) return;
-                        if (types.some(x => x.name === name)) return setError(t('Ya existe un tipo con ese nombre.'));
-                        run(type.name, () => renameDefectType(type, name));
-                      }}
-                      className="text-xs text-slate-500 hover:text-slate-900"
-                    >
-                      {t('Renombrar')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => window.confirm(t('¿Borrar el tipo {name}?', { name: type.name })) && run(type.name, () => deleteDefectType(type.name))}
-                      className="text-xs text-rose-500 hover:text-rose-700"
-                    >
-                      {t('Borrar tipo')}
-                    </button>
-                  </>
+                {editing?.name === type.name && (
+                  <div className="mt-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
+                    <p className="text-[11px] text-slate-500">{t('Medida que necesita (con varias, basta una):')}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {MEASURES.map(m => {
+                        const on = editing.measures.includes(m.kind);
+                        return (
+                          <button
+                            type="button"
+                            key={m.kind}
+                            onClick={() =>
+                              setEditing({ ...editing, measures: on ? editing.measures.filter(k => k !== m.kind) : [...editing.measures, m.kind] })
+                            }
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border ${
+                              on ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            {on && <Check className="w-3 h-3" />}
+                            {t(m.label)}
+                          </button>
+                        );
+                      })}
+                      <span className="flex-1" />
+                      <button type="button" onClick={() => setEditing(null)} className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900">
+                        {t('Cancelar')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={editing.measures.length === 0 || busy === type.name}
+                        onClick={() =>
+                          run(type.name, async () => {
+                            // In the catalogue's order, whatever the order they were ticked in.
+                            const measures = MEASURES.map(m => m.kind).filter(k => editing.measures.includes(k));
+                            await saveDefectType({ ...type, measures });
+                            setEditing(null);
+                          })
+                        }
+                        className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-40 rounded-lg"
+                      >
+                        {t('Guardar medida')}
+                      </button>
+                    </div>
+                  </div>
                 )}
-                <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={!!type.hidden}
-                    onChange={e => run(type.name, () => saveDefectType({ ...type, hidden: e.target.checked }))}
-                    className="w-4 h-4 accent-blue-700"
-                  />
-                  {t('Oculto')}
-                </label>
               </li>
             );
           })}
