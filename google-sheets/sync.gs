@@ -203,6 +203,7 @@ function patchRows_(items) {
   const rowOf = {};
   ids.forEach((id, i) => id && (rowOf[id] = i + 2));
   if (items.some(item => !rowOf[item.id])) return false;
+  const formulaCols = formulaColumns_(sheet, headers);
   items.forEach(item => {
     const row = rowOf[item.id];
     const current = sheet.getRange(row, 1, 1, headers.length).getValues()[0];
@@ -213,7 +214,7 @@ function patchRows_(items) {
       const v = columnValue_(h, item, slots);
       return v === undefined || v === null ? '' : v;
     });
-    sheet.getRange(row, 1, 1, headers.length).setValues([values]);
+    setValuesSkipping_(sheet, row, [values], formulaCols);
   });
   formatDateTimeColumns_(sheet, headers, n);
   return true;
@@ -379,6 +380,40 @@ function writtenByWeb_(h) {
   return h === ID_HEADER || !!COMPUTED[h] || (sentToWeb_(h) && SHEET_ONLY_HEADERS.indexOf(h) < 0);
 }
 
+// The sheet's own columns that hold formulas (in the header cell, e.g. an ARRAYFORMULA, or in
+// the rows): the script never writes them, so the formulas stay. Columns the web fills (and
+// the last "No") are always written.
+function formulaColumns_(sheet, headers) {
+  const numberIdx = headers.lastIndexOf(NUMBER_HEADER);
+  const formulas = sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 1), headers.length).getFormulas();
+  const cols = {};
+  headers.forEach((h, c) => {
+    if (c === numberIdx || writtenByWeb_(h)) return;
+    if (formulas.some(r => r[c])) cols[c] = true;
+  });
+  return cols;
+}
+
+// The runs of columns between the ones in `skip`, as [first column index, how many].
+function columnRuns_(width, skip) {
+  const runs = [];
+  let start = 0;
+  for (let c = 0; c <= width; c++) {
+    if (c < width && !skip[c]) continue;
+    if (c > start) runs.push([start, c - start]);
+    start = c + 1;
+  }
+  return runs;
+}
+
+// setValues from `firstRow` down, leaving the `skip` columns untouched.
+function setValuesSkipping_(sheet, firstRow, values, skip) {
+  if (values.length === 0) return;
+  columnRuns_(values[0].length, skip).forEach(([start, count]) => {
+    sheet.getRange(firstRow, start + 1, values.length, count).setValues(values.map(r => r.slice(start, start + count)));
+  });
+}
+
 function writeRows_(items) {
   items = sortForSheet_(items, itemKey_);
   const sheet = getSheet_();
@@ -423,14 +458,19 @@ function writeRows_(items) {
   const all = values.concat(typing);
 
   const oldRows = Math.max(sheet.getLastRow() - 1, 0);
+  const formulaCols = formulaColumns_(sheet, headers);
   if (all.length > 0) {
-    sheet.getRange(2, 1, all.length, width).setValues(all);
+    setValuesSkipping_(sheet, 2, all, formulaCols);
     formatDateTimeColumns_(sheet, headers, all.length);
   }
   writeSnapshot_(items.map(i => i.id));
 
   // Clear what's left below (the web now has fewer defects).
-  if (oldRows > all.length) sheet.getRange(all.length + 2, 1, oldRows - all.length, width).clearContent();
+  if (oldRows > all.length) {
+    columnRuns_(width, formulaCols).forEach(([start, count]) => {
+      sheet.getRange(all.length + 2, start + 1, oldRows - all.length, count).clearContent();
+    });
+  }
 }
 
 /**
@@ -466,7 +506,7 @@ function sortSheetRows_() {
     });
 
     const changed = sorted.some((r, i) => r.some((v, c) => String(v) !== String(values[i][c])));
-    if (changed) range.setValues(sorted);
+    if (changed) setValuesSkipping_(sheet, 2, sorted, formulaColumns_(sheet, headers));
   } finally {
     lock.releaseLock();
   }
