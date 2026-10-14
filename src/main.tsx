@@ -4,6 +4,10 @@ import App from './App.tsx';
 import {I18nProvider} from './i18n';
 import './index.css';
 
+// Shown in the browser console: which build a device is running. Changing it publishes a new
+// version, which makes every open copy of the app offer (or do) a reload.
+console.info('Cronulla build 2026-10-14.2');
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
