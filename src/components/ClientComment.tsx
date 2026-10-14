@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { MessageCircle, Pencil, Check, X } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { DefectItem } from '../types/inspection';
+import { useCan } from '../lib/permissions';
 
 // The client's comment on a defect: shown to everyone; editable by roles with the
 // "Comentario del cliente" permission (`onSave` given). `dark` for the photo viewer.
+// Who wrote it (and when) is shown to administrators only.
 export const ClientComment: React.FC<{
   item: DefectItem;
   onSave?: (itemId: string, text: string) => void;
@@ -12,6 +14,7 @@ export const ClientComment: React.FC<{
   compact?: boolean;
 }> = ({ item, onSave, dark = false, compact = false }) => {
   const { t } = useI18n();
+  const showAuthor = useCan()('users.manage');
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.clientComment || '');
   useEffect(() => {
@@ -68,9 +71,11 @@ export const ClientComment: React.FC<{
       </button>
     );
 
+  // In the row card: a one-line chip, or the full box when there is an author to show.
+  const chip = compact && !(showAuthor && item.clientCommentBy);
   return (
-    <div className={`rounded-lg border text-xs ${box} ${compact ? 'inline-flex items-center gap-1.5 px-2.5 py-1 max-w-md' : 'p-2.5'}`}>
-      {compact ? (
+    <div className={`rounded-lg border text-xs ${box} ${chip ? 'inline-flex items-center gap-1.5 px-2.5 py-1 max-w-md' : compact ? 'px-2.5 py-1.5 max-w-md' : 'p-2.5'}`}>
+      {chip ? (
         <>
           <MessageCircle className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate font-medium" title={item.clientComment}>{item.clientComment}</span>
@@ -80,7 +85,7 @@ export const ClientComment: React.FC<{
           <span className={`flex items-center gap-1 text-[11px] font-semibold ${sub}`}>
             <MessageCircle className="w-3 h-3" />
             {t('Comentario del cliente')}
-            {item.clientCommentBy && (
+            {showAuthor && item.clientCommentBy && (
               <span className="font-normal opacity-80">
                 · {item.clientCommentBy} {item.clientCommentDate && `(${item.clientCommentDate})`}
               </span>
@@ -90,7 +95,7 @@ export const ClientComment: React.FC<{
         </>
       )}
       {onSave && (
-        <button onClick={() => setEditing(true)} title={t('Editar')} className={`shrink-0 p-0.5 rounded ${compact ? '' : 'float-end -mt-5'} ${dark ? 'hover:bg-white/10' : 'hover:bg-sky-100'}`}>
+        <button onClick={() => setEditing(true)} title={t('Editar')} className={`shrink-0 p-0.5 rounded ${chip ? '' : 'float-end -mt-5'} ${dark ? 'hover:bg-white/10' : 'hover:bg-sky-100'}`}>
           <Pencil className="w-3 h-3" />
         </button>
       )}

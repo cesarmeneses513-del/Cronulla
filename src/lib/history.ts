@@ -128,7 +128,15 @@ export function diffForHistory(before: DefectItem[], after: DefectItem[], label:
     FIELDS.forEach(({ key, label: field }) => {
       const from = fieldValue(old, key);
       const to = fieldValue(item, key);
-      if (from !== to) records.push({ ...base, action: 'edit', details: { key, field, from, to } });
+      if (from === to) return;
+      // A client comment that was deleted: its own entry, with who had written it.
+      if (key === 'clientComment' && !to.trim()) {
+        records.push({
+          ...base,
+          action: 'comment_remove',
+          details: { text: from, by: old.clientCommentBy || '', date: old.clientCommentDate || '' },
+        });
+      } else records.push({ ...base, action: 'edit', details: { key, field, from, to } });
     });
   });
 
@@ -169,7 +177,7 @@ export const HISTORY_KINDS: Record<string, string[]> = {
   newDefects: ['add', 'sheet_add'],
   newPhotos: ['photo_add'],
   edits: ['edit', 'sheet_edit', 'photo_phase', 'photo_move', 'photo_reorder'],
-  deleted: ['delete', 'photo_remove'],
+  deleted: ['delete', 'photo_remove', 'comment_remove'],
 };
 
 export interface HistoryFilter {
@@ -295,6 +303,10 @@ export function describeHistory(r: HistoryRecord, t: TFunction, currentNo?: (def
       return t('creó el defecto ({defect})', { defect: d.defect || '' });
     case 'delete':
       return t('eliminó el defecto ({defect})', { defect: d.defect || '' });
+    case 'comment_remove':
+      return d.by
+        ? t('borró el comentario del cliente de {by}: "{text}"', { by: d.date ? `${d.by} (${d.date})` : d.by, text: d.text || '' })
+        : t('borró el comentario del cliente: "{text}"', { text: d.text || '' });
     case 'undo':
       return t('deshizo: {label}', { label: d.label || '' });
     case 'bulk':

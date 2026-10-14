@@ -1142,7 +1142,7 @@ export default function App() {
           ),
         t('comentario del cliente')
       );
-      showToast(t('Comentario guardado'));
+      showToast(t(text ? 'Comentario guardado' : 'Comentario borrado'));
     },
     [account, updateItems, showToast, t]
   );

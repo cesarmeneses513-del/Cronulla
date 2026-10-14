@@ -7,7 +7,7 @@ create table if not exists public.defect_history (
   created_at  timestamptz not null default now(),
   user_name   text not null default '',
   action      text not null,          -- photo_add, photo_remove, photo_move, photo_phase, photo_reorder,
-                                      -- edit, add, delete, undo, bulk, sheet_add, sheet_edit
+                                      -- edit, comment_remove, add, delete, undo, bulk, sheet_add, sheet_edit
   defect_id   text,
   row_no      text,
   details     jsonb not null default '{}'::jsonb

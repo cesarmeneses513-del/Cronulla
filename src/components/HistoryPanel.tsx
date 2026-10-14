@@ -26,6 +26,7 @@ const ACTION_COLOR: Record<string, string> = {
   add: 'bg-emerald-500',
   sheet_add: 'bg-emerald-500',
   delete: 'bg-rose-600',
+  comment_remove: 'bg-rose-500',
   undo: 'bg-slate-500',
   bulk: 'bg-violet-500',
   sheet_edit: 'bg-teal-500',

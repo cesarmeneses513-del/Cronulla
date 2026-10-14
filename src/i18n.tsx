@@ -35,6 +35,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   "Añadir comentario del cliente": { en: "Add client comment", fa: "افزودن نظر مشتری" },
   "comentario del cliente": { en: "client comment", fa: "نظر مشتری" },
   "Comentario guardado": { en: "Comment saved", fa: "نظر ذخیره شد" },
+  "Comentario borrado": { en: "Comment deleted", fa: "نظر حذف شد" },
   "Guardar": { en: "Save", fa: "ذخیره" },
   'Borrar tipo': { en: 'Delete', fa: 'حذف' },
   'Medida': { en: 'Unit', fa: 'واحد' },
@@ -554,6 +555,8 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'cambió {field}: "{from}" → "{to}"': { en: 'changed {field}: "{from}" → "{to}"', fa: '{field} را تغییر داد: «{from}» ← «{to}»' },
   'creó el defecto ({defect})': { en: 'created the defect ({defect})', fa: 'نقص را ایجاد کرد ({defect})' },
   'eliminó el defecto ({defect})': { en: 'deleted the defect ({defect})', fa: 'نقص را حذف کرد ({defect})' },
+  'borró el comentario del cliente de {by}: "{text}"': { en: 'deleted the client comment by {by}: "{text}"', fa: 'نظر مشتری از {by} را حذف کرد: «{text}»' },
+  'borró el comentario del cliente: "{text}"': { en: 'deleted the client comment: "{text}"', fa: 'نظر مشتری را حذف کرد: «{text}»' },
   'deshizo: {label}': { en: 'undid: {label}', fa: 'برگرداند: {label}' },
   '{label}: {added} nuevos, {removed} eliminados, {changed} modificados': {
     en: '{label}: {added} new, {removed} deleted, {changed} changed',
