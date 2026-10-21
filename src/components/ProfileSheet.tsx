@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, CheckCircle2, ChevronRight, Globe, Hammer, LogOut, Mail, Play, X } from 'lucide-react';
+import { Briefcase, CheckCircle2, ChevronRight, Hammer, LogOut, Mail, Play, X } from 'lucide-react';
 import { DefectItem, WorkStep, WORK_FIELD } from '../types/inspection';
-import { LANGUAGES, useI18n } from '../i18n';
+import { useI18n } from '../i18n';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface ProfileSheetProps {
   name: string;
@@ -38,7 +39,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
   onLogout,
   onShowMyWork,
 }) => {
-  const { t, lang, setLang } = useI18n();
+  const { t } = useI18n();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -69,10 +70,14 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-slate-900 tracking-tight truncate">{name || roleLabel}</h2>
-              <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${levelBadgeClass(readOnly)}`}>
-                {roleLabel.toUpperCase()}
-                {viaPin && ' · PIN'}
-              </span>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${levelBadgeClass(readOnly)}`}>
+                  {roleLabel.toUpperCase()}
+                  {viaPin && ' · PIN'}
+                </span>
+                {/* Language: small, next to the level */}
+                <LanguageSwitcher className="!px-2 !py-0.5 !text-[10px] !rounded-full border border-slate-200" />
+              </div>
             </div>
           </div>
           <button
@@ -128,28 +133,6 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
             ))}
           </div>
         )}
-
-        {/* Language of the app (also on the sign-in screen) */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-            <Globe className="w-3.5 h-3.5" />
-            {t('Idioma')}
-          </div>
-          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
-            {LANGUAGES.map(l => (
-              <button
-                key={l.code}
-                type="button"
-                onClick={() => setLang(l.code)}
-                className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  lang === l.code ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <button
           type="button"
