@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { RefreshCw, Download, Upload, ListOrdered, Users, Plus, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
 import { DefectItem, WorkStep } from '../types/inspection';
 import { useI18n } from '../i18n';
-import { LanguageSwitcher } from './LanguageSwitcher';
 import { ProfileSheet, levelBadgeClass, initialsOf } from './ProfileSheet';
 
 // The "Cronulla vs Code" spreadsheet kept in sync with the web (google-sheets/sync.gs).
@@ -87,6 +86,9 @@ export const Header: React.FC<HeaderProps> = ({
       document.removeEventListener('touchstart', onDown);
     };
   }, [dataOpen]);
+  // History, Undo and Data: the same size; on phones they share the row equally.
+  const iconButton =
+    'inline-flex items-center justify-center gap-1.5 h-9 px-3 flex-1 sm:flex-none text-xs font-medium text-slate-700 rounded-lg transition-colors whitespace-nowrap';
   const menuItem =
     'w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 rounded-md hover:bg-slate-100 text-start whitespace-nowrap';
   const completedCount = items.filter(i => i.status === 'COMPLETED').length;
@@ -185,13 +187,12 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Primary Actions */}
         <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto sm:flex-wrap">
-          <LanguageSwitcher />
 
           {onOpenHistoryAllowed && (
           <button
             onClick={onOpenHistory}
             title={t('Historial de cambios')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
+            className={`${iconButton} bg-slate-100 hover:bg-slate-200`}
           >
             <History className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('Historial')}</span>
@@ -203,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onUndo}
             disabled={!undoLabel}
             title={undoLabel ? t('Deshacer: {label} (Ctrl/Cmd + Z)', { label: undoLabel }) : t('Nada que deshacer')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100 disabled:cursor-not-allowed rounded-lg transition-colors whitespace-nowrap"
+            className={`${iconButton} bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100 disabled:cursor-not-allowed`}
           >
             <Undo2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('Deshacer')}</span>
@@ -211,15 +212,15 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {(onOpenImportModal || onExportCsv || onRenumber || onOpenUsers || showSheetLink) && (
-          <div ref={dataRef} className="relative">
+          <div ref={dataRef} className="relative flex-1 sm:flex-none">
             <button
               onClick={() => setDataOpen(o => !o)}
               aria-expanded={dataOpen}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
+              className={`${iconButton} w-full bg-slate-100 hover:bg-slate-200`}
             >
               <Database className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t('Datos')}</span>
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dataOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`hidden sm:block w-3.5 h-3.5 transition-transform ${dataOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {dataOpen && (
@@ -274,7 +275,7 @@ export const Header: React.FC<HeaderProps> = ({
           {onNewDefect && (
           <button
             onClick={onNewDefect}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             <span>{t('Nuevo Defecto')}</span>

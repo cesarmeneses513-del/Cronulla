@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, CheckCircle2, ChevronRight, Hammer, LogOut, Mail, Play, X } from 'lucide-react';
+import { Briefcase, CheckCircle2, ChevronRight, Globe, Hammer, LogOut, Mail, Play, X } from 'lucide-react';
 import { DefectItem, WorkStep, WORK_FIELD } from '../types/inspection';
-import { useI18n } from '../i18n';
+import { LANGUAGES, useI18n } from '../i18n';
 
 interface ProfileSheetProps {
   name: string;
@@ -38,7 +38,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
   onLogout,
   onShowMyWork,
 }) => {
-  const { t } = useI18n();
+  const { t, lang, setLang } = useI18n();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -128,6 +128,28 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
             ))}
           </div>
         )}
+
+        {/* Language of the app (also on the sign-in screen) */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <Globe className="w-3.5 h-3.5" />
+            {t('Idioma')}
+          </div>
+          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
+            {LANGUAGES.map(l => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={() => setLang(l.code)}
+                className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  lang === l.code ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <button
           type="button"

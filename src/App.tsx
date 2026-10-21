@@ -16,6 +16,7 @@ import { sortPhotosByPhase } from './lib/photoOrder';
 import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
 import { usePullToRefresh, PULL_TRIGGER } from './lib/usePullToRefresh';
+import { WhatsNew } from './components/WhatsNew';
 import {
   supabase,
   fetchDefectsFull,
@@ -1513,6 +1514,9 @@ export default function App() {
     <PermissionsContext.Provider value={can}>
     <DefectTypesContext.Provider value={defectTypesValue}>
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
+      {/* What changed in the last update: once per device, for the team (not clients) */}
+      {!readOnly && <WhatsNew isAdmin={effectiveRole === 'admin'} />}
+
       {/* Pull to refresh (phones): follows the finger, spins while reloading */}
       {(pull > 0 || reloading) && (
         <div

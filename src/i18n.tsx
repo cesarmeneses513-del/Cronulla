@@ -187,6 +187,32 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Cambiar de modo': { en: 'Switch mode', fa: 'تغییر حالت' },
   'Salir': { en: 'Exit', fa: 'خروج' },
   'Ver': { en: 'View', fa: 'دیدن' },
+  'Novedades de la app': { en: "What's new in the app", fa: 'تازه‌های برنامه' },
+  'Esto cambió en la última actualización': { en: 'This changed in the latest update', fa: 'این موارد در آخرین به‌روزرسانی تغییر کرد' },
+  'Nuevo perfil: toca tus iniciales arriba a la derecha para ver tus datos y cerrar sesión.': {
+    en: 'New profile: tap your initials at the top right to see your details and sign out.',
+    fa: 'پروفایل جدید: برای دیدن اطلاعات خود و خروج، روی حروف اول نام خود در بالا سمت راست بزنید.',
+  },
+  'En el perfil verás cuántos defectos iniciaste, pasaste a During y completaste. Tócalos para ver solo esos defectos.': {
+    en: 'Your profile shows how many defects you started, moved to During and completed. Tap a number to see only those defects.',
+    fa: 'در پروفایل می‌بینید چند نقص را شروع کرده‌اید، به During برده‌اید و تکمیل کرده‌اید. روی هر عدد بزنید تا فقط همان نقص‌ها را ببینید.',
+  },
+  'El idioma ahora se cambia dentro del perfil.': { en: 'The language is now changed inside the profile.', fa: 'زبان حالا از داخل پروفایل تغییر می‌کند.' },
+  'En el teléfono, desliza la lista hacia abajo desde arriba para actualizar los datos.': {
+    en: 'On your phone, pull the list down from the top to refresh the data.',
+    fa: 'در تلفن، فهرست را از بالا به پایین بکشید تا داده‌ها به‌روز شوند.',
+  },
+  '¿Olvidaste tu contraseña? Ahora puedes restablecerla desde la pantalla de entrada.': {
+    en: 'Forgot your password? You can now reset it from the sign-in screen.',
+    fa: 'رمز را فراموش کرده‌اید؟ حالا می‌توانید آن را از صفحه ورود بازنشانی کنید.',
+  },
+  'Cerrar sesión funciona con un solo toque.': { en: 'Signing out now takes a single tap.', fa: 'خروج از حساب حالا با یک بار زدن انجام می‌شود.' },
+  'El cargo "Inspector" ahora se llama "Technician".': { en: 'The job title "Inspector" is now called "Technician".', fa: 'عنوان شغلی «Inspector» حالا «Technician» نام دارد.' },
+  'Si cambias la fase de una foto, el defecto conserva el nombre de quien la subió.': {
+    en: 'If you change the phase of a photo, the defect keeps the name of whoever uploaded it.',
+    fa: 'اگر مرحله یک عکس را تغییر دهید، نقص نام کسی را که آن را بارگذاری کرده نگه می‌دارد.',
+  },
+  'Entendido': { en: 'Got it', fa: 'متوجه شدم' },
   'Mi perfil': { en: 'My profile', fa: 'پروفایل من' },
   'Cerrar sesión': { en: 'Sign out', fa: 'خروج از حساب' },
   'Iniciados por mí': { en: 'Started by me', fa: 'شروع‌شده توسط من' },
