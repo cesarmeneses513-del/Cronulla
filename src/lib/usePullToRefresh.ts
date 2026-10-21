@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 // How far (px) the finger must pull the page down from the top to refresh, and the most it moves.
 const TRIGGER = 70;
 const MAX = 100;
+// Movement (px) before deciding whether the finger is pulling down, scrolling or swiping sideways.
+const SLOP = 10;
 
 // Inside an open dialog, sheet or photo viewer (they are position: fixed): the pull belongs to it.
 const insideFixed = (el: EventTarget | null) => {
@@ -29,7 +31,7 @@ export function usePullToRefresh(onRefresh: () => void, enabled: boolean): numbe
     };
     const onStart = (e: TouchEvent) => {
       start.current =
-        e.touches.length === 1 && window.scrollY <= 0 && !insideFixed(e.target)
+        e.touches.length === 1 && window.scrollY <= 1 && !insideFixed(e.target)
           ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
           : null;
     };
@@ -37,15 +39,18 @@ export function usePullToRefresh(onRefresh: () => void, enabled: boolean): numbe
       if (!start.current) return;
       const dy = e.touches[0].clientY - start.current.y;
       const dx = Math.abs(e.touches[0].clientX - start.current.x);
-      // Scrolling up, or sideways (photo rows): not a pull.
-      if (dy <= 0 || (pullRef.current === 0 && dx > dy)) {
-        start.current = null;
-        if (pullRef.current) set(0);
-        return;
+      if (pullRef.current === 0) {
+        // A real finger wobbles at first: decide only once it has moved a little.
+        if (Math.max(Math.abs(dy), dx) < SLOP) return;
+        // Scrolling up, or sideways (photo rows): not a pull.
+        if (dy <= 0 || dx > dy || window.scrollY > 1) {
+          start.current = null;
+          return;
+        }
       }
-      if (window.scrollY > 0) return;
       e.preventDefault(); // the page itself doesn't bounce while pulling
-      set(Math.min(dy * 0.5, MAX));
+      // Pulled back up: the indicator follows (letting go there doesn't refresh).
+      set(Math.max(0, Math.min((dy - SLOP) * 0.5, MAX)));
     };
     const onEnd = () => {
       if (start.current && pullRef.current >= TRIGGER) refreshRef.current();
