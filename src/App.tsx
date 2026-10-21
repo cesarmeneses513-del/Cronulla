@@ -5,7 +5,7 @@ import { DefectRowCard } from './components/DefectRowCard';
 import { RoleSelectScreen, AppRole, AccessLevel, getStoredUserName, storeUserName } from './components/RoleSelectScreen';
 import { Profile, isUsable, roleOf, fetchMyProfile, signOut } from './lib/auth';
 import { joinPresence } from './lib/presence';
-import { Permission, PermissionsContext, RoleKey, ROLES, defaultTable, fetchPermissionTable } from './lib/permissions';
+import { Permission, PermissionsContext, RoleKey, ROLES, defaultTable, fetchPermissionTable, jobTitleOf } from './lib/permissions';
 import { DEFECT_TYPES, DefectTypesContext, fetchDefectTypes } from './lib/defectTypes';
 import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
@@ -288,8 +288,10 @@ export default function App() {
     } catch {}
   }, []);
 
-  const handleLogout = useCallback(() => {
-    if (account) signOut();
+  // The sign out must finish first: the sign-in screen enters straight back in while the
+  // session is still there (it took two taps to leave).
+  const handleLogout = useCallback(async () => {
+    if (account) await signOut().catch(e => console.warn('Sign out failed', e));
     handleSelectRole(null);
   }, [account, handleSelectRole]);
 
@@ -1564,7 +1566,7 @@ export default function App() {
         onOpenUsers={canOpenUsers ? () => setIsUsersOpen(true) : undefined}
         userName={account?.name || getStoredUserName()}
         userEmail={account?.email}
-        jobTitle={account?.job_title}
+        jobTitle={jobTitleOf(account?.job_title) || undefined}
         viaPin={!readOnly && !account && (() => {
           try {
             return sessionStorage.getItem(AUTH_KEY) !== 'account';

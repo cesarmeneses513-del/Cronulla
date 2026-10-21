@@ -30,7 +30,10 @@ export const ROLES: { role: RoleKey; label: string }[] = [
   { role: 'client', label: 'Cliente' },
 ];
 
-export const JOB_TITLES = ['Inspector', 'Senior Inspector', 'Team Leader', 'Tradesperson', 'Supervisor', 'Manager'];
+export const JOB_TITLES = ['Technician', 'Senior Inspector', 'Team Leader', 'Tradesperson', 'Supervisor', 'Manager'];
+// "Inspector" became "Technician": accounts and invitations saved before show the new name
+// (supabase/job-title-technician.sql renames them in the database).
+export const jobTitleOf = (title?: string | null) => (title === 'Inspector' ? 'Technician' : title || '');
 
 // Labels are Spanish source text, translated where shown.
 export const PERMISSIONS: { key: Permission; label: string }[] = [

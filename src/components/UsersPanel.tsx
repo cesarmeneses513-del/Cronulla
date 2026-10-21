@@ -16,6 +16,7 @@ import {
 } from '../lib/auth';
 import {
   JOB_TITLES,
+  jobTitleOf,
   PERMISSIONS,
   PermissionTable,
   ROLES,
@@ -145,7 +146,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
           <div className="flex items-center gap-2">
             {tab === 'users' && canInvite && (
               <button
-                onClick={() => setInviting({ email: '', name: '', role: 'technician', job_title: 'Inspector' })}
+                onClick={() => setInviting({ email: '', name: '', role: 'technician', job_title: 'Technician' })}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg"
               >
                 <UserPlus className="w-4 h-4" />
@@ -233,7 +234,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                           ))}
                         </select>
                         <select
-                          value={p.job_title || ''}
+                          value={jobTitleOf(p.job_title)}
                           disabled={busy === p.id || !canManage}
                           onChange={e => change(p, { job_title: e.target.value })}
                           className={select}
@@ -303,7 +304,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                           </option>
                         ))}
                       </select>
-                      <select value={inv.job_title} disabled={busy === inv.email || !canManage} onChange={e => changeInvitation(inv, { job_title: e.target.value })} className={select}>
+                      <select value={jobTitleOf(inv.job_title)} disabled={busy === inv.email || !canManage} onChange={e => changeInvitation(inv, { job_title: e.target.value })} className={select}>
                         <option value="">—</option>
                         {JOB_TITLES.map(j => (
                           <option key={j} value={j}>

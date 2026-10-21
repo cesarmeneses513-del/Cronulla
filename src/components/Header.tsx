@@ -91,14 +91,37 @@ export const Header: React.FC<HeaderProps> = ({
   const beforeCount = items.filter(i => i.status === 'BEFORE').length;
   const percentCompleted = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
 
+  // Profile button: opens the profile sheet, which holds sign out. On phones it sits next to the
+  // title, so the actions fit in one row below; from tablets up, at the end of the actions.
+  const profileButton = (className: string) => (
+    <button
+      type="button"
+      onClick={() => setShowProfile(true)}
+      title={t('Mi perfil')}
+      aria-label={t('Mi perfil')}
+      className={`items-center gap-2 p-1 pe-2 rounded-xl hover:bg-slate-100 transition-colors text-start shrink-0 ${className}`}
+    >
+      <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs">
+        {initialsOf(userName || levelLabel)}
+      </div>
+      <div className="hidden lg:block text-start">
+        <div className="text-xs font-semibold text-slate-900 leading-tight whitespace-nowrap max-w-[10rem] truncate">{userName || levelLabel}</div>
+        <span className={`inline-block text-[10px] font-semibold px-1.5 rounded border ${levelBadgeClass(readOnly)}`}>
+          {levelLabel.toUpperCase()}
+          {viaPin && ' · PIN'}
+        </span>
+      </div>
+    </button>
+  );
+
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-xs">
       {/* Top Bar Contract: Brand - Info/Stats - Actions */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         {/* Zone 1: Wordmark Brand Title */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
           <img src="/cpr-logo-circle.png" alt="CPR" className="w-11 h-11 shrink-0" />
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
               Cronulla Inspection Gallery
             </h1>
@@ -106,6 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
               {t('Control de Defectos & Galería Fotográfica')}
             </p>
           </div>
+          {profileButton('flex sm:hidden -me-2')}
         </div>
 
         {/* Zone 2: Progress & Counts — own line below brand + actions so the header never overflows */}
@@ -157,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Zone 3: Primary Actions */}
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto sm:flex-wrap">
           <LanguageSwitcher />
 
           {onOpenHistoryAllowed && (
@@ -254,25 +278,8 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           )}
 
-          {/* Profile button: opens the profile sheet, which holds sign out */}
-          <button
-            type="button"
-            onClick={() => setShowProfile(true)}
-            title={t('Mi perfil')}
-            aria-label={t('Mi perfil')}
-            className="flex items-center gap-2 p-1 pe-2 rounded-xl hover:bg-slate-100 transition-colors text-start"
-          >
-            <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs">
-              {initialsOf(userName || levelLabel)}
-            </div>
-            <div className="hidden lg:block text-start">
-              <div className="text-xs font-semibold text-slate-900 leading-tight whitespace-nowrap max-w-[10rem] truncate">{userName || levelLabel}</div>
-              <span className={`inline-block text-[10px] font-semibold px-1.5 rounded border ${levelBadgeClass(readOnly)}`}>
-                {levelLabel.toUpperCase()}
-                {viaPin && ' · PIN'}
-              </span>
-            </div>
-          </button>
+          {profileButton('hidden sm:flex')}
+
         </div>
       </div>
       {showProfile && (
