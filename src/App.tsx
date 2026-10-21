@@ -15,6 +15,7 @@ import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, 
 import { sortPhotosByPhase } from './lib/photoOrder';
 import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
+import { usePullToRefresh, PULL_TRIGGER } from './lib/usePullToRefresh';
 import {
   supabase,
   fetchDefectsFull,
@@ -1411,6 +1412,12 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [newVersion]);
 
+  // Phones: pull the list down from the top to reload the data (or load the new version, if there is one).
+  const pull = usePullToRefresh(
+    () => (newVersion && safeToReloadRef.current ? window.location.reload() : handleReload()),
+    !!role && !!supabase && !isEditModalOpen && !isImportModalOpen && !lightboxItem && !isHistoryOpen && !isUsersOpen && !isExportOpen
+  );
+
   if (!role) {
     return <RoleSelectScreen onSelect={handleSelectRole} />;
   }
@@ -1485,6 +1492,19 @@ export default function App() {
     <PermissionsContext.Provider value={can}>
     <DefectTypesContext.Provider value={defectTypesValue}>
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased overflow-x-clip">
+      {/* Pull to refresh (phones): follows the finger, spins while reloading */}
+      {(pull > 0 || reloading) && (
+        <div
+          className="fixed top-2 left-1/2 -translate-x-1/2 z-[60] w-10 h-10 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center pointer-events-none"
+          style={{ transform: `translate(-50%, ${reloading ? 24 : pull * 0.6}px)`, opacity: reloading ? 1 : Math.min(pull / PULL_TRIGGER, 1) }}
+        >
+          <RefreshCw
+            className={`w-5 h-5 ${pull >= PULL_TRIGGER || reloading ? 'text-slate-900' : 'text-slate-400'} ${reloading ? 'animate-spin' : ''}`}
+            style={reloading ? undefined : { transform: `rotate(${pull * 3}deg)` }}
+          />
+        </div>
+      )}
+
       {/* A newer version was published: offer to load it */}
       {newVersion && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] sm:w-auto flex items-center justify-center gap-3 bg-sky-600 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-2xl">

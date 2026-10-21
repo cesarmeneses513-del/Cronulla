@@ -16,8 +16,10 @@
   }
 }
 
-/* No horizontal page scroll on phones. */
+/* No horizontal page scroll on phones. The browser's own pull-down (reload or bounce) is off:
+   the app has its own pull to refresh. */
 html,
 body {
   overflow-x: clip;
+  overscroll-behavior-y: none;
 }
