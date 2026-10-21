@@ -120,6 +120,17 @@ const currentStamp = (): Stamp | null => {
   };
 };
 
+// Administrators only sort photos out (move them, change their phase): the photo keeps the name
+// and time of whoever took it, instead of taking the administrator's. Set from the signed-in role.
+const stampPolicy = { keepUploader: false };
+
+// Who a defect records for a phase (its technician/date/time fields), or null when nobody.
+const phaseStampOf = (item: DefectItem | undefined, phase: PhotoPhase): Stamp | null => {
+  if (!item) return null;
+  const [tech, date, time] = PHASE_STAMP_FIELDS[phase];
+  return item[tech] ? { by: item[tech] || '', date: item[date] || '', time: item[time] || '' } : null;
+};
+
 const setPhaseStamp = (item: DefectItem, phase: PhotoPhase, s: Stamp): DefectItem => {
   const [tech, date, time] = PHASE_STAMP_FIELDS[phase];
   return { ...item, [tech]: s.by, [date]: s.date, [time]: s.time };
@@ -146,6 +157,7 @@ const withPhotoStamp = <T extends DefectPhoto | string>(photo: T, source: Defect
  * Keeps each phase's technician/date/time in line with the photos, after any photo change:
  * - a photo added (or put into another phase) now stamps the editor and the current time;
  * - a photo moved in from another defect stamps whoever put it in that phase, and when;
+ * - administrators changing a photo's phase keep whoever took it (stampPolicy), not themselves;
  * - when the last photo of a phase is deleted or moved away, that phase's fields are emptied;
  * - the status follows the photos: After → COMPLETED, else During → IN PROGRESS, else BEFORE.
  * Reordering, and photos that didn't change, leave the fields and the status as they are.
@@ -165,8 +177,13 @@ const reconcilePhotoStamps = (before: DefectItem | undefined, after: DefectItem)
     const was = oldPhase.get(urlOf(p));
     if (was === phase) return;
     changed = true;
-    const carried = was === undefined && typeof p === 'object' && p.by ? { by: p.by, date: p.date || '', time: p.time || '' } : null;
-    const s = carried || now;
+    const own = typeof p === 'object' && p.by ? { by: p.by, date: p.date || '', time: p.time || '' } : null;
+    const carried = was === undefined ? own : null;
+    // An administrator re-sorting a photo already here: its own stamp, or (older photos) the one
+    // the defect has for the phase it was in. Never the administrator's name.
+    const resorting = was !== undefined && stampPolicy.keepUploader;
+    const kept = resorting ? own || phaseStampOf(before, was) : null;
+    const s = carried || kept || (resorting ? null : now);
     if (!s) return;
     next = setPhaseStamp(next, phase, s);
     if (!carried) {
@@ -269,6 +286,7 @@ export default function App() {
   useEffect(reloadDefectTypes, [reloadDefectTypes]);
   const defectTypesValue = useMemo(() => ({ types: defectTypes, reload: reloadDefectTypes }), [defectTypes, reloadDefectTypes]);
   const isAccountAdmin = !!account && can('users.manage');
+  stampPolicy.keepUploader = effectiveRole === 'admin';
   // Data → Users: managing accounts, or just sending invitations.
   const canOpenUsers = !!account && (can('users.manage') || can('users.invite') || can('team.view'));
   // Signed in: shows as connected to the people who can see the team.
