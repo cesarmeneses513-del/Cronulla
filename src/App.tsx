@@ -1563,6 +1563,8 @@ export default function App() {
         onLogout={handleLogout}
         onOpenUsers={canOpenUsers ? () => setIsUsersOpen(true) : undefined}
         userName={account?.name || getStoredUserName()}
+        userEmail={account?.email}
+        jobTitle={account?.job_title}
         viaPin={!readOnly && !account && (() => {
           try {
             return sessionStorage.getItem(AUTH_KEY) !== 'account';

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { RefreshCw, Download, Upload, ListOrdered, Users, Plus, LogOut, Eye, PencilLine, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
+import { RefreshCw, Download, Upload, ListOrdered, Users, Plus, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
 import { DefectItem } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ProfileSheet, levelBadgeClass, initialsOf } from './ProfileSheet';
 
 // The "Cronulla vs Code" spreadsheet kept in sync with the web (google-sheets/sync.gs).
 const CVC_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1T46fR5QS6E6vcc568Tc0JjjiIzc6kLebtvtsL2wam9s/edit';
@@ -27,6 +28,9 @@ interface HeaderProps {
   // Who is signed in, shown above their level; `viaPin` while they still use the temporary PIN.
   userName?: string;
   viaPin?: boolean;
+  // Signed in with an account: shown in the profile.
+  userEmail?: string;
+  jobTitle?: string;
   readOnly: boolean;
   isAdmin?: boolean;
   onLogout: () => void;
@@ -51,6 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenUsers,
   userName,
   viaPin = false,
+  userEmail,
+  jobTitle,
   readOnly,
   isAdmin = false,
   onLogout,
@@ -61,6 +67,8 @@ export const Header: React.FC<HeaderProps> = ({
   reloading = false,
 }) => {
   const { t } = useI18n();
+  const [showProfile, setShowProfile] = useState(false);
+  const levelLabel = roleLabel ? t(roleLabel) : readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor');
   // Import CSV, Cronulla vs Code and Export CSV share one dropdown.
   const [dataOpen, setDataOpen] = useState(false);
   const dataRef = useRef<HTMLDivElement>(null);
@@ -150,24 +158,6 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Primary Actions */}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {/* Level, with the signed-in person's name inside (· PIN while using the temporary PIN) */}
-          <span
-            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold border ${
-              readOnly ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-800 border-amber-200'
-            } ${!readOnly && userName ? '' : 'hidden sm:inline-flex'}`}
-          >
-            {readOnly ? <Eye className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
-            <span className="flex flex-col leading-tight">
-              <span>{roleLabel ? t(roleLabel) : readOnly ? t('Cliente') : isAdmin ? t('Administrador') : t('Editor')}</span>
-              {!readOnly && userName && (
-                <span className="max-w-[9rem] truncate text-[9px] font-medium text-amber-700/80" title={userName}>
-                  {userName}
-                  {viaPin && ' · PIN'}
-                </span>
-              )}
-            </span>
-          </span>
-
           <LanguageSwitcher />
 
           {onOpenHistoryAllowed && (
@@ -264,16 +254,40 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           )}
 
+          {/* Profile button: opens the profile sheet, which holds sign out */}
           <button
-            onClick={onLogout}
-            title={t('Cambiar de modo')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
+            type="button"
+            onClick={() => setShowProfile(true)}
+            title={t('Mi perfil')}
+            aria-label={t('Mi perfil')}
+            className="flex items-center gap-2 p-1 pe-2 rounded-xl hover:bg-slate-100 transition-colors text-start"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t('Salir')}</span>
+            <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs">
+              {initialsOf(userName || levelLabel)}
+            </div>
+            <div className="hidden lg:block text-start">
+              <div className="text-xs font-semibold text-slate-900 leading-tight whitespace-nowrap max-w-[10rem] truncate">{userName || levelLabel}</div>
+              <span className={`inline-block text-[10px] font-semibold px-1.5 rounded border ${levelBadgeClass(readOnly)}`}>
+                {levelLabel.toUpperCase()}
+                {viaPin && ' · PIN'}
+              </span>
+            </div>
           </button>
         </div>
       </div>
+      {showProfile && (
+        <ProfileSheet
+          name={userName || ''}
+          roleLabel={levelLabel}
+          email={userEmail}
+          jobTitle={jobTitle}
+          viaPin={viaPin}
+          readOnly={readOnly}
+          items={items}
+          onClose={() => setShowProfile(false)}
+          onLogout={onLogout}
+        />
+      )}
     </header>
   );
 };
