@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, CheckCircle2, LogOut, Mail, Play, X } from 'lucide-react';
-import { DefectItem } from '../types/inspection';
+import { Briefcase, CheckCircle2, ChevronRight, Hammer, LogOut, Mail, Play, X } from 'lucide-react';
+import { DefectItem, WorkStep, WORK_FIELD } from '../types/inspection';
 import { useI18n } from '../i18n';
 
 interface ProfileSheetProps {
@@ -15,6 +15,8 @@ interface ProfileSheetProps {
   items: DefectItem[];
   onClose: () => void;
   onLogout: () => void;
+  // Tapping a counter lists those defects.
+  onShowMyWork?: (step: WorkStep) => void;
 }
 
 // Badge colours by level: clients see, the rest edit (same as the header badge used to be).
@@ -34,6 +36,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
   items,
   onClose,
   onLogout,
+  onShowMyWork,
 }) => {
   const { t } = useI18n();
   useEffect(() => {
@@ -42,8 +45,12 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const started = name ? items.filter(i => i.technicianStart === name).length : 0;
-  const completed = name ? items.filter(i => i.technicianCompleted === name).length : 0;
+  const countOf = (step: WorkStep) => (name ? items.filter(i => i[WORK_FIELD[step]] === name).length : 0);
+  const tiles: { step: WorkStep; label: string; Icon: typeof Play; box: string; head: string; value: string }[] = [
+    { step: 'start', label: 'Iniciados por mí', Icon: Play, box: 'border-slate-200 bg-slate-50 hover:bg-slate-100', head: 'text-slate-500', value: 'text-slate-900' },
+    { step: 'during', label: 'En progreso por mí', Icon: Hammer, box: 'border-amber-200 bg-amber-50 hover:bg-amber-100', head: 'text-amber-700', value: 'text-amber-950' },
+    { step: 'completed', label: 'Completados por mí', Icon: CheckCircle2, box: 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100', head: 'text-emerald-700', value: 'text-emerald-950' },
+  ];
 
   // Portal: the sticky header would otherwise keep this fixed overlay inside it.
   return createPortal(
@@ -96,23 +103,29 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
         )}
 
         {!readOnly && name && (
-          <div className="grid grid-cols-2 gap-2">
-            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <Play className="w-3.5 h-3.5" />
-                {t('Iniciados por mí')}
-              </div>
-              <div className="mt-1 text-lg font-bold font-mono tabular-nums text-slate-900">{started}</div>
-              <div className="text-[11px] text-slate-500">{t('defectos')}</div>
-            </div>
-            <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {t('Completados por mí')}
-              </div>
-              <div className="mt-1 text-lg font-bold font-mono tabular-nums text-emerald-950">{completed}</div>
-              <div className="text-[11px] text-emerald-700">{t('defectos')}</div>
-            </div>
+          <div className="grid grid-cols-3 gap-2">
+            {tiles.map(({ step, label, Icon, box, head, value }) => (
+              <button
+                key={step}
+                type="button"
+                disabled={!onShowMyWork}
+                onClick={() => {
+                  onShowMyWork?.(step);
+                  onClose();
+                }}
+                className={`p-2.5 sm:p-3 rounded-xl border text-start transition-colors ${box}`}
+              >
+                <div className={`flex items-start gap-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide leading-tight ${head}`}>
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{t(label)}</span>
+                </div>
+                <div className={`mt-1 text-lg font-bold font-mono tabular-nums ${value}`}>{countOf(step)}</div>
+                <div className={`flex items-center gap-0.5 text-[11px] ${head}`}>
+                  {t('Ver')}
+                  <ChevronRight className="w-3 h-3 rtl:rotate-180" />
+                </div>
+              </button>
+            ))}
           </div>
         )}
 

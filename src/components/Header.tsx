@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RefreshCw, Download, Upload, ListOrdered, Users, Plus, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
-import { DefectItem } from '../types/inspection';
+import { DefectItem, WorkStep } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ProfileSheet, levelBadgeClass, initialsOf } from './ProfileSheet';
@@ -39,6 +39,8 @@ interface HeaderProps {
   onOpenHistory: () => void;
   onReload?: () => void;
   reloading?: boolean;
+  // Profile counters: show only the defects the person started, took to During, or completed.
+  onShowMyWork?: (step: WorkStep) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -65,6 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHistory,
   onReload,
   reloading = false,
+  onShowMyWork,
 }) => {
   const { t } = useI18n();
   const [showProfile, setShowProfile] = useState(false);
@@ -293,6 +296,7 @@ export const Header: React.FC<HeaderProps> = ({
           items={items}
           onClose={() => setShowProfile(false)}
           onLogout={onLogout}
+          onShowMyWork={onShowMyWork}
         />
       )}
     </header>

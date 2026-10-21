@@ -11,7 +11,7 @@ import { diffForHistory, logHistory } from './lib/history';
 import { useI18n, PHASE_LABEL } from './i18n';
 import { SortBar, SortState, sortDefects, parseStoredSort } from './components/SortBar';
 import { Pagination } from './components/Pagination';
-import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto } from './types/inspection';
+import { DefectItem, FilterState, DragPhotoPayload, DefectStatus, UrgencyLevel, PhotoPhase, DefectPhoto, WORK_FIELD, WorkStep } from './types/inspection';
 import { sortPhotosByPhase } from './lib/photoOrder';
 import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
@@ -775,6 +775,9 @@ export default function App() {
         return false;
       }
       if (f.clientCommentOnly && !item.clientComment?.trim()) {
+        return false;
+      }
+      if (f.myWork && item[WORK_FIELD[f.myWork.step]] !== f.myWork.person) {
         return false;
       }
 
@@ -1599,6 +1602,24 @@ export default function App() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         onReload={supabase ? handleReload : undefined}
         reloading={reloading}
+        onShowMyWork={(step: WorkStep) => {
+          // Only those defects: the other filters are cleared so the count matches the profile.
+          setFilters({
+            searchQuery: '',
+            orientations: [],
+            defects: [],
+            urgencies: [],
+            statuses: [],
+            drops: [],
+            levels: [],
+            technicians: [],
+            hasPhotosOnly: false,
+            noPhotosOnly: false,
+            clientCommentOnly: false,
+            myWork: { person: account?.name || getStoredUserName(), step },
+          });
+          window.scrollTo({ top: 0 });
+        }}
       />
 
       {/* Filter and View Mode Controller */}

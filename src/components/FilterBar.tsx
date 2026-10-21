@@ -39,7 +39,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     filters.technicians.length +
     (filters.hasPhotosOnly ? 1 : 0) +
     (filters.noPhotosOnly ? 1 : 0) +
-    (filters.clientCommentOnly ? 1 : 0);
+    (filters.clientCommentOnly ? 1 : 0) +
+    (filters.myWork ? 1 : 0);
 
   const clearAllFilters = () => {
     onFilterChange({
@@ -173,6 +174,24 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <div className="pt-3 border-t border-slate-100">
             <FilterPanel items={items} filters={filters} onFilterChange={onFilterChange} />
           </div>
+        )}
+
+        {/* From the profile: only this person's started / During / completed defects */}
+        {filters.myWork && (
+          <button
+            onClick={() => onFilterChange({ ...filters, myWork: null })}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-900 bg-slate-900 text-white text-xs font-medium"
+          >
+            {t(
+              filters.myWork.step === 'start'
+                ? 'Iniciados por {name}'
+                : filters.myWork.step === 'during'
+                ? 'En progreso por {name}'
+                : 'Completados por {name}',
+              { name: filters.myWork.person }
+            )}
+            <X className="w-3.5 h-3.5" />
+          </button>
         )}
 
         {/* Count Indicator */}

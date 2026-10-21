@@ -64,7 +64,22 @@ export interface FilterState {
   noPhotosOnly?: boolean;
   // Only defects the client has commented on.
   clientCommentOnly?: boolean;
+  // From the profile: the defects this person started, took to During, or completed.
+  myWork?: MyWork | null;
 }
+
+export type WorkStep = 'start' | 'during' | 'completed';
+export interface MyWork {
+  person: string;
+  step: WorkStep;
+}
+
+// The technician field each step is recorded in.
+export const WORK_FIELD: Record<WorkStep, 'technicianStart' | 'technicianDuring' | 'technicianCompleted'> = {
+  start: 'technicianStart',
+  during: 'technicianDuring',
+  completed: 'technicianCompleted',
+};
 
 export interface DragPhotoPayload {
   sourceItemId: string;
