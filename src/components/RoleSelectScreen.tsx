@@ -1,10 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { PencilLine, Eye, Lock, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { PencilLine, Eye, Lock, ArrowRight, ArrowLeft, Loader2, KeyRound } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { canonicalPerson } from '../lib/people';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { supabase } from '../lib/supabase';
-import { Profile, isUsable, roleOf, fetchMyProfile, signIn, signUp, signOut } from '../lib/auth';
+import {
+  Profile,
+  isUsable,
+  roleOf,
+  fetchMyProfile,
+  signIn,
+  signUp,
+  signOut,
+  requestPasswordReset,
+  setNewPassword,
+  openedFromRecoveryLink,
+  recoveryLinkFailed,
+} from '../lib/auth';
 
 export type AppRole = 'editor' | 'client';
 
@@ -33,15 +45,18 @@ interface RoleSelectScreenProps {
   onSelect: (role: AppRole, access?: AccessLevel, account?: Profile) => void;
 }
 
-type Step = 'choose' | 'signin' | 'signup';
+// forgot: asks for the email to send a reset link to; reset: opened from that link, choose a new password.
+type Step = 'choose' | 'signin' | 'signup' | 'forgot' | 'reset';
 
 export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) => {
-  const [step, setStep] = useState<Step>('choose');
+  const [step, setStep] = useState<Step>(openedFromRecoveryLink ? 'reset' : recoveryLinkFailed ? 'forgot' : 'choose');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ kind: 'error' | 'info'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ kind: 'error' | 'info'; text: string } | null>(() =>
+    recoveryLinkFailed ? { kind: 'error', text: '' } : null
+  );
   // Already signed in on this device: straight in.
   const [checking, setChecking] = useState(!!supabase);
   const [name, setName] = useState(getStoredUserName);
@@ -61,8 +76,28 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
     return false;
   };
 
+  // An expired reset link: say so (translated once `t` is available).
+  useEffect(() => {
+    if (recoveryLinkFailed) setMessage({ kind: 'error', text: t('El enlace ya no sirve (caducó o ya se usó). Pide otro.') });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Opened from the reset link: Supabase may report it a moment later.
   useEffect(() => {
     if (!supabase) return;
+    const { data } = supabase.auth.onAuthStateChange(event => {
+      if (event === 'PASSWORD_RECOVERY') setStep('reset');
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+    // From the reset link the person is signed in, but must first choose the new password.
+    if (openedFromRecoveryLink) {
+      setChecking(false);
+      return;
+    }
     fetchMyProfile()
       .then(profile => {
         if (profile && !enterWith(profile)) setStep('signin');
@@ -75,13 +110,21 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
   const submitAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    if (step === 'signup' && password !== password2) {
+    if ((step === 'signup' || step === 'reset') && password !== password2) {
       setMessage({ kind: 'error', text: t('Las contraseñas no coinciden.') });
       return;
     }
     setBusy(true);
     try {
-      if (step === 'signup') {
+      if (step === 'forgot') {
+        await requestPasswordReset(email);
+        setMessage({ kind: 'info', text: t('Te enviamos un correo a {email} con un enlace para crear una contraseña nueva.', { email: email.trim() }) });
+      } else if (step === 'reset') {
+        const profile = await setNewPassword(password);
+        // Clean the address so a reload doesn't show this step again.
+        window.history.replaceState(null, '', window.location.pathname);
+        if (!enterWith(profile)) setStep('signin');
+      } else if (step === 'signup') {
         const profile = await signUp(name, email, password);
         if (!profile) setMessage({ kind: 'info', text: t('Revisa tu correo y confirma la cuenta; después entra con tu correo y contraseña.') });
         else enterWith(profile);
@@ -94,6 +137,12 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
         kind: 'error',
         text: /invalid login/i.test(text)
           ? t('Correo o contraseña incorrectos.')
+          : /rate limit|security purposes/i.test(text)
+          ? t('Demasiados intentos. Espera unos minutos y vuelve a intentarlo.')
+          : /different from the old/i.test(text)
+          ? t('La contraseña nueva debe ser distinta de la anterior.')
+          : /session|jwt|expired/i.test(text) && step === 'reset'
+          ? t('El enlace ya no sirve (caducó o ya se usó). Pide otro.')
           : /already registered/i.test(text)
           ? t('Ya existe una cuenta con ese correo. Entra con tu contraseña.')
           : /password/i.test(text)
@@ -126,15 +175,30 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
           <div className="flex justify-center py-8 text-slate-400">
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
-        ) : step === 'signin' || step === 'signup' ? (
+        ) : step !== 'choose' ? (
           <form
             onSubmit={submitAccount}
             className="max-w-sm mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4"
           >
             <div className="flex items-center gap-2">
-              <PencilLine className="w-4 h-4 text-amber-700" />
-              <h2 className="text-sm font-bold text-slate-900">{step === 'signup' ? t('Crear cuenta') : t('Acceso Editor')}</h2>
+              {step === 'forgot' || step === 'reset' ? (
+                <KeyRound className="w-4 h-4 text-amber-700" />
+              ) : (
+                <PencilLine className="w-4 h-4 text-amber-700" />
+              )}
+              <h2 className="text-sm font-bold text-slate-900">
+                {step === 'signup'
+                  ? t('Crear cuenta')
+                  : step === 'forgot'
+                  ? t('Restablecer contraseña')
+                  : step === 'reset'
+                  ? t('Nueva contraseña')
+                  : t('Acceso Editor')}
+              </h2>
             </div>
+            {step === 'forgot' && (
+              <p className="text-xs text-slate-500">{t('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.')}</p>
+            )}
             {step === 'signup' && (
               <div className="space-y-1.5">
                 <label htmlFor="acc-name" className="text-xs font-semibold text-slate-700">{t('Nombre y apellido')}</label>
@@ -150,6 +214,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                 <p className="text-[11px] text-slate-400">{t('Aparece en el historial de cambios')}</p>
               </div>
             )}
+            {step !== 'reset' && (
             <div className="space-y-1.5">
               <label htmlFor="acc-email" className="text-xs font-semibold text-slate-700">{t('Correo')}</label>
               <input
@@ -162,12 +227,30 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-lg text-sm focus:outline-hidden focus:bg-white"
               />
             </div>
+            )}
+            {step !== 'forgot' && (
             <div className="space-y-1.5">
-              <label htmlFor="acc-password" className="text-xs font-semibold text-slate-700">{t('Contraseña')}</label>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="acc-password" className="text-xs font-semibold text-slate-700">
+                  {step === 'reset' ? t('Contraseña nueva') : t('Contraseña')}
+                </label>
+                {step === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('forgot');
+                      setMessage(null);
+                    }}
+                    className="text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:underline"
+                  >
+                    {t('¿Olvidaste tu contraseña?')}
+                  </button>
+                )}
+              </div>
               <input
                 id="acc-password"
                 type="password"
-                autoComplete={step === 'signup' ? 'new-password' : 'current-password'}
+                autoComplete={step === 'signin' ? 'current-password' : 'new-password'}
                 required
                 minLength={6}
                 value={password}
@@ -175,7 +258,8 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-lg text-sm focus:outline-hidden focus:bg-white"
               />
             </div>
-            {step === 'signup' && (
+            )}
+            {(step === 'signup' || step === 'reset') && (
               <div className="space-y-1.5">
                 <label htmlFor="acc-password2" className="text-xs font-semibold text-slate-700">{t('Repite la contraseña')}</label>
                 <input
@@ -199,13 +283,21 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 rounded-lg"
             >
               {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {step === 'signup' ? t('Crear cuenta') : t('Entrar')}
+              {step === 'signup'
+                ? t('Crear cuenta')
+                : step === 'forgot'
+                ? t('Enviar enlace')
+                : step === 'reset'
+                ? t('Guardar contraseña')
+                : t('Entrar')}
             </button>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => {
-                  setStep('choose');
+                  // From the reset steps, back to signing in.
+                  if (step === 'reset') window.history.replaceState(null, '', window.location.pathname);
+                  setStep(step === 'forgot' || step === 'reset' ? 'signin' : 'choose');
                   setMessage(null);
                   signOut();
                 }}
@@ -214,6 +306,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                 <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
                 {t('Volver')}
               </button>
+              {(step === 'signin' || step === 'signup') && (
               <button
                 type="button"
                 onClick={() => {
@@ -224,6 +317,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
               >
                 {step === 'signup' ? t('Ya tengo cuenta') : t('Crear cuenta nueva')}
               </button>
+              )}
             </div>
           </form>
         ) : (

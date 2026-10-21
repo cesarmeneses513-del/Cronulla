@@ -128,6 +128,32 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Las contraseñas no coinciden.': { en: 'The passwords do not match.', fa: 'رمزها یکسان نیستند.' },
   'Revisa tu correo y confirma la cuenta; después entra con tu correo y contraseña.': { en: 'Check your email and confirm the account; then sign in with your email and password.', fa: 'ایمیل خود را بررسی و حساب را تأیید کنید؛ سپس با ایمیل و رمز وارد شوید.' },
   'Correo o contraseña incorrectos.': { en: 'Wrong email or password.', fa: 'ایمیل یا رمز اشتباه است.' },
+  '¿Olvidaste tu contraseña?': { en: 'Forgot your password?', fa: 'رمز را فراموش کرده‌اید؟' },
+  'Restablecer contraseña': { en: 'Reset password', fa: 'بازنشانی رمز' },
+  'Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.': {
+    en: 'Enter your email and we will send you a link to create a new password.',
+    fa: 'ایمیل خود را بنویسید تا پیوندی برای ساخت رمز جدید برایتان بفرستیم.',
+  },
+  'Enviar enlace': { en: 'Send link', fa: 'ارسال پیوند' },
+  'Te enviamos un correo a {email} con un enlace para crear una contraseña nueva.': {
+    en: 'We sent an email to {email} with a link to create a new password.',
+    fa: 'یک ایمیل با پیوند ساخت رمز جدید به {email} فرستادیم.',
+  },
+  'Nueva contraseña': { en: 'New password', fa: 'رمز جدید' },
+  'Contraseña nueva': { en: 'New password', fa: 'رمز جدید' },
+  'Guardar contraseña': { en: 'Save password', fa: 'ذخیره رمز' },
+  'El enlace ya no sirve (caducó o ya se usó). Pide otro.': {
+    en: 'This link no longer works (it expired or was already used). Ask for a new one.',
+    fa: 'این پیوند دیگر کار نمی‌کند (منقضی شده یا استفاده شده). پیوند جدید بخواهید.',
+  },
+  'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.': {
+    en: 'Too many attempts. Wait a few minutes and try again.',
+    fa: 'تلاش‌های زیاد. چند دقیقه صبر کنید و دوباره امتحان کنید.',
+  },
+  'La contraseña nueva debe ser distinta de la anterior.': {
+    en: 'The new password must be different from the old one.',
+    fa: 'رمز جدید باید با رمز قبلی فرق داشته باشد.',
+  },
   'Ya existe una cuenta con ese correo. Entra con tu contraseña.': { en: 'There is already an account with that email. Sign in with your password.', fa: 'حسابی با این ایمیل وجود دارد. با رمز خود وارد شوید.' },
   'La contraseña debe tener al menos 6 caracteres.': { en: 'The password must have at least 6 characters.', fa: 'رمز باید حداقل ۶ حرف باشد.' },
   'Crear cuenta': { en: 'Create account', fa: 'ساخت حساب' },

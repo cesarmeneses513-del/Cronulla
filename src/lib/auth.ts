@@ -63,6 +63,28 @@ export async function signUp(name: string, email: string, password: string): Pro
   return data.session ? fetchMyProfile() : null;
 }
 
+// Opened from a "reset your password" email: Supabase signs the person in from the link and they
+// choose a new password. Read here, before the client clears the address.
+const linkHash = typeof window !== 'undefined' ? window.location.hash : '';
+export const openedFromRecoveryLink = /type=recovery/.test(linkHash);
+// The link was already used or is too old.
+export const recoveryLinkFailed = /error_code=otp_expired|error=access_denied/.test(linkHash);
+
+// Emails a link to choose a new password; it comes back to this site.
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase no configurado');
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+  if (error) throw error;
+}
+
+// After opening the email link: saves the new password and returns the profile to enter with.
+export async function setNewPassword(password: string): Promise<Profile | null> {
+  if (!supabase) throw new Error('Supabase no configurado');
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+  return fetchMyProfile();
+}
+
 export async function signOut(): Promise<void> {
   if (!supabase) return;
   await supabase.auth.signOut();
