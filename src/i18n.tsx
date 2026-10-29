@@ -241,6 +241,11 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Todos los edificios': { en: 'All buildings', fa: 'همه ساختمان‌ها' },
   '1 edificio': { en: '1 building', fa: '۱ ساختمان' },
   '{n} edificios': { en: '{n} buildings', fa: '{n} ساختمان' },
+  'Sin edificios, el cliente no verá nada al entrar.': { en: 'With no buildings, the client will see nothing when they sign in.', fa: 'بدون ساختمان، مشتری هنگام ورود چیزی نمی‌بیند.' },
+  'Cuando cree su cuenta con este correo, tendrá este rol, cargo y edificios automáticamente.': {
+    en: 'When they create their account with this email, they get this role, job title and buildings automatically.',
+    fa: 'وقتی با این ایمیل حساب بسازد، این نقش، عنوان شغلی و ساختمان‌ها را خودکار می‌گیرد.',
+  },
   'Proyectos': { en: 'Projects', fa: 'پروژه‌ها' },
   'Elige un edificio para ver sus defectos y fotos': { en: 'Choose a building to see its defects and photos', fa: 'یک ساختمان را برای دیدن نقص‌ها و عکس‌هایش انتخاب کنید' },
   'Todavía no tienes proyectos asignados': { en: 'You have no projects assigned yet', fa: 'هنوز هیچ پروژه‌ای به شما داده نشده است' },

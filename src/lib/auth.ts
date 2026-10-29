@@ -25,6 +25,9 @@ export interface Invitation {
   job_title: string;
   invited_by?: string;
   created_at?: string;
+  // Buildings they will see (supabase/invite-buildings.sql).
+  all_projects?: boolean;
+  project_ids?: string[];
 }
 
 const PROFILES = 'profiles';

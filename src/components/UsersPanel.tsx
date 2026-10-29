@@ -75,14 +75,23 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
   const [accessByUser, setAccessByUser] = useState<Record<string, string[]> | null>(null);
   // Buildings of one site (Altitude High-Rise and Low-Rise) count as one.
   const [siteOf, setSiteOf] = useState<Record<string, string>>({});
+  // The buildings that can be given (null: the database has no projects yet).
+  const [projectList, setProjectList] = useState<Project[] | null>(null);
   useEffect(() => {
-    if (!canManage) return;
+    if (!canManage && !canInvite) return;
     fetchProjects().then(list => {
+      setProjectList(list);
       if (!list) return setAccessByUser(null);
       setSiteOf(Object.fromEntries(list.map(p => [p.id, p.site || p.id])));
-      fetchAllProjectAccess().then(setAccessByUser);
+      if (canManage) fetchAllProjectAccess().then(setAccessByUser);
     });
-  }, [canManage]);
+  }, [canManage, canInvite]);
+  // "All buildings" or "N buildings" (a site's buildings count once; the team always has Cronulla).
+  const buildingsLabel = (all: boolean | undefined, ids: string[], team: boolean) => {
+    if (all) return t('Todos los edificios');
+    const n = new Set([...ids, ...(team ? ['cronulla'] : [])].map(id => siteOf[id] || id)).size;
+    return n === 1 ? t('1 edificio') : t('{n} edificios', { n });
+  };
 
   const roleLabel = (role: string) => t(ROLES.find(r => r.role === role)?.label || 'Pendiente');
 
@@ -271,8 +280,6 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                           ) : (
                             (() => {
                               const ids = accessByUser[p.id] || [];
-                              const team = roleOf(p) !== 'client';
-                              const n = new Set([...ids, ...(team ? ['cronulla'] : [])].map(id => siteOf[id] || id)).size;
                               return (
                                 <button
                                   onClick={() => setProjectsFor(f => (f === p.id ? null : p.id))}
@@ -280,7 +287,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                                     p.all_projects ? 'border-slate-300 text-slate-700' : 'border-slate-300 text-blue-700'
                                   }`}
                                 >
-                                  {p.all_projects ? t('Todos los edificios') : n === 1 ? t('1 edificio') : t('{n} edificios', { n })}
+                                  {buildingsLabel(p.all_projects, ids, roleOf(p) !== 'client')}
                                 </button>
                               );
                             })()
@@ -366,7 +373,9 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                           </option>
                         ))}
                       </select>
-                      <span className="hidden md:block" />
+                      <span className="text-xs text-slate-500">
+                        {projectList && inv.role !== 'admin' ? buildingsLabel(inv.all_projects, inv.project_ids || [], inv.role !== 'client') : '—'}
+                      </span>
                       <StatusPill kind="invited" />
                       <RowMenu
                         open={menu === inv.email}
@@ -447,8 +456,60 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                 </select>
               </Field>
             </div>
+            {/* Buildings they will see (administrators see them all) */}
+            {projectList && inviting.role !== 'admin' && (
+              <Field label={t('Edificios')}>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    {[
+                      [true, t('Todos los edificios')],
+                      [false, t('Solo los que elija')],
+                    ].map(([all, label]) => (
+                      <button
+                        key={String(all)}
+                        type="button"
+                        onClick={() => setInviting({ ...inviting, all_projects: all as boolean })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                          !!inviting.all_projects === all ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-700'
+                        }`}
+                      >
+                        {label as string}
+                      </button>
+                    ))}
+                  </div>
+                  {!inviting.all_projects && (
+                    <ul className="max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
+                      {projectList.map(p => {
+                        const fixed = inviting.role !== 'client' && p.id === 'cronulla';
+                        const ids = inviting.project_ids || [];
+                        return (
+                          <li key={p.id}>
+                            <label className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
+                              <input
+                                type="checkbox"
+                                checked={fixed || ids.includes(p.id)}
+                                disabled={fixed}
+                                onChange={() =>
+                                  setInviting({ ...inviting, project_ids: ids.includes(p.id) ? ids.filter(x => x !== p.id) : [...ids, p.id] })
+                                }
+                                className="w-4 h-4"
+                              />
+                              <span className="font-medium text-slate-900">{p.name}</span>
+                              {fixed && <span className="text-[11px] text-slate-400">{t('siempre (equipo)')}</span>}
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {inviting.role === 'client' && !inviting.all_projects && !(inviting.project_ids || []).length && (
+                    <p className="text-[11px] text-amber-700">{t('Sin edificios, el cliente no verá nada al entrar.')}</p>
+                  )}
+                </div>
+              </Field>
+            )}
             <p className="text-[11px] text-slate-500">
-              {t('Cuando cree su cuenta con este correo, tendrá este rol y cargo automáticamente.')}
+              {t('Cuando cree su cuenta con este correo, tendrá este rol, cargo y edificios automáticamente.')}
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setInviting(null)} className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900">
