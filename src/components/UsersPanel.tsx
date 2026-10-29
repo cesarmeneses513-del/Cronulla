@@ -222,8 +222,8 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                               {onlineIds.has(p.id) ? t('Conectado ahora') : lastSeen(p.last_seen_at)}
                             </span>
                           </div>
-                          {/* Clients: which buildings they see */}
-                          {canManage && roleOf(p) === 'client' && (
+                          {/* Which buildings they see (administrators see them all) */}
+                          {canManage && !pending && roleOf(p) !== 'admin' && (
                             <button
                               onClick={() => setProjectsFor(f => (f === p.id ? null : p.id))}
                               className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-[11px] font-semibold hover:bg-blue-100"
@@ -302,7 +302,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                         )}
                         {projectsFor === p.id && (
                           <div className="md:col-span-5">
-                            <ClientProjects userId={p.id} name={p.name} onClose={() => setProjectsFor(null)} />
+                            <ClientProjects userId={p.id} name={p.name} team={roleOf(p) !== 'client'} onClose={() => setProjectsFor(null)} />
                           </div>
                         )}
                       </li>
@@ -638,9 +638,11 @@ const Tick: React.FC<{ on: boolean; disabled?: boolean; onClick?: () => void }> 
   </button>
 );
 
-// A client's buildings: all of them, or only the ones chosen here. The database shows them
-// nothing else (supabase/projects.sql).
-const ClientProjects: React.FC<{ userId: string; name: string; onClose: () => void }> = ({ userId, name, onClose }) => {
+// A person's buildings: all of them, or only the ones chosen here. The database shows them
+// nothing else (supabase/projects.sql). `team`: not a client, so Cronulla (where they work)
+// always stays (supabase/projects-staff.sql).
+const ALWAYS_FOR_TEAM = 'cronulla';
+const ClientProjects: React.FC<{ userId: string; name: string; team?: boolean; onClose: () => void }> = ({ userId, name, team = false, onClose }) => {
   const { t } = useI18n();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [access, setAccess] = useState<ProjectAccess | null>(null);
@@ -711,8 +713,15 @@ const ClientProjects: React.FC<{ userId: string; name: string; onClose: () => vo
               {projects.map(p => (
                 <li key={p.id}>
                   <label className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
-                    <input type="checkbox" checked={access.ids.includes(p.id)} onChange={() => toggle(p.id)} className="w-4 h-4" />
+                    <input
+                      type="checkbox"
+                      checked={access.ids.includes(p.id) || (team && p.id === ALWAYS_FOR_TEAM)}
+                      disabled={team && p.id === ALWAYS_FOR_TEAM}
+                      onChange={() => toggle(p.id)}
+                      className="w-4 h-4"
+                    />
                     <span className="font-medium text-slate-900">{p.name}</span>
+                    {team && p.id === ALWAYS_FOR_TEAM && <span className="text-[11px] text-slate-400">{t('siempre (equipo)')}</span>}
                     <span className="ms-auto text-xs text-slate-400 truncate">{p.address}</span>
                   </label>
                 </li>

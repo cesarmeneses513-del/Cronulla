@@ -215,6 +215,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Entendido': { en: 'Got it', fa: 'متوجه شدم' },
   'Iniciar sesión': { en: 'Sign in', fa: 'ورود' },
   'Entrar con tu cuenta': { en: 'Sign in with your account', fa: 'با حساب خود وارد شوید' },
+  'siempre (equipo)': { en: 'always (team)', fa: 'همیشه (تیم)' },
   'Proyectos que ve': { en: 'Projects they see', fa: 'پروژه‌هایی که می‌بیند' },
   'Proyectos de {name}': { en: 'Projects for {name}', fa: 'پروژه‌های {name}' },
   'Todos, o solo los que elijas. Lo que no esté en la lista no se abre para este cliente.': {
