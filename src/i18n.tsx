@@ -235,6 +235,8 @@ const DICT: Record<string, { en: string; fa: string }> = {
   'Volver a iniciar sesión': { en: 'Back to sign in', fa: 'بازگشت به ورود' },
   'Cada fachada, cada defecto, cada foto, en un solo lugar.': { en: "Every façade, every defect, every photo, in one place.", fa: 'هر نما، هر نقص، هر عکس، در یک جا.' },
   'Inspecciones, reparaciones y su avance, edificio por edificio, para el equipo y los clientes.': { en: 'Inspections, repairs and their progress, building by building, for the team and our clients.', fa: 'بازرسی\u200cها، تعمیرات و پیشرفت آن\u200cها، ساختمان به ساختمان، برای تیم و مشتریان.' },
+  'Elige el edificio': { en: 'Choose the building', fa: 'ساختمان را انتخاب کنید' },
+  'Sitio · {n} edificios': { en: 'Site · {n} buildings', fa: 'سایت · {n} ساختمان' },
   'Proyectos': { en: 'Projects', fa: 'پروژه‌ها' },
   'Elige un edificio para ver sus defectos y fotos': { en: 'Choose a building to see its defects and photos', fa: 'یک ساختمان را برای دیدن نقص‌ها و عکس‌هایش انتخاب کنید' },
   'Todavía no tienes proyectos asignados': { en: 'You have no projects assigned yet', fa: 'هنوز هیچ پروژه‌ای به شما داده نشده است' },

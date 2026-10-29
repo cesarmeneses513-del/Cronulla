@@ -19,12 +19,24 @@ BUCKET = 'inspection-photos'
 
 # Each project: its tab in the backup, which CSV rows belong to it, and how its columns map.
 PROJECTS = {
-    'altitude': {
-        'name': 'Altitude',
+    # Altitude: two buildings of one site. Each is its own project; the "Stage" is the face.
+    'altitude-high': {
+        'name': 'Altitude High-Rise',
+        'site': 'Altitude',
         'address': '37 Chandler St, Belconnen ACT 2617',
         'tab': 'ALTITUDE',
-        # Two towers: the tower goes in front of the face as the "Stage" (HIGH-RISE NORTH…).
-        'tower': lambda name: 'HIGH-RISE' if 'HIGH' in name.upper() else 'LOW-RISE',
+        'photos': 'altitude',
+        'rows': lambda r: 'HIGH' in (r.get('Name Project') or '').upper(),
+        'position': 10,
+    },
+    'altitude-low': {
+        'name': 'Altitude Low-Rise',
+        'site': 'Altitude',
+        'address': '37 Chandler St, Belconnen ACT 2617',
+        'tab': 'ALTITUDE',
+        'photos': 'altitude',
+        'rows': lambda r: 'LOW' in (r.get('Name Project') or '').upper(),
+        'position': 11,
     },
 }
 
@@ -35,7 +47,7 @@ if pid not in PROJECTS:
 P = PROJECTS[pid]
 tab_dir = os.path.join(BACKUP, P['tab'])
 
-rows = list(csv.DictReader(open(os.path.join(tab_dir, P['tab'] + '.csv'), encoding='utf-8-sig')))
+rows = [r for r in csv.DictReader(open(os.path.join(tab_dir, P['tab'] + '.csv'), encoding='utf-8-sig')) if P.get('rows', lambda r: True)(r)]
 
 # Local copies of the photos, by Glide file id (the part of the name after PHOTOn_).
 local = {}
@@ -73,7 +85,7 @@ for n, r in enumerate(rows):
         continue
     face = (r.get('ORIENTATION') or '').strip().upper()
     face = '' if face == 'ORIENTATION' else face
-    stage = (P['tower'](r.get('Name Project', '')) + ' ' + face).strip()
+    stage = face
     date, time = when(r.get('DATE'))
     tech = (r.get('TECHNICIAN') or '').strip()
     photos = []
@@ -87,7 +99,7 @@ for n, r in enumerate(rows):
             missing.append((n + 2, k, u))
             continue
         ext = os.path.splitext(f)[1].lower()
-        path = 'projects/%s/%s%s' % (pid, gid, ext)
+        path = 'projects/%s/%s%s' % (P.get('photos', pid), gid, ext)
         photos_needed.append((f, path))
         photos.append({'url': '%s/storage/v1/object/public/%s/%s' % (URL, BUCKET, path), 'phase': 'BEFORE', 'slot': len(photos) + 1,
                        **({'by': tech, 'date': date, 'time': time} if tech else {})})
@@ -141,13 +153,14 @@ def call(method, path, body=None, prefer=None, raw=None, ctype='application/json
     if prefer:
         h['Prefer'] = prefer
     data = raw if raw is not None else (None if body is None else json.dumps(body).encode())
-    with urllib.request.urlopen(urllib.request.Request(URL + path, data=data, method=method, headers=h)) as res:
+    with urllib.request.urlopen(urllib.request.Request(URL + path, data=data, method=method, headers=h), timeout=60) as res:
         t = res.read().decode()
         return json.loads(t) if t and 'json' in res.headers.get('Content-Type', '') else t
 
 # 1. The project (viewing only).
 cover = next((i['photos'][0]['url'] for i in items if i['defect'] == 'PHOTO REFERENCE' and i['photos']), items[0]['photos'][0]['url'] if items and items[0]['photos'] else '')
-call('POST', '/rest/v1/projects', [{'id': pid, 'name': P['name'], 'address': P['address'], 'cover_url': cover, 'editable': False, 'position': 10}],
+call('POST', '/rest/v1/projects', [{'id': pid, 'name': P['name'], 'address': P['address'], 'cover_url': cover, 'editable': False,
+                                    'position': P.get('position', 10), 'site': P.get('site', '')}],
      'resolution=merge-duplicates,return=minimal')
 print('Proyecto creado:', P['name'])
 
@@ -155,12 +168,19 @@ print('Proyecto creado:', P['name'])
 done = 0
 for f, path in photos_needed:
     ctype = mimetypes.guess_type(f)[0] or 'image/jpeg'
-    try:
-        call('POST', '/storage/v1/object/%s/%s' % (BUCKET, urllib.parse.quote(path)), raw=open(f, 'rb').read(), ctype=ctype)
-    except urllib.error.HTTPError as e:
-        msg = e.read().decode()
-        if e.code not in (400, 409) or 'exist' not in msg.lower():
-            sys.exit('Falló la subida de %s: %s %s' % (path, e.code, msg[:200]))
+    for attempt in range(4):
+        try:
+            call('POST', '/storage/v1/object/%s/%s' % (BUCKET, urllib.parse.quote(path)), raw=open(f, 'rb').read(), ctype=ctype)
+            break
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode()
+            if e.code in (400, 409) and 'exist' in msg.lower():
+                break  # already uploaded
+            if attempt == 3:
+                sys.exit('Falló la subida de %s: %s %s' % (path, e.code, msg[:200]))
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if attempt == 3:
+                sys.exit('Falló la subida de %s: %s' % (path, e))
     done += 1
     if done % 50 == 0 or done == len(photos_needed):
         print('  fotos subidas %d de %d' % (done, len(photos_needed)))

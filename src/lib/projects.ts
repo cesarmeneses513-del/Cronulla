@@ -9,6 +9,8 @@ export interface Project {
   cover_url: string;
   editable: boolean;
   position: number;
+  // Buildings of one complex share it (supabase/projects-sites.sql); empty for a building on its own.
+  site?: string;
 }
 
 export { DEFAULT_PROJECT, CHOSEN_PROJECT, CURRENT_PROJECT, PICKING_PROJECT, openProject } from './currentProject';
@@ -17,7 +19,7 @@ export { DEFAULT_PROJECT, CHOSEN_PROJECT, CURRENT_PROJECT, PICKING_PROJECT, open
 // projects.sql): then there is only Cronulla, as before.
 export async function fetchProjects(): Promise<Project[] | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('projects').select('id, name, address, cover_url, editable, position').order('position').order('name');
+  const { data, error } = await supabase.from('projects').select('*').order('position').order('name');
   if (error) return null;
   return data as Project[];
 }
