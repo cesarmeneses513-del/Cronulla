@@ -22,6 +22,14 @@ const STAGE_FILES: Record<string, Record<string, string>> = {
     WEST: 'altitude-high-west',
     '': 'altitude-high-plan',
   },
+  // The building from above for the reference row.
+  'altitude-low': {
+    NORTH: 'altitude-low-north',
+    SOUTH: 'altitude-low-south',
+    EAST: 'altitude-low-east',
+    WEST: 'altitude-low-west',
+    '': 'altitude-low-building',
+  },
 };
 
 export interface StageImage {
