@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Building2, ChevronRight, Eye, Layers, LogOut, PencilLine, Search } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronDown, ChevronRight, Database, Eye, Layers, PencilLine, Search, Users } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { Project, ProjectStats, fetchProjectStats } from '../lib/projects';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
-import { LanguageSwitcher } from './LanguageSwitcher';
+import { ProfileSheet, initialsOf } from './ProfileSheet';
 
 // The buildings this person can see: a card each with its photo, defects and progress. Buildings
 // of one site (same `site`) show as one card; opening it lists them.
@@ -11,8 +11,14 @@ export const ProjectsScreen: React.FC<{
   projects: Project[];
   onOpen: (id: string) => void;
   onLogout: () => void;
-}> = ({ projects, onOpen, onLogout }) => {
+  // The signed-in person, for the profile (language and sign out are inside it).
+  profile: { name: string; roleLabel: string; email?: string; jobTitle?: string; readOnly: boolean };
+  // Data → Users, for those who may open it.
+  onOpenUsers?: () => void;
+}> = ({ projects, onOpen, onLogout, profile, onOpenUsers }) => {
   const { t } = useI18n();
+  const [showProfile, setShowProfile] = useState(false);
+  const [dataOpen, setDataOpen] = useState(false);
   const [stats, setStats] = useState<Record<string, ProjectStats>>({});
   const [query, setQuery] = useState('');
   const [openSite, setOpenSite] = useState<string | null>(null);
@@ -101,14 +107,43 @@ export const ProjectsScreen: React.FC<{
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">{t('Proyectos')}</h1>
             <p className="text-xs text-slate-500">{t('Elige un edificio para ver sus defectos y fotos')}</p>
           </div>
-          <LanguageSwitcher />
+          {onOpenUsers && (
+            <div className="relative">
+              <button
+                onClick={() => setDataOpen(o => !o)}
+                aria-expanded={dataOpen}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('Datos')}</span>
+                <ChevronDown className={`hidden sm:block w-3.5 h-3.5 transition-transform ${dataOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {/* A tap anywhere else closes the menu */}
+              {dataOpen && <div className="fixed inset-0 z-30" onClick={() => setDataOpen(false)} />}
+              {dataOpen && (
+                <div className="absolute end-0 top-full mt-1.5 z-40 min-w-44 p-1.5 bg-white border border-slate-200 rounded-xl shadow-xl">
+                  <button
+                    onClick={() => {
+                      setDataOpen(false);
+                      onOpenUsers();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 rounded-md hover:bg-slate-100 text-start whitespace-nowrap"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    {t('Usuarios')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <button
-            onClick={onLogout}
-            title={t('Cerrar sesión')}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-3 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+            type="button"
+            onClick={() => setShowProfile(true)}
+            title={t('Mi perfil')}
+            aria-label={t('Mi perfil')}
+            className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs shrink-0"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t('Cerrar sesión')}</span>
+            {initialsOf(profile.name || profile.roleLabel)}
           </button>
         </div>
       </header>
@@ -178,6 +213,19 @@ export const ProjectsScreen: React.FC<{
           </>
         )}
       </main>
+      {showProfile && (
+        <ProfileSheet
+          name={profile.name}
+          roleLabel={profile.roleLabel}
+          email={profile.email}
+          jobTitle={profile.jobTitle}
+          readOnly={profile.readOnly}
+          items={[]}
+          showWork={false}
+          onClose={() => setShowProfile(false)}
+          onLogout={onLogout}
+        />
+      )}
     </div>
   );
 };

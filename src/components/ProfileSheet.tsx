@@ -18,6 +18,8 @@ interface ProfileSheetProps {
   onLogout: () => void;
   // Tapping a counter lists those defects.
   onShowMyWork?: (step: WorkStep) => void;
+  // The counters of the open project (not on the projects list).
+  showWork?: boolean;
 }
 
 // Badge colours by level: clients see, the rest edit (same as the header badge used to be).
@@ -38,6 +40,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
   onClose,
   onLogout,
   onShowMyWork,
+  showWork = true,
 }) => {
   const { t } = useI18n();
   useEffect(() => {
@@ -107,7 +110,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
           </div>
         )}
 
-        {!readOnly && name && (
+        {showWork && !readOnly && name && (
           <div className="grid grid-cols-3 gap-2">
             {tiles.map(({ step, label, Icon, box, head, value }) => (
               <button

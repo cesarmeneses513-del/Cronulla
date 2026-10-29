@@ -1474,7 +1474,34 @@ export default function App() {
     return <div className="min-h-screen bg-slate-100" />;
   }
   if (projects && (PICKING_PROJECT || !project || (role === 'client' && !CHOSEN_PROJECT && projects.length > 1))) {
-    return <ProjectsScreen projects={projects} onOpen={openProject} onLogout={handleLogout} />;
+    return (
+      <>
+        <ProjectsScreen
+          projects={projects}
+          onOpen={openProject}
+          onLogout={handleLogout}
+          profile={{
+            name: account?.name || getStoredUserName(),
+            roleLabel: t(effectiveRole ? ROLES.find(r => r.role === effectiveRole)?.label || '' : 'Cliente'),
+            email: account?.email,
+            jobTitle: jobTitleOf(account?.job_title) || undefined,
+            readOnly: role !== 'editor',
+          }}
+          onOpenUsers={canOpenUsers ? () => setIsUsersOpen(true) : undefined}
+        />
+        <Suspense fallback={null}>
+          {isUsersOpen && canOpenUsers && account && (
+            <UsersPanel
+              me={account}
+              canManage={isAccountAdmin}
+              canInvite={isAccountAdmin || can('users.invite')}
+              canSeeTeam={can('team.view')}
+              onClose={() => setIsUsersOpen(false)}
+            />
+          )}
+        </Suspense>
+      </>
+    );
   }
 
   // Defect cards with sort and pages: the Rows view, and under the elevation grid for a selection.
