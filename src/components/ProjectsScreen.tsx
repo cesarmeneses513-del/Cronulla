@@ -158,7 +158,7 @@ export const ProjectsScreen: React.FC<{
                   : card(`site:${e.name}`, {
                       title: e.name,
                       address: e.blocks[0].address,
-                      cover: e.blocks.find(b => b.cover_url)?.cover_url || '',
+                      cover: e.blocks.find(b => b.site_cover_url)?.site_cover_url || e.blocks.find(b => b.cover_url)?.cover_url || '',
                       badge: (
                         <span className={`${pill} bg-slate-900/80 text-white border-slate-700`}>
                           <Layers className="w-3 h-3" />

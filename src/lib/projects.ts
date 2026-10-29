@@ -11,6 +11,8 @@ export interface Project {
   position: number;
   // Buildings of one complex share it (supabase/projects-sites.sql); empty for a building on its own.
   site?: string;
+  // The whole complex's photo, for the site's card (any of its buildings may carry it).
+  site_cover_url?: string;
 }
 
 export { DEFAULT_PROJECT, CHOSEN_PROJECT, CURRENT_PROJECT, PICKING_PROJECT, openProject } from './currentProject';
