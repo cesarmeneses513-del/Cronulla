@@ -29,8 +29,8 @@ import {
 
 type Tab = 'users' | 'permissions';
 
-// Roles that always see every building (supabase/projects-roles.sql).
-const SEES_ALL: string[] = ['admin', 'project_manager'];
+// Roles that always see every building (supabase/projects-roles.sql): administrators only.
+const SEES_ALL: string[] = ['admin'];
 
 const select =
   'w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 focus:outline-hidden focus:border-slate-400 disabled:opacity-60';
