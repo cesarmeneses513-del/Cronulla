@@ -73,9 +73,15 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
   // has no projects yet).
   const [projectsFor, setProjectsFor] = useState<string | null>(null);
   const [accessByUser, setAccessByUser] = useState<Record<string, string[]> | null>(null);
+  // Buildings of one site (Altitude High-Rise and Low-Rise) count as one.
+  const [siteOf, setSiteOf] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!canManage) return;
-    fetchProjects().then(list => (list ? fetchAllProjectAccess().then(setAccessByUser) : setAccessByUser(null)));
+    fetchProjects().then(list => {
+      if (!list) return setAccessByUser(null);
+      setSiteOf(Object.fromEntries(list.map(p => [p.id, p.site || p.id])));
+      fetchAllProjectAccess().then(setAccessByUser);
+    });
   }, [canManage]);
 
   const roleLabel = (role: string) => t(ROLES.find(r => r.role === role)?.label || 'Pendiente');
@@ -266,7 +272,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                             (() => {
                               const ids = accessByUser[p.id] || [];
                               const team = roleOf(p) !== 'client';
-                              const n = ids.length + (team && !ids.includes('cronulla') ? 1 : 0);
+                              const n = new Set([...ids, ...(team ? ['cronulla'] : [])].map(id => siteOf[id] || id)).size;
                               return (
                                 <button
                                   onClick={() => setProjectsFor(f => (f === p.id ? null : p.id))}
