@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Users, Loader2, RefreshCw, UserPlus, MoreHorizontal, MessageCircle, Mail, Copy, Check, ShieldCheck, Building2 } from 'lucide-react';
-import { Project, ProjectAccess, fetchProjects, fetchProjectAccess, saveProjectAccess } from '../lib/projects';
+import { Project, ProjectAccess, fetchProjects, fetchProjectAccess, fetchAllProjectAccess, saveProjectAccess } from '../lib/projects';
 import { useI18n } from '../i18n';
 import { useOnlineIds } from '../lib/presence';
 import {
@@ -69,8 +69,14 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
   const [inviting, setInviting] = useState<Invitation | null>(null);
   const [sharing, setSharing] = useState<Invitation | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
-  // Client whose buildings are being chosen.
+  // Account whose buildings are being chosen, and everyone's chosen buildings (null: the database
+  // has no projects yet).
   const [projectsFor, setProjectsFor] = useState<string | null>(null);
+  const [accessByUser, setAccessByUser] = useState<Record<string, string[]> | null>(null);
+  useEffect(() => {
+    if (!canManage) return;
+    fetchProjects().then(list => (list ? fetchAllProjectAccess().then(setAccessByUser) : setAccessByUser(null)));
+  }, [canManage]);
 
   const roleLabel = (role: string) => t(ROLES.find(r => r.role === role)?.label || 'Pendiente');
 
@@ -195,10 +201,11 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
               </div>
             ) : (
               <div className="border border-slate-200 rounded-xl">
-                <div className="hidden md:grid grid-cols-[1.6fr_1.3fr_1.1fr_0.7fr_40px] gap-3 px-4 py-2.5 bg-slate-50 rounded-t-xl text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                <div className="hidden md:grid grid-cols-[1.5fr_1.2fr_1fr_0.9fr_0.7fr_40px] gap-3 px-4 py-2.5 bg-slate-50 rounded-t-xl text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                   <span>{t('Nombre')}</span>
                   <span>{t('Rol de acceso')}</span>
                   <span>{t('Cargo')}</span>
+                  <span>{t('Edificios')}</span>
                   <span>{t('Estado')}</span>
                   <span />
                 </div>
@@ -208,7 +215,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                     const active = p.active !== false;
                     const pending = p.role === 'pending';
                     return (
-                      <li key={p.id} className="grid grid-cols-1 md:grid-cols-[1.6fr_1.3fr_1.1fr_0.7fr_40px] gap-2 md:gap-3 items-center px-4 py-3">
+                      <li key={p.id} className="grid grid-cols-1 md:grid-cols-[1.5fr_1.2fr_1fr_0.9fr_0.7fr_40px] gap-2 md:gap-3 items-center px-4 py-3">
                         <div className="min-w-0">
                           <div className="text-sm font-semibold text-slate-900 truncate">
                             {p.name}
@@ -222,16 +229,6 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                               {onlineIds.has(p.id) ? t('Conectado ahora') : lastSeen(p.last_seen_at)}
                             </span>
                           </div>
-                          {/* Which buildings they see (administrators see them all) */}
-                          {canManage && !pending && roleOf(p) !== 'admin' && (
-                            <button
-                              onClick={() => setProjectsFor(f => (f === p.id ? null : p.id))}
-                              className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-[11px] font-semibold hover:bg-blue-100"
-                            >
-                              <Building2 className="w-3 h-3" />
-                              {t('Proyectos que ve')}
-                            </button>
-                          )}
                         </div>
                         <select
                           value={pending ? 'pending' : roleOf(p)}
@@ -259,6 +256,30 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                             </option>
                           ))}
                         </select>
+                        {/* Buildings they see: administrators all; the rest, all or the ones chosen */}
+                        <div>
+                          {roleOf(p) === 'admin' && !pending ? (
+                            <span className="text-xs text-slate-400">{t('Todos los edificios')}</span>
+                          ) : !canManage || pending || !accessByUser ? (
+                            <span className="text-xs text-slate-300">—</span>
+                          ) : (
+                            (() => {
+                              const ids = accessByUser[p.id] || [];
+                              const team = roleOf(p) !== 'client';
+                              const n = ids.length + (team && !ids.includes('cronulla') ? 1 : 0);
+                              return (
+                                <button
+                                  onClick={() => setProjectsFor(f => (f === p.id ? null : p.id))}
+                                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold bg-white hover:bg-slate-50 ${
+                                    p.all_projects ? 'border-slate-300 text-slate-700' : 'border-slate-300 text-blue-700'
+                                  }`}
+                                >
+                                  {p.all_projects ? t('Todos los edificios') : n === 1 ? t('1 edificio') : t('{n} edificios', { n })}
+                                </button>
+                              );
+                            })()
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <StatusPill kind={pending ? 'pending' : active ? 'active' : 'inactive'} />
                           {busy === p.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
@@ -301,8 +322,17 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                           <span />
                         )}
                         {projectsFor === p.id && (
-                          <div className="md:col-span-5">
-                            <ClientProjects userId={p.id} name={p.name} team={roleOf(p) !== 'client'} onClose={() => setProjectsFor(null)} />
+                          <div className="md:col-span-6">
+                            <ClientProjects
+                              userId={p.id}
+                              name={p.name}
+                              team={roleOf(p) !== 'client'}
+                              onClose={() => setProjectsFor(null)}
+                              onSaved={access => {
+                                setAccessByUser(m => ({ ...(m || {}), [p.id]: access.ids }));
+                                setProfiles(list => (list || []).map(x => (x.id === p.id ? { ...x, all_projects: access.all } : x)));
+                              }}
+                            />
                           </div>
                         )}
                       </li>
@@ -310,7 +340,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                   })}
 
                   {invitations.map(inv => (
-                    <li key={inv.email} className="grid grid-cols-1 md:grid-cols-[1.6fr_1.3fr_1.1fr_0.7fr_40px] gap-2 md:gap-3 items-center px-4 py-3 bg-sky-50/40">
+                    <li key={inv.email} className="grid grid-cols-1 md:grid-cols-[1.5fr_1.2fr_1fr_0.9fr_0.7fr_40px] gap-2 md:gap-3 items-center px-4 py-3 bg-sky-50/40">
                       <div className="min-w-0">
                         <div className="text-sm font-semibold text-slate-900 truncate">{inv.name || '—'}</div>
                         <div className="text-xs text-slate-500 truncate">{inv.email}</div>
@@ -330,6 +360,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                           </option>
                         ))}
                       </select>
+                      <span className="hidden md:block" />
                       <StatusPill kind="invited" />
                       <RowMenu
                         open={menu === inv.email}
@@ -642,7 +673,13 @@ const Tick: React.FC<{ on: boolean; disabled?: boolean; onClick?: () => void }> 
 // nothing else (supabase/projects.sql). `team`: not a client, so Cronulla (where they work)
 // always stays (supabase/projects-staff.sql).
 const ALWAYS_FOR_TEAM = 'cronulla';
-const ClientProjects: React.FC<{ userId: string; name: string; team?: boolean; onClose: () => void }> = ({ userId, name, team = false, onClose }) => {
+const ClientProjects: React.FC<{
+  userId: string;
+  name: string;
+  team?: boolean;
+  onClose: () => void;
+  onSaved?: (access: ProjectAccess) => void;
+}> = ({ userId, name, team = false, onClose, onSaved }) => {
   const { t } = useI18n();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [access, setAccess] = useState<ProjectAccess | null>(null);
@@ -667,6 +704,7 @@ const ClientProjects: React.FC<{ userId: string; name: string; team?: boolean; o
     setError('');
     try {
       await saveProjectAccess(userId, access);
+      onSaved?.(access);
       setSaved(true);
       setTimeout(onClose, 700);
     } catch (e) {

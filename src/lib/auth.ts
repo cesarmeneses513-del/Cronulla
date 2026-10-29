@@ -12,6 +12,8 @@ export interface Profile {
   role: AccountRole;
   job_title?: string;
   active?: boolean;
+  // Sees every project (supabase/projects.sql); otherwise the ones in project_access.
+  all_projects?: boolean;
   created_at?: string;
   last_seen_at?: string | null;
 }

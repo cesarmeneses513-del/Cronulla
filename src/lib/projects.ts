@@ -68,6 +68,16 @@ export async function fetchProjectAccess(userId: string): Promise<ProjectAccess>
   };
 }
 
+// Everyone's chosen projects, by account (administrators: the users list).
+export async function fetchAllProjectAccess(): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  if (!supabase) return out;
+  const { data, error } = await supabase.from('project_access').select('user_id, project_id');
+  if (error) return out;
+  (data as { user_id: string; project_id: string }[]).forEach(r => (out[r.user_id] ||= []).push(r.project_id));
+  return out;
+}
+
 export async function saveProjectAccess(userId: string, access: ProjectAccess): Promise<void> {
   if (!supabase) return;
   const { error: e1 } = await supabase.from('profiles').update({ all_projects: access.all }).eq('id', userId);
