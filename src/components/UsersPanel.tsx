@@ -35,7 +35,7 @@ const select =
 // Invitation text, ready for WhatsApp or email.
 const inviteMessage = (inv: Invitation, roleLabel: string, t: ReturnType<typeof useI18n>['t']) =>
   t(
-    'Hola {name}, te invito a Cronulla Inspection Gallery como {role}.\n\n1. Abre {link}\n2. Pulsa "Editor" → "Crear cuenta nueva"\n3. Usa este correo: {email}\n\nTu acceso queda listo al crear la cuenta.',
+    'Hola {name}, te invito a Cronulla Inspection Gallery como {role}.\n\n1. Abre {link}\n2. Pulsa "Crear cuenta nueva"\n3. Usa este correo: {email}\n\nTu acceso queda listo al crear la cuenta.',
     { name: inv.name || inv.email, role: roleLabel, link: window.location.origin, email: inv.email }
   );
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PencilLine, Eye, Lock, ArrowRight, ArrowLeft, Loader2, KeyRound } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { canonicalPerson } from '../lib/people';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -47,10 +47,11 @@ interface RoleSelectScreenProps {
 }
 
 // forgot: asks for the email to send a reset link to; reset: opened from that link, choose a new password.
-type Step = 'choose' | 'signin' | 'signup' | 'forgot' | 'reset';
+type Step = 'signin' | 'signup' | 'forgot' | 'reset';
 
 export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) => {
-  const [step, setStep] = useState<Step>(openedFromRecoveryLink ? 'reset' : recoveryLinkFailed ? 'forgot' : 'choose');
+  const [step, setStep] = useState<Step>(openedFromRecoveryLink ? 'reset' : recoveryLinkFailed ? 'forgot' : 'signin');
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -156,38 +157,50 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
   };
 
 
+  const input =
+    'w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-blue-700 focus:ring-2 focus:ring-blue-100';
+  const label = 'text-sm font-medium text-slate-700';
+  const backToSignIn = () => {
+    // From the reset link: the address is cleaned so a reload doesn't show that step again.
+    if (step === 'reset') window.history.replaceState(null, '', window.location.pathname);
+    if (step === 'reset') signOut();
+    setStep('signin');
+    setMessage(null);
+  };
+
+  // One way in for everyone (team and clients), like AIMMS: the brand on one side, signing in on the other.
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-10 font-sans antialiased">
-      <div className="w-full max-w-2xl space-y-8">
-        <div className="flex justify-end">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-white font-sans antialiased">
+      <aside
+        className="relative overflow-hidden bg-slate-950 text-white lg:w-1/2 lg:min-h-screen px-6 py-6 lg:p-12 flex flex-col justify-between gap-6"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 25% 30%, rgba(37,99,235,0.45), transparent 55%), linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
+          backgroundSize: '100% 100%, 64px 64px, 64px 64px',
+        }}
+      >
+        <div className="bg-white rounded-xl px-3 py-2 self-start">
+          <img src="/cpr-logo-full.png" alt="CPR Facade Upgrade Specialists" className="h-8 lg:h-10 w-auto" />
+        </div>
+        <div className="space-y-3 max-w-md">
+          <p className="text-xs font-semibold tracking-[0.2em] text-blue-200 uppercase">CPR · Inspection Gallery</p>
+          <h1 className="text-2xl lg:text-4xl font-bold leading-tight">{t('Cada fachada, cada defecto, cada foto, en un solo lugar.')}</h1>
+          <p className="hidden sm:block text-sm text-slate-300 leading-relaxed">
+            {t('Inspecciones, reparaciones y su avance, edificio por edificio, para el equipo y los clientes.')}
+          </p>
+        </div>
+      </aside>
+
+      <main className="relative flex-1 flex flex-col items-center justify-center px-6 py-10 lg:py-12">
+        <div className="absolute top-4 end-4">
           <LanguageSwitcher className="bg-white border border-slate-200" />
         </div>
-        <div className="flex flex-col items-center text-center gap-3">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs px-6 py-4">
-            <img src="/cpr-logo-full.png" alt="CPR Facade Upgrade Specialists" className="h-20 sm:h-24 w-auto" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cronulla Inspection Gallery</h1>
-            <p className="text-sm text-slate-500 mt-1">{t('Control de Defectos & Galería Fotográfica')}</p>
-          </div>
-        </div>
-
         {checking ? (
-          <div className="flex justify-center py-8 text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin" />
-          </div>
-        ) : step !== 'choose' ? (
-          <form
-            onSubmit={submitAccount}
-            className="max-w-sm mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4"
-          >
-            <div className="flex items-center gap-2">
-              {step === 'forgot' || step === 'reset' ? (
-                <KeyRound className="w-4 h-4 text-amber-700" />
-              ) : (
-                <PencilLine className="w-4 h-4 text-amber-700" />
-              )}
-              <h2 className="text-sm font-bold text-slate-900">
+          <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        ) : (
+          <form onSubmit={submitAccount} className="w-full max-w-sm space-y-5">
+            <div className="space-y-1.5">
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                 {step === 'signup'
                   ? t('Crear cuenta')
                   : step === 'forgot'
@@ -196,94 +209,106 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                   ? t('Nueva contraseña')
                   : t('Iniciar sesión')}
               </h2>
+              <p className="text-sm text-slate-500">
+                {step === 'signin'
+                  ? t('Bienvenido. Usa el correo al que llegó tu invitación.')
+                  : step === 'signup'
+                  ? t('Usa el correo al que llegó tu invitación.')
+                  : step === 'forgot'
+                  ? t('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.')
+                  : t('Elige tu contraseña nueva.')}
+              </p>
             </div>
-            {step === 'forgot' && (
-              <p className="text-xs text-slate-500">{t('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.')}</p>
-            )}
+
             {step === 'signup' && (
               <div className="space-y-1.5">
-                <label htmlFor="acc-name" className="text-xs font-semibold text-slate-700">{t('Nombre y apellido')}</label>
-                <input
-                  id="acc-name"
-                  type="text"
-                  autoComplete="name"
-                  required
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-lg text-sm focus:outline-hidden focus:bg-white"
-                />
+                <label htmlFor="acc-name" className={label}>{t('Nombre y apellido')}</label>
+                <input id="acc-name" type="text" autoComplete="name" required value={name} onChange={e => setName(e.target.value)} className={input} />
                 <p className="text-[11px] text-slate-400">{t('Aparece en el historial de cambios')}</p>
               </div>
             )}
+
             {step !== 'reset' && (
-            <div className="space-y-1.5">
-              <label htmlFor="acc-email" className="text-xs font-semibold text-slate-700">{t('Correo')}</label>
-              <input
-                id="acc-email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-lg text-sm focus:outline-hidden focus:bg-white"
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label htmlFor="acc-email" className={label}>{t('Correo')}</label>
+                <input
+                  id="acc-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@example.com.au"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className={input}
+                />
+              </div>
             )}
+
             {step !== 'forgot' && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <label htmlFor="acc-password" className="text-xs font-semibold text-slate-700">
-                  {step === 'reset' ? t('Contraseña nueva') : t('Contraseña')}
-                </label>
-                {step === 'signin' && (
+              <div className="space-y-1.5">
+                <label htmlFor="acc-password" className={label}>{step === 'reset' ? t('Contraseña nueva') : t('Contraseña')}</label>
+                <div className="relative">
+                  <input
+                    id="acc-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete={step === 'signin' ? 'current-password' : 'new-password'}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className={`${input} pe-20`}
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      setStep('forgot');
-                      setMessage(null);
-                    }}
-                    className="text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:underline"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute end-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-slate-600 hover:text-slate-900"
                   >
-                    {t('¿Olvidaste tu contraseña?')}
+                    {showPassword ? t('Ocultar') : t('Mostrar')}
                   </button>
+                </div>
+                {step === 'signin' && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep('forgot');
+                        setMessage(null);
+                      }}
+                      className="text-sm text-slate-600 hover:text-slate-900 hover:underline"
+                    >
+                      {t('¿Olvidaste tu contraseña?')}
+                    </button>
+                  </div>
                 )}
               </div>
-              <input
-                id="acc-password"
-                type="password"
-                autoComplete={step === 'signin' ? 'current-password' : 'new-password'}
-                required
-                minLength={6}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-lg text-sm focus:outline-hidden focus:bg-white"
-              />
-            </div>
             )}
+
             {(step === 'signup' || step === 'reset') && (
               <div className="space-y-1.5">
-                <label htmlFor="acc-password2" className="text-xs font-semibold text-slate-700">{t('Repite la contraseña')}</label>
+                <label htmlFor="acc-password2" className={label}>{t('Repite la contraseña')}</label>
                 <input
                   id="acc-password2"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   required
                   minLength={6}
                   value={password2}
                   onChange={e => setPassword2(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-lg text-sm focus:outline-hidden focus:bg-white"
+                  className={input}
                 />
               </div>
             )}
-            {message && (
-              <p className={`text-xs ${message.kind === 'error' ? 'text-rose-600' : 'text-sky-700'}`}>{message.text}</p>
+
+            {message && message.text && (
+              <p className={`text-sm ${message.kind === 'error' ? 'text-rose-600' : 'text-sky-700'}`}>{message.text}</p>
             )}
+
             <button
               type="submit"
               disabled={busy}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 rounded-lg"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50 rounded-lg transition-colors"
             >
-              {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {busy && <Loader2 className="w-4 h-4 animate-spin" />}
               {step === 'signup'
                 ? t('Crear cuenta')
                 : step === 'forgot'
@@ -292,81 +317,46 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                 ? t('Guardar contraseña')
                 : t('Entrar')}
             </button>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  // From the reset steps, back to signing in.
-                  if (step === 'reset') window.history.replaceState(null, '', window.location.pathname);
-                  setStep(step === 'forgot' || step === 'reset' ? 'signin' : 'choose');
-                  setMessage(null);
-                  signOut();
-                }}
-                className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-                {t('Volver')}
-              </button>
-              {(step === 'signin' || step === 'signup') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setStep(step === 'signup' ? 'signin' : 'signup');
-                  setMessage(null);
-                }}
-                className="font-semibold text-slate-900 hover:underline"
-              >
-                {step === 'signup' ? t('Ya tengo cuenta') : t('Crear cuenta nueva')}
-              </button>
+
+            <div className="text-center text-sm text-slate-600">
+              {step === 'signin' ? (
+                <>
+                  {t('¿No tienes cuenta?')}{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('signup');
+                      setMessage(null);
+                    }}
+                    className="font-semibold text-slate-900 hover:underline"
+                  >
+                    {t('Crear cuenta nueva')}
+                  </button>
+                </>
+              ) : step === 'signup' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('signin');
+                    setMessage(null);
+                  }}
+                  className="font-semibold text-slate-900 hover:underline"
+                >
+                  {t('Ya tengo cuenta')}
+                </button>
+              ) : (
+                <button type="button" onClick={backToSignIn} className="inline-flex items-center gap-1 font-semibold text-slate-900 hover:underline">
+                  <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                  {t('Volver a iniciar sesión')}
+                </button>
               )}
             </div>
           </form>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              onClick={() => setStep('signin')}
-              className="group text-left bg-white border border-slate-200 hover:border-slate-900 rounded-xl p-6 shadow-xs hover:shadow-md transition-all"
-            >
-              <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mb-4">
-                <PencilLine className="w-5 h-5" />
-              </div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                {t('Editor')}
-                <Lock className="w-3.5 h-3.5 text-slate-400" />
-              </h2>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                {t('Crear, editar y eliminar defectos, subir y mover fotografías, importar y exportar CSV.')}
-              </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-slate-900">
-                {t('Entrar con contraseña')}
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform rtl:rotate-180" />
-              </span>
-            </button>
-
-            {/* Clients sign in too: each sees only their buildings */}
-            <button
-              onClick={() => setStep('signin')}
-              className="group text-left bg-white border border-slate-200 hover:border-slate-900 rounded-xl p-6 shadow-xs hover:shadow-md transition-all"
-            >
-              <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center mb-4">
-                <Eye className="w-5 h-5" />
-              </div>
-              <h2 className="text-base font-bold text-slate-900">{t('Cliente')}</h2>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                {t('Ver las fotografías y filtrar los defectos por stage, estado, urgencia, drop y nivel. Solo lectura.')}
-              </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-slate-900">
-                {t('Entrar con tu cuenta')}
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform rtl:rotate-180" />
-              </span>
-            </button>
-          </div>
         )}
-
-        <p className="text-center text-[11px] text-slate-400">
+        <p className="mt-10 text-center text-[11px] text-slate-400">
           {t('Creado por')} <span className="font-semibold text-slate-600">CIMA &amp; Daniel Vidal</span> · CPR 2026
         </p>
-      </div>
+      </main>
     </div>
   );
 };
