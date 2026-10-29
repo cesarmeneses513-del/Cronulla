@@ -29,6 +29,9 @@ import {
 
 type Tab = 'users' | 'permissions';
 
+// Roles that always see every building (supabase/projects-roles.sql).
+const SEES_ALL: string[] = ['admin', 'project_manager'];
+
 const select =
   'w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 focus:outline-hidden focus:border-slate-400 disabled:opacity-60';
 
@@ -86,11 +89,11 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
       if (canManage) fetchAllProjectAccess().then(setAccessByUser);
     });
   }, [canManage, canInvite]);
-  // "All buildings" or "N buildings" (a site's buildings count once; the team always has Cronulla).
-  const buildingsLabel = (all: boolean | undefined, ids: string[], team: boolean) => {
+  // "All buildings" or "N buildings" (a site's buildings count once).
+  const buildingsLabel = (all: boolean | undefined, ids: string[]) => {
     if (all) return t('Todos los edificios');
-    const n = new Set([...ids, ...(team ? ['cronulla'] : [])].map(id => siteOf[id] || id)).size;
-    return n === 1 ? t('1 edificio') : t('{n} edificios', { n });
+    const n = new Set(ids.map(id => siteOf[id] || id)).size;
+    return n === 0 ? t('Ningún edificio') : n === 1 ? t('1 edificio') : t('{n} edificios', { n });
   };
 
   const roleLabel = (role: string) => t(ROLES.find(r => r.role === role)?.label || 'Pendiente');
@@ -170,7 +173,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
           <div className="flex items-center gap-2">
             {tab === 'users' && canInvite && (
               <button
-                onClick={() => setInviting({ email: '', name: '', role: 'technician', job_title: 'Technician' })}
+                onClick={() => setInviting({ email: '', name: '', role: 'technician', job_title: 'Technician', project_ids: ['cronulla'] })}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg"
               >
                 <UserPlus className="w-4 h-4" />
@@ -273,7 +276,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                         </select>
                         {/* Buildings they see: administrators all; the rest, all or the ones chosen */}
                         <div>
-                          {roleOf(p) === 'admin' && !pending ? (
+                          {SEES_ALL.includes(roleOf(p)) && !pending ? (
                             <span className="text-xs text-slate-400">{t('Todos los edificios')}</span>
                           ) : !canManage || pending || !accessByUser ? (
                             <span className="text-xs text-slate-300">—</span>
@@ -284,10 +287,10 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                                 <button
                                   onClick={() => setProjectsFor(f => (f === p.id ? null : p.id))}
                                   className={`px-3 py-1.5 rounded-lg border text-xs font-semibold bg-white hover:bg-slate-50 ${
-                                    p.all_projects ? 'border-slate-300 text-slate-700' : 'border-slate-300 text-blue-700'
+                                    p.all_projects ? 'border-slate-300 text-slate-700' : ids.length ? 'border-slate-300 text-blue-700' : 'border-amber-300 text-amber-700'
                                   }`}
                                 >
-                                  {buildingsLabel(p.all_projects, ids, roleOf(p) !== 'client')}
+                                  {buildingsLabel(p.all_projects, ids)}
                                 </button>
                               );
                             })()
@@ -339,7 +342,6 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                             <ClientProjects
                               userId={p.id}
                               name={p.name}
-                              team={roleOf(p) !== 'client'}
                               onClose={() => setProjectsFor(null)}
                               onSaved={access => {
                                 setAccessByUser(m => ({ ...(m || {}), [p.id]: access.ids }));
@@ -374,7 +376,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                         ))}
                       </select>
                       <span className="text-xs text-slate-500">
-                        {projectList && inv.role !== 'admin' ? buildingsLabel(inv.all_projects, inv.project_ids || [], inv.role !== 'client') : '—'}
+                        {projectList ? (SEES_ALL.includes(inv.role) ? t('Todos los edificios') : buildingsLabel(inv.all_projects, inv.project_ids || [])) : '—'}
                       </span>
                       <StatusPill kind="invited" />
                       <RowMenu
@@ -457,7 +459,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
               </Field>
             </div>
             {/* Buildings they will see (administrators see them all) */}
-            {projectList && inviting.role !== 'admin' && (
+            {projectList && !SEES_ALL.includes(inviting.role) && (
               <Field label={t('Edificios')}>
                 <div className="space-y-2">
                   <div className="flex gap-2">
@@ -480,30 +482,27 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
                   {!inviting.all_projects && (
                     <ul className="max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {projectList.map(p => {
-                        const fixed = inviting.role !== 'client' && p.id === 'cronulla';
                         const ids = inviting.project_ids || [];
                         return (
                           <li key={p.id}>
                             <label className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
                               <input
                                 type="checkbox"
-                                checked={fixed || ids.includes(p.id)}
-                                disabled={fixed}
+                                checked={ids.includes(p.id)}
                                 onChange={() =>
                                   setInviting({ ...inviting, project_ids: ids.includes(p.id) ? ids.filter(x => x !== p.id) : [...ids, p.id] })
                                 }
                                 className="w-4 h-4"
                               />
                               <span className="font-medium text-slate-900">{p.name}</span>
-                              {fixed && <span className="text-[11px] text-slate-400">{t('siempre (equipo)')}</span>}
                             </label>
                           </li>
                         );
                       })}
                     </ul>
                   )}
-                  {inviting.role === 'client' && !inviting.all_projects && !(inviting.project_ids || []).length && (
-                    <p className="text-[11px] text-amber-700">{t('Sin edificios, el cliente no verá nada al entrar.')}</p>
+                  {!inviting.all_projects && !(inviting.project_ids || []).length && (
+                    <p className="text-[11px] text-amber-700">{t('Sin edificios, no verá nada al entrar.')}</p>
                   )}
                 </div>
               </Field>
@@ -737,16 +736,13 @@ const Tick: React.FC<{ on: boolean; disabled?: boolean; onClick?: () => void }> 
 );
 
 // A person's buildings: all of them, or only the ones chosen here. The database shows them
-// nothing else (supabase/projects.sql). `team`: not a client, so Cronulla (where they work)
-// always stays (supabase/projects-staff.sql).
-const ALWAYS_FOR_TEAM = 'cronulla';
+// nothing else (supabase/projects-roles.sql).
 const ClientProjects: React.FC<{
   userId: string;
   name: string;
-  team?: boolean;
   onClose: () => void;
   onSaved?: (access: ProjectAccess) => void;
-}> = ({ userId, name, team = false, onClose, onSaved }) => {
+}> = ({ userId, name, onClose, onSaved }) => {
   const { t } = useI18n();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [access, setAccess] = useState<ProjectAccess | null>(null);
@@ -818,15 +814,8 @@ const ClientProjects: React.FC<{
               {projects.map(p => (
                 <li key={p.id}>
                   <label className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      checked={access.ids.includes(p.id) || (team && p.id === ALWAYS_FOR_TEAM)}
-                      disabled={team && p.id === ALWAYS_FOR_TEAM}
-                      onChange={() => toggle(p.id)}
-                      className="w-4 h-4"
-                    />
+                    <input type="checkbox" checked={access.ids.includes(p.id)} onChange={() => toggle(p.id)} className="w-4 h-4" />
                     <span className="font-medium text-slate-900">{p.name}</span>
-                    {team && p.id === ALWAYS_FOR_TEAM && <span className="text-[11px] text-slate-400">{t('siempre (equipo)')}</span>}
                     <span className="ms-auto text-xs text-slate-400 truncate">{p.address}</span>
                   </label>
                 </li>
