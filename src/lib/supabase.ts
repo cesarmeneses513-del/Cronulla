@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { DefectItem } from '../types/inspection';
 import { shrinkPhoto } from './shrinkPhoto';
+import { CURRENT_PROJECT } from './currentProject';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -44,15 +45,25 @@ export const withoutModified = (item: DefectItem): DefectItem => {
 const EXTRA_COLUMNS = [', modified_at, modified_by', ', modified_at', ''];
 let extra = 0;
 
+// Projects (supabase/projects.sql): every query reads only the open project's defects. Before
+// that file is run the table has no project column, and everything is Cronulla as before.
+let projectMode: Promise<boolean> | null = null;
+export const projectsEnabled = (): Promise<boolean> =>
+  (projectMode ??= Promise.resolve(
+    supabase ? supabase.from(TABLE).select('project_id').limit(1).then(r => !r.error) : false
+  ));
+// Narrows a query to the open project (when the database has projects).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inProject = <Q,>(query: Q, on: boolean): Q => (on ? (query as any).eq('project_id', CURRENT_PROJECT) : query);
+
 export async function fetchDefects(): Promise<DefectItem[]> {
   if (!supabase) throw new Error('Supabase no configurado');
   // PostgREST caps each response (1000 rows by default), so page through the table.
   const PAGE = 1000;
   const rows: DefectRow[] = [];
+  const on = await projectsEnabled();
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select('id, position, data' + EXTRA_COLUMNS[extra])
+    const { data, error } = await inProject(supabase.from(TABLE).select('id, position, data' + EXTRA_COLUMNS[extra]), on)
       .order('position')
       .order('id')
       .range(from, from + PAGE - 1);
@@ -91,10 +102,9 @@ export const mergeStamps = (a: Stamps, b: Stamps): Stamps => {
 export async function fetchDefectsFull(): Promise<{ items: DefectItem[]; stamps: Stamps }> {
   if (!supabase) throw new Error('Supabase no configurado');
   const rows: DefectRow[] = [];
+  const on = await projectsEnabled();
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select('id, position, updated_at, data' + EXTRA_COLUMNS[extra])
+    const { data, error } = await inProject(supabase.from(TABLE).select('id, position, updated_at, data' + EXTRA_COLUMNS[extra]), on)
       .order('position')
       .order('id')
       .range(from, from + 999);
@@ -114,8 +124,9 @@ export async function fetchDefectsFull(): Promise<{ items: DefectItem[]; stamps:
 export async function fetchDefectsDelta(base: DefectItem[], stamps: Stamps): Promise<{ items: DefectItem[]; stamps: Stamps }> {
   if (!supabase) throw new Error('Supabase no configurado');
   const versions: { id: string; updated_at: string }[] = [];
+  const on = await projectsEnabled();
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase.from(TABLE).select('id, updated_at').order('id').range(from, from + 999);
+    const { data, error } = await inProject(supabase.from(TABLE).select('id, updated_at'), on).order('id').range(from, from + 999);
     if (error) throw error;
     versions.push(...(data as { id: string; updated_at: string }[]));
     if (data.length < 1000) break;
@@ -294,8 +305,9 @@ export async function syncDefects(
   });
   const inserts = upserts.filter(r => !prevById.has(r.id));
   const updates = upserts.filter(r => prevById.has(r.id));
+  const project = (await projectsEnabled()) ? { project_id: CURRENT_PROJECT } : {};
   for (let i = 0; i < inserts.length; i += WRITE_CHUNK) {
-    const { error } = await supabase.from(TABLE).upsert(inserts.slice(i, i + WRITE_CHUNK).map(row));
+    const { error } = await supabase.from(TABLE).upsert(inserts.slice(i, i + WRITE_CHUNK).map(r => ({ ...row(r), ...project })));
     if (error) throw error;
   }
   for (let i = 0; i < updates.length; i += 8) {
@@ -322,22 +334,28 @@ export function subscribeToDefects(
   onUpsert: (item: DefectItem, position: number, clientId?: string | null) => void,
   onDelete: (id: string) => void
 ): () => void {
-  if (!supabase) return () => {};
-  const channel = supabase
+  const client = supabase;
+  if (!client) return () => {};
+  // Every visible project's changes arrive; only the open project's are kept. (Deletes carry only
+  // the id: the app ignores ids it doesn't have.)
+  let on = false;
+  projectsEnabled().then(v => (on = v));
+  const channel = client
     .channel('defects-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, payload => {
       if (payload.eventType === 'DELETE') {
         const id = (payload.old as Partial<DefectRow>).id;
         if (id) onDelete(id);
       } else {
-        const row = payload.new as DefectRow;
+        const row = payload.new as DefectRow & { project_id?: string };
+        if (on && row.project_id && row.project_id !== CURRENT_PROJECT) return;
         if (row.updated_at) liveStamps[row.id] = stampOf(row.updated_at);
         if (row.client_id !== CLIENT_ID) onUpsert(withModified(row), row.position, row.client_id);
       }
     })
     .subscribe();
   return () => {
-    supabase.removeChannel(channel);
+    client.removeChannel(channel);
   };
 }
 

@@ -29,6 +29,9 @@ const SUPABASE_KEY = 'sb_publishable_C5fy8k5sNRW0F5ZBsJDEDw_k8DRptZJ';
 const SHEET_NAME = '';
 
 const PAGE_SIZE = 1000;
+// Only Cronulla's defects: the database also holds other projects, for viewing in the web
+// (supabase/projects.sql). Rows this script inserts are Cronulla's by default.
+const CRONULLA_ONLY = 'project_id=eq.cronulla&';
 const ID_HEADER = 'ID';
 // Hidden helper tabs: IDs the sheet showed after the last rewrite, and deleted rows (for restore).
 const SNAPSHOT_SHEET = '_sync_ids';
@@ -167,7 +170,7 @@ function syncIfChanged(force) {
 // Row count + latest update time: changes on every insert, edit or delete.
 function fetchSignature_() {
   const res = UrlFetchApp.fetch(
-    SUPABASE_URL + '/rest/v1/defects?select=updated_at&order=updated_at.desc&limit=1',
+    SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=updated_at&order=updated_at.desc&limit=1',
     { headers: headers_({ Prefer: 'count=exact' }) }
   );
   const total = String(res.getHeaders()['Content-Range'] || res.getHeaders()['content-range'] || '').split('/')[1];
@@ -182,7 +185,7 @@ const MAX_PATCHED_ROWS = 60;
 function fetchChangedSince_(since) {
   const from = new Date(new Date(since).getTime() - 2 * 60 * 1000).toISOString();
   const res = UrlFetchApp.fetch(
-    SUPABASE_URL + '/rest/v1/defects?select=data&updated_at=gte.' + encodeURIComponent(from) + '&limit=' + (MAX_PATCHED_ROWS + 1),
+    SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=data&updated_at=gte.' + encodeURIComponent(from) + '&limit=' + (MAX_PATCHED_ROWS + 1),
     { headers: headers_() }
   );
   return JSON.parse(res.getContentText()).map(r => r.data);
@@ -224,7 +227,7 @@ function fetchAllDefects_() {
   const items = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const res = UrlFetchApp.fetch(
-      SUPABASE_URL + '/rest/v1/defects?select=data&order=position.asc,id.asc&offset=' + from + '&limit=' + PAGE_SIZE,
+      SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=data&order=position.asc,id.asc&offset=' + from + '&limit=' + PAGE_SIZE,
       { headers: headers_() }
     );
     const page = JSON.parse(res.getContentText());
@@ -730,7 +733,7 @@ function fetchRowsByIds_(ids) {
   const rows = [];
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const res = UrlFetchApp.fetch(
-      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&id=in.(' + idList_(ids.slice(i, i + ID_BATCH)) + ')',
+      SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=id,position,data&id=in.(' + idList_(ids.slice(i, i + ID_BATCH)) + ')',
       { headers: headers_() }
     );
     JSON.parse(res.getContentText()).forEach(r => rows.push(r));
@@ -742,7 +745,7 @@ function fetchAllRows_() {
   const rows = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const res = UrlFetchApp.fetch(
-      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&order=position.asc,id.asc&offset=' + from + '&limit=' + PAGE_SIZE,
+      SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=id,position,data&order=position.asc,id.asc&offset=' + from + '&limit=' + PAGE_SIZE,
       { headers: headers_() }
     );
     const page = JSON.parse(res.getContentText());
@@ -754,7 +757,7 @@ function fetchAllRows_() {
 
 function deleteByIds_(ids) {
   for (let i = 0; i < ids.length; i += ID_BATCH) {
-    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?id=in.(' + idList_(ids.slice(i, i + ID_BATCH)) + ')', {
+    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'id=in.(' + idList_(ids.slice(i, i + ID_BATCH)) + ')', {
       method: 'delete',
       headers: headers_(),
     });
@@ -766,7 +769,7 @@ function idList_(ids) {
 }
 
 function fetchMaxPosition_() {
-  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?select=position&order=position.desc&limit=1', {
+  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=position&order=position.desc&limit=1', {
     headers: headers_(),
   });
   const rows = JSON.parse(res.getContentText());
@@ -982,7 +985,7 @@ function saveSecretKeyFromMenu() {
     ui.alert('Esa no parece una clave secreta: debe empezar por sb_secret_. No se guardó.');
     return;
   }
-  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?select=id&limit=1', {
+  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=id&limit=1', {
     headers: { apikey: key },
     muteHttpExceptions: true,
   });

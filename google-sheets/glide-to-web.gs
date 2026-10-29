@@ -26,6 +26,9 @@ const SUPABASE_KEY = 'sb_publishable_C5fy8k5sNRW0F5ZBsJDEDw_k8DRptZJ';
 const SHEET_GID = 1503721441;
 
 const CLIENT_ID = 'glide-sheet';
+// Only Cronulla's defects: the database also holds other projects, for viewing in the web
+// (supabase/projects.sql). Rows this script inserts are Cronulla's by default.
+const CRONULLA_ONLY = 'project_id=eq.cronulla&';
 const ID_HEADER = 'ID';
 // Hidden helper tabs: last seen content of every row, and rows deleted from the web app.
 const SNAPSHOT_SHEET = '_web_sync';
@@ -573,7 +576,7 @@ function fetchRowsByIds_(ids) {
   const rows = [];
   chunk_(ids, ID_BATCH).forEach(part => {
     const res = UrlFetchApp.fetch(
-      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&id=in.(' + idList_(part) + ')',
+      SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=id,position,data&id=in.(' + idList_(part) + ')',
       { headers: headers_() }
     );
     JSON.parse(res.getContentText()).forEach(r => rows.push(r));
@@ -585,7 +588,7 @@ function fetchAllRows_() {
   const rows = [];
   for (let from = 0; ; from += 1000) {
     const res = UrlFetchApp.fetch(
-      SUPABASE_URL + '/rest/v1/defects?select=id,position,data&order=id.asc&offset=' + from + '&limit=1000',
+      SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=id,position,data&order=id.asc&offset=' + from + '&limit=1000',
       { headers: headers_() }
     );
     const page = JSON.parse(res.getContentText());
@@ -597,7 +600,7 @@ function fetchAllRows_() {
 
 function deleteByIds_(ids) {
   chunk_(ids, ID_BATCH).forEach(part =>
-    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?id=in.(' + idList_(part) + ')', {
+    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'id=in.(' + idList_(part) + ')', {
       method: 'delete',
       headers: headers_(),
     })
@@ -605,7 +608,7 @@ function deleteByIds_(ids) {
 }
 
 function fetchMaxPosition_() {
-  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?select=position&order=position.desc&limit=1', {
+  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=position&order=position.desc&limit=1', {
     headers: headers_(),
   });
   const rows = JSON.parse(res.getContentText());
@@ -678,7 +681,7 @@ function saveSecretKeyFromMenu() {
     ui.alert('Esa no parece una clave secreta: debe empezar por sb_secret_. No se guardó.');
     return;
   }
-  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?select=id&limit=1', {
+  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=id&limit=1', {
     headers: { apikey: key },
     muteHttpExceptions: true,
   });
@@ -941,7 +944,7 @@ function writeWebSnapshot_(byId) {
 
 // Row count + latest update in the web: unchanged means there is nothing to write.
 function webSignature_() {
-  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?select=updated_at&order=updated_at.desc&limit=1', {
+  const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/defects?' + CRONULLA_ONLY + 'select=updated_at&order=updated_at.desc&limit=1', {
     headers: headers_({ Prefer: 'count=exact' }),
   });
   const h = res.getHeaders();

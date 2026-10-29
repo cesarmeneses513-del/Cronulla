@@ -41,8 +41,9 @@ export const getStoredUserName = (): string => {
 };
 
 interface RoleSelectScreenProps {
-  // `account`: signed in with an account (not a PIN).
-  onSelect: (role: AppRole, access?: AccessLevel, account?: Profile) => void;
+  // `account`: signed in with an account (not a PIN). `fresh`: signed in just now (not a
+  // session already open on this device).
+  onSelect: (role: AppRole, access?: AccessLevel, account?: Profile, fresh?: boolean) => void;
 }
 
 // forgot: asks for the email to send a reset link to; reset: opened from that link, choose a new password.
@@ -63,11 +64,11 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
   const { t } = useI18n();
 
   // An active account enters with its role (clients see the gallery); otherwise say why not.
-  const enterWith = (profile: Profile | null) => {
+  const enterWith = (profile: Profile | null, fresh = false) => {
     if (profile && isUsable(profile)) {
       storeUserName(profile.name);
       const role = roleOf(profile);
-      onSelect(role === 'client' ? 'client' : 'editor', role === 'admin' ? 'admin' : 'user', profile);
+      onSelect(role === 'client' ? 'client' : 'editor', role === 'admin' ? 'admin' : 'user', profile, fresh);
       return true;
     }
     if (profile && (profile.active === false || (profile.role as string) === 'disabled'))
@@ -123,13 +124,13 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
         const profile = await setNewPassword(password);
         // Clean the address so a reload doesn't show this step again.
         window.history.replaceState(null, '', window.location.pathname);
-        if (!enterWith(profile)) setStep('signin');
+        if (!enterWith(profile, true)) setStep('signin');
       } else if (step === 'signup') {
         const profile = await signUp(name, email, password);
         if (!profile) setMessage({ kind: 'info', text: t('Revisa tu correo y confirma la cuenta; después entra con tu correo y contraseña.') });
-        else enterWith(profile);
+        else enterWith(profile, true);
       } else {
-        enterWith(await signIn(email, password));
+        enterWith(await signIn(email, password), true);
       }
     } catch (err) {
       const text = String((err as Error)?.message || err);
@@ -193,7 +194,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                   ? t('Restablecer contraseña')
                   : step === 'reset'
                   ? t('Nueva contraseña')
-                  : t('Acceso Editor')}
+                  : t('Iniciar sesión')}
               </h2>
             </div>
             {step === 'forgot' && (
@@ -342,8 +343,9 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
               </span>
             </button>
 
+            {/* Clients sign in too: each sees only their buildings */}
             <button
-              onClick={() => onSelect('client')}
+              onClick={() => setStep('signin')}
               className="group text-left bg-white border border-slate-200 hover:border-slate-900 rounded-xl p-6 shadow-xs hover:shadow-md transition-all"
             >
               <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center mb-4">
@@ -354,7 +356,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                 {t('Ver las fotografías y filtrar los defectos por stage, estado, urgencia, drop y nivel. Solo lectura.')}
               </p>
               <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-slate-900">
-                {t('Ver galería')}
+                {t('Entrar con tu cuenta')}
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform rtl:rotate-180" />
               </span>
             </button>

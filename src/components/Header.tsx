@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { RefreshCw, Download, Upload, ListOrdered, Users, Plus, Undo2, History, FileSpreadsheet, ChevronDown, Database } from 'lucide-react';
+import { RefreshCw, Download, Upload, ListOrdered, Users, Plus, Undo2, History, FileSpreadsheet, ChevronDown, Database, LayoutGrid } from 'lucide-react';
 import { DefectItem, WorkStep } from '../types/inspection';
 import { useI18n } from '../i18n';
 import { ProfileSheet, levelBadgeClass, initialsOf } from './ProfileSheet';
@@ -40,6 +40,10 @@ interface HeaderProps {
   reloading?: boolean;
   // Profile counters: show only the defects the person started, took to During, or completed.
   onShowMyWork?: (step: WorkStep) => void;
+  // A project other than Cronulla: its name is the title.
+  projectName?: string;
+  // Several projects visible: back to the list.
+  onOpenProjects?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -67,6 +71,8 @@ export const Header: React.FC<HeaderProps> = ({
   onReload,
   reloading = false,
   onShowMyWork,
+  projectName,
+  onOpenProjects,
 }) => {
   const { t } = useI18n();
   const [showProfile, setShowProfile] = useState(false);
@@ -128,11 +134,19 @@ export const Header: React.FC<HeaderProps> = ({
           <img src="/cpr-logo-circle.png" alt="CPR" className="w-11 h-11 shrink-0" />
           <div className="flex-1 min-w-0">
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
-              Cronulla Inspection Gallery
+              {projectName || 'Cronulla'} Inspection Gallery
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              {t('Control de Defectos & Galería Fotográfica')}
-            </p>
+            {onOpenProjects ? (
+              <button
+                onClick={onOpenProjects}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                {t('Proyectos')}
+              </button>
+            ) : (
+              <p className="text-xs text-slate-500 font-medium">{t('Control de Defectos & Galería Fotográfica')}</p>
+            )}
           </div>
           {profileButton('flex sm:hidden -me-2')}
         </div>

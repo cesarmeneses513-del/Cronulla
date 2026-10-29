@@ -17,6 +17,8 @@ import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
 import { usePullToRefresh, PULL_TRIGGER } from './lib/usePullToRefresh';
 import { WhatsNew } from './components/WhatsNew';
+import { ProjectsScreen } from './components/ProjectsScreen';
+import { Project, fetchProjects, CURRENT_PROJECT, CHOSEN_PROJECT, DEFAULT_PROJECT, PICKING_PROJECT, openProject } from './lib/projects';
 import {
   supabase,
   fetchDefectsFull,
@@ -48,8 +50,9 @@ const ExportCsvModal = lazy(() => import('./components/ExportCsvModal').then(m =
 const HistoryPanel = lazy(() => import('./components/HistoryPanel').then(m => ({ default: m.HistoryPanel })));
 
 const STORAGE_KEY = 'inspection_gallery_defects_v2';
-// The database's defects as last synced on this device, and when (see fetchDefectsDelta).
-const SNAPSHOT_KEY = 'cronulla_snapshot_v1';
+// The database's defects as last synced on this device, and when (see fetchDefectsDelta). One
+// copy per project (Cronulla keeps the name it always had).
+const SNAPSHOT_KEY = 'cronulla_snapshot_v1' + (CURRENT_PROJECT === DEFAULT_PROJECT ? '' : `:${CURRENT_PROJECT}`);
 const readSnapshot = (): { savedAt: number; stamps: Stamps; items: DefectItem[] } | null => {
   try {
     const s = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || 'null');
@@ -68,6 +71,9 @@ const AUTH_KEY = 'cronulla_auth';
 const SORT_KEY = 'cronulla_sort';
 
 type SyncStatus = 'local' | 'loading' | 'synced' | 'saving' | 'error';
+
+// What can still be done in a project that is only for viewing.
+const VIEW_ONLY_PERMISSIONS = new Set<Permission>(['csv.export', 'history.view', 'team.view', 'users.invite', 'users.manage']);
 
 type RemoteChange = { type: 'upsert'; item: DefectItem; position: number } | { type: 'delete'; id: string };
 
@@ -244,7 +250,6 @@ export default function App() {
       return null;
     }
   });
-  const readOnly = role !== 'editor';
   // Clients with an account may still save their comments (see canSave below).
   // Editors signed in with the administrator PIN can delete; the other editor PIN can't.
   const [access, setAccess] = useState<AccessLevel>(() => {
@@ -257,6 +262,20 @@ export default function App() {
 
   // Signed in with an account: its profile (role, name). Null with the PIN or as a guest client.
   const [account, setAccount] = useState<Profile | null>(null);
+
+  // Projects this person can see (undefined while loading; null: the database has no projects
+  // yet, so only Cronulla, as before). Only editable projects (Cronulla) can be changed.
+  const [projects, setProjects] = useState<Project[] | null | undefined>(undefined);
+  useEffect(() => {
+    if (account) fetchProjects().then(setProjects);
+  }, [account]);
+  const project = projects ? projects.find(p => p.id === CURRENT_PROJECT) : undefined;
+  // A client with a single project goes straight into it.
+  useEffect(() => {
+    if (projects && projects.length === 1 && projects[0].id !== CURRENT_PROJECT) openProject(projects[0].id);
+  }, [projects]);
+  const projectEditable = projects ? !!project?.editable : true;
+  const readOnly = role !== 'editor' || !projectEditable;
 
   // What the person may do: their account's role in the permissions table (Data → Users →
   // Permissions). Guests (no account) only view.
@@ -271,9 +290,11 @@ export default function App() {
       ? 'admin'
       : 'team_leader'
     : null;
+  // In a project for viewing only the team's own tools stay (export, history, users).
   const can = useCallback(
-    (p: Permission) => !!effectiveRole && !!permTable[effectiveRole]?.has(p),
-    [effectiveRole, permTable]
+    (p: Permission) =>
+      !!effectiveRole && !!permTable[effectiveRole]?.has(p) && (projectEditable || VIEW_ONLY_PERMISSIONS.has(p)),
+    [effectiveRole, permTable, projectEditable]
   );
   const canDelete = can('defects.delete');
   // Who may write to the database: editors, and client accounts allowed to comment.
@@ -294,7 +315,9 @@ export default function App() {
   useEffect(() => (account ? joinPresence(account) : undefined), [account]);
   const [isUsersOpen, setIsUsersOpen] = useState(false);
 
-  const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user', profile?: Profile) => {
+  // `fresh`: just signed in on the start screen. The page reloads so the defects load with the
+  // new session (without one the database shows none).
+  const handleSelectRole = useCallback((next: AppRole | null, level: AccessLevel = 'user', profile?: Profile, fresh = false) => {
     setRole(next);
     setAccess(level);
     setAccount(profile || null);
@@ -306,6 +329,7 @@ export default function App() {
       if (next && profile) sessionStorage.setItem(AUTH_KEY, 'account');
       else sessionStorage.removeItem(AUTH_KEY);
     } catch {}
+    if (fresh && profile) window.location.reload();
   }, []);
 
   // The sign out must finish first: the sign-in screen enters straight back in while the
@@ -324,8 +348,8 @@ export default function App() {
     } catch {}
     if (!supabase) return;
     if (!authed) {
-      // An editor session from the old PIN: accounts only now.
-      if (role === 'editor') handleSelectRole(null);
+      // An editor session from the old PIN, or a guest client: accounts only now.
+      if (role) handleSelectRole(null);
       return;
     }
     fetchMyProfile()
@@ -1444,6 +1468,15 @@ export default function App() {
     return <RoleSelectScreen onSelect={handleSelectRole} />;
   }
 
+  // Projects: the list when this one isn't visible to the person (or a client with several
+  // hasn't chosen yet). Loading the list: a moment of blank screen rather than the wrong project.
+  if (supabase && account && projects === undefined) {
+    return <div className="min-h-screen bg-slate-100" />;
+  }
+  if (projects && (PICKING_PROJECT || !project || (role === 'client' && !CHOSEN_PROJECT && projects.length > 1))) {
+    return <ProjectsScreen projects={projects} onOpen={openProject} onLogout={handleLogout} />;
+  }
+
   // Defect cards with sort and pages: the Rows view, and under the elevation grid for a selection.
   const rowsList = (
           <div className="space-y-4">
@@ -1601,9 +1634,9 @@ export default function App() {
         onNewDefect={can('defects.create') ? handleNewDefect : undefined}
         onExportCsv={can('csv.export') ? handleExportCsv : undefined}
         onOpenImportModal={can('csv.import') ? () => setIsImportModalOpen(true) : undefined}
-        onRenumber={supabase && can('renumber') ? handleRenumber : undefined}
+        onRenumber={supabase && can('renumber') && CURRENT_PROJECT === DEFAULT_PROJECT ? handleRenumber : undefined}
         onOpenHistoryAllowed={can('history.view')}
-        showSheetLink={can('sheet.open')}
+        showSheetLink={can('sheet.open') && CURRENT_PROJECT === DEFAULT_PROJECT}
         roleLabel={effectiveRole ? ROLES.find(r => r.role === effectiveRole)?.label : undefined}
         readOnly={readOnly}
         isAdmin={effectiveRole === 'admin'}
@@ -1624,6 +1657,8 @@ export default function App() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         onReload={supabase ? handleReload : undefined}
         reloading={reloading}
+        projectName={project && project.id !== DEFAULT_PROJECT ? project.name : undefined}
+        onOpenProjects={projects && projects.length > 1 ? () => openProject(null) : undefined}
         onShowMyWork={(step: WorkStep) => {
           // Only those defects: the other filters are cleared so the count matches the profile.
           setFilters({
