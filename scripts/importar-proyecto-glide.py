@@ -40,6 +40,20 @@ PROJECTS = {
     },
 }
 
+# Inspections kept in the DATA HISTORY tab: one project each, the "Stage" is the face.
+def from_history(pid, name, csv_name, position):
+    PROJECTS[pid] = {
+        'name': name, 'site': '', 'address': '', 'tab': 'DATA HISTORY', 'photos': pid,
+        'rows': lambda r, n=csv_name: (r.get('Name Project') or '').strip() == n,
+        'position': position,
+    }
+
+from_history('amira', 'Amira Residences', 'AMIRA RESIDENCES', 20)
+from_history('casino-garden', 'Casino Garden', 'CASINO GARDEN', 21)
+from_history('melbourne-residences', 'Melbourne Residences', 'MELBOURNE RESIDENCES', 22)
+from_history('oxley-stirling', 'Oxley & Stirling Residences', 'OXLEY & STIRLING RESIDENCES', 23)
+from_history('st-julien', 'St Julien Residences', 'ST JULIEN RESIDENCES', 24)
+
 APPLY = '--aplicar' in sys.argv
 pid = next((a for a in sys.argv[1:] if not a.startswith('--')), None)
 if pid not in PROJECTS:
@@ -84,7 +98,7 @@ for n, r in enumerate(rows):
     if not any((v or '').strip() for v in r.values()):
         continue
     face = (r.get('ORIENTATION') or '').strip().upper()
-    face = '' if face == 'ORIENTATION' else face
+    face = '' if face in ('ORIENTATION', '...') else face
     stage = face
     date, time = when(r.get('DATE'))
     tech = (r.get('TECHNICIAN') or '').strip()
@@ -116,7 +130,7 @@ for n, r in enumerate(rows):
         'technicianDuring': '', 'dateDuring': '', 'timeDuring': '',
         'technicianCompleted': '', 'dateCompleted': '', 'timeCompleted': '',
         'mapping': (r.get('mapping') or '').strip(), 'comment': (r.get('COMMENT') or '').strip(),
-        'baseM': num(r.get('Width')), 'heightM': num(r.get('Height')),
+        'baseM': num(r.get('Base') or r.get('Width')), 'heightM': num(r.get('Height')),
         'linearMeters': num(r.get('Linear Meters')), 'quantity': num(r.get('Units')), 'customTags': [],
     })
 
