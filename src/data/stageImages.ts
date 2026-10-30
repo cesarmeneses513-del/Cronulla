@@ -1,4 +1,12 @@
 import { CURRENT_PROJECT } from '../lib/currentProject';
+import { thumbUrl } from '../lib/thumb';
+
+// Drawings uploaded from the web for the open project (projects.stage_images); they win over
+// the files below.
+let uploaded: Record<string, string> = {};
+export const setUploadedStageImages = (images: Record<string, string> | undefined) => {
+  uploaded = images || {};
+};
 
 // Facade reference drawing (FCRS) for each stage of each project, served from public/stages.
 // Cronulla's come from the Glide app; these are resized copies (thumb + large).
@@ -40,6 +48,8 @@ export interface StageImage {
 // "stage 1." / "Stage  1" → "STAGE 1".
 export function stageImageFor(orientation: string): StageImage | null {
   const key = orientation.toUpperCase().replace(/[.\s]+$/, '').replace(/\s+/g, ' ').trim();
+  const url = uploaded[key];
+  if (url) return { thumb: thumbUrl(url, 360), full: url };
   const file = STAGE_FILES[CURRENT_PROJECT]?.[key];
   return file ? { thumb: `/stages/${file}-thumb.jpg`, full: `/stages/${file}.jpg` } : null;
 }

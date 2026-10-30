@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Building2, ChevronDown, ChevronRight, Database, Eye, Layers, PencilLine, Search, Users } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronDown, ChevronRight, Database, Eye, Layers, Pencil, PencilLine, Search, Users } from 'lucide-react';
+import { ProjectEditor } from './ProjectEditor';
 import { useI18n } from '../i18n';
 import { Project, ProjectStats, fetchProjectStats } from '../lib/projects';
 import { thumbUrl, fallbackTo } from '../lib/thumb';
@@ -15,7 +16,12 @@ export const ProjectsScreen: React.FC<{
   profile: { name: string; roleLabel: string; email?: string; jobTitle?: string; readOnly: boolean };
   // Data → Users, for those who may open it.
   onOpenUsers?: () => void;
-}> = ({ projects, onOpen, onLogout, profile, onOpenUsers }) => {
+  // Administrators: edit a project (name, address, pictures); `onChanged` reloads the list.
+  canEdit?: boolean;
+  onChanged?: () => void;
+}> = ({ projects, onOpen, onLogout, profile, onOpenUsers, canEdit = false, onChanged }) => {
+  const [editing, setEditing] = useState<string | null>(null);
+  const editingProject = editing ? projects.find(p => p.id === editing) : undefined;
   const { t } = useI18n();
   const [showProfile, setShowProfile] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
@@ -49,13 +55,13 @@ export const ProjectsScreen: React.FC<{
         e.kind === 'project' ? matches(`${e.project.name} ${e.project.address}`) : matches(`${e.name} ${e.blocks.map(b => `${b.name} ${b.address}`).join(' ')}`)
       );
 
-  const card = (key: string, o: { title: string; address: string; cover: string; badge: React.ReactNode; total?: number; completed?: number; extra?: string; onClick: () => void }) => {
+  const card = (key: string, o: { title: string; address: string; cover: string; badge: React.ReactNode; total?: number; completed?: number; extra?: string; onClick: () => void; onEdit?: () => void }) => {
     const pct = o.total ? Math.round(((o.completed || 0) / o.total) * 100) : 0;
     return (
+      <div key={key} className="relative">
       <button
-        key={key}
         onClick={o.onClick}
-        className="group text-start bg-white border border-slate-200 hover:border-slate-900 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all"
+        className="group w-full text-start bg-white border border-slate-200 hover:border-slate-900 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all"
       >
         <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-200 to-slate-300">
           {o.cover ? (
@@ -86,6 +92,17 @@ export const ProjectsScreen: React.FC<{
           </div>
         </div>
       </button>
+      {o.onEdit && (
+        <button
+          onClick={o.onEdit}
+          title={t('Editar proyecto')}
+          aria-label={t('Editar proyecto')}
+          className="absolute top-3 end-3 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow flex items-center justify-center"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+      )}
+      </div>
     );
   };
   const pill = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border';
@@ -189,6 +206,7 @@ export const ProjectsScreen: React.FC<{
                       total: stats[e.project.id]?.total,
                       completed: stats[e.project.id]?.completed,
                       onClick: () => onOpen(e.project.id),
+                      onEdit: canEdit ? () => setEditing(e.project.id) : undefined,
                     })
                   : card(`site:${e.name}`, {
                       title: e.name,
@@ -213,6 +231,9 @@ export const ProjectsScreen: React.FC<{
           </>
         )}
       </main>
+      {editingProject && (
+        <ProjectEditor project={editingProject} onClose={() => setEditing(null)} onChanged={() => onChanged?.()} />
+      )}
       {showProfile && (
         <ProfileSheet
           name={profile.name}

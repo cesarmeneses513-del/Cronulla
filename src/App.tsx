@@ -17,6 +17,7 @@ import { canonicalPerson } from './lib/people';
 import { useNewVersion } from './lib/useNewVersion';
 import { usePullToRefresh, PULL_TRIGGER } from './lib/usePullToRefresh';
 import { WhatsNew } from './components/WhatsNew';
+import { setUploadedStageImages } from './data/stageImages';
 import { ProjectsScreen } from './components/ProjectsScreen';
 import { Project, fetchProjects, CURRENT_PROJECT, CHOSEN_PROJECT, DEFAULT_PROJECT, PICKING_PROJECT, openProject } from './lib/projects';
 import {
@@ -270,6 +271,8 @@ export default function App() {
     if (account) fetchProjects().then(setProjects);
   }, [account]);
   const project = projects ? projects.find(p => p.id === CURRENT_PROJECT) : undefined;
+  // Its facade drawings uploaded from the web (Projects → edit).
+  setUploadedStageImages(project?.stage_images);
   // A client with a single project goes straight into it.
   useEffect(() => {
     if (projects && projects.length === 1 && projects[0].id !== CURRENT_PROJECT) openProject(projects[0].id);
@@ -1488,6 +1491,8 @@ export default function App() {
             readOnly: role !== 'editor',
           }}
           onOpenUsers={canOpenUsers ? () => setIsUsersOpen(true) : undefined}
+          canEdit={effectiveRole === 'admin'}
+          onChanged={() => fetchProjects().then(setProjects)}
         />
         <Suspense fallback={null}>
           {isUsersOpen && canOpenUsers && account && (

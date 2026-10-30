@@ -13,6 +13,36 @@ export interface Project {
   site?: string;
   // The whole complex's photo, for the site's card (any of its buildings may carry it).
   site_cover_url?: string;
+  // Facade reference drawing (FCRS) of each stage, uploaded from the web (supabase/projects-media.sql).
+  stage_images?: Record<string, string>;
+}
+
+// ─────────────── Administrators: editing a project ───────────────
+
+export async function updateProject(id: string, changes: Partial<Omit<Project, 'id'>>): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from('projects').update(changes).eq('id', id);
+  if (error) throw error;
+}
+
+// The site photo is kept on every building of the site (whichever shows first on the card).
+export async function updateSiteCover(site: string, url: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from('projects').update({ site_cover_url: url }).eq('site', site);
+  if (error) throw error;
+}
+
+// The stages (faces) a project's defects use, for its drawings.
+export async function fetchProjectStages(id: string): Promise<string[]> {
+  if (!supabase) return [];
+  const seen = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from('defects').select('stage:data->>orientation').eq('project_id', id).range(from, from + 999);
+    if (error) throw error;
+    (data as { stage: string | null }[]).forEach(r => seen.add((r.stage || '').toUpperCase().replace(/[.\s]+$/, '').replace(/\s+/g, ' ').trim()));
+    if (data.length < 1000) break;
+  }
+  return [...seen].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, undefined, { numeric: true })));
 }
 
 export { DEFAULT_PROJECT, CHOSEN_PROJECT, CURRENT_PROJECT, PICKING_PROJECT, openProject } from './currentProject';
