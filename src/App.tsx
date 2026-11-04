@@ -343,7 +343,9 @@ export default function App() {
   }, [account, handleSelectRole]);
 
   // Signed in with an account: its current level on every load (an administrator may have
-  // changed it or removed the access meanwhile).
+  // changed it or removed the access meanwhile). `profileChecked`: that check is over (offline it
+  // fails, and the app opens with what this device has).
+  const [profileChecked, setProfileChecked] = useState(false);
   useEffect(() => {
     let authed = false;
     try {
@@ -366,7 +368,8 @@ export default function App() {
           handleSelectRole(null);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setProfileChecked(true));
   }, [handleSelectRole]);
 
   // Load initial data from this device's copy if present
@@ -1482,7 +1485,7 @@ export default function App() {
       return false;
     }
   })();
-  if (supabase && ((accountPending && !account) || (account && projects === undefined) || (projects && projects.length === 1 && projects[0].id !== CURRENT_PROJECT))) {
+  if (supabase && ((accountPending && !account && !profileChecked) || (account && projects === undefined) || (projects && projects.length === 1 && projects[0].id !== CURRENT_PROJECT))) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <Loader2 className="w-7 h-7 animate-spin text-slate-400" />
