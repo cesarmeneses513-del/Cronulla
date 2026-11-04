@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { APP_URL } from './appUrl';
 import type { RoleKey } from './permissions';
 
 // Accounts (supabase/accounts.sql + roles.sql). Each person signs in with email and password;
@@ -78,7 +79,7 @@ export const recoveryLinkFailed = /error_code=otp_expired|error=access_denied/.t
 // Emails a link to choose a new password; it comes back to this site.
 export async function requestPasswordReset(email: string): Promise<void> {
   if (!supabase) throw new Error('Supabase no configurado');
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: APP_URL });
   if (error) throw error;
 }
 

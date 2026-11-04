@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Users, Loader2, RefreshCw, UserPlus, MoreHorizontal, MessageCircle, Mail, Copy, Check, ShieldCheck, Building2 } from 'lucide-react';
 import { Project, ProjectAccess, fetchProjects, fetchProjectAccess, fetchAllProjectAccess, saveProjectAccess } from '../lib/projects';
 import { useI18n } from '../i18n';
+import { APP_URL } from '../lib/appUrl';
 import { useOnlineIds } from '../lib/presence';
 import {
   Invitation,
@@ -39,7 +40,7 @@ const select =
 const inviteMessage = (inv: Invitation, roleLabel: string, t: ReturnType<typeof useI18n>['t']) =>
   t(
     'Hola {name}, te invito a Cronulla Inspection Gallery como {role}.\n\n1. Abre {link}\n2. Pulsa "Crear cuenta nueva"\n3. Usa este correo: {email}\n\nTu acceso queda listo al crear la cuenta.',
-    { name: inv.name || inv.email, role: roleLabel, link: window.location.origin, email: inv.email }
+    { name: inv.name || inv.email, role: roleLabel, link: APP_URL, email: inv.email }
   );
 
 // Administrators: accounts, invitations and what each role may do.
