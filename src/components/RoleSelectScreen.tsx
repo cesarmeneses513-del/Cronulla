@@ -186,7 +186,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
 
       <div className="relative min-h-screen max-w-6xl mx-auto px-5 py-6 lg:py-10 flex flex-col lg:flex-row lg:items-center gap-8 lg:gap-16">
         <section className="text-white lg:flex-1 space-y-6 lg:space-y-10">
-          <img src="/cpr-logo-full.png" alt="CPR Facade Upgrade Specialists" className="h-10 lg:h-12 w-auto bg-white rounded-xl px-3 py-2" />
+          <img src="/cpr-logo-white.png" alt="CPR Facade Upgrade Specialists" className="h-14 sm:h-16 lg:h-24 w-auto" />
           <div className="space-y-3">
             <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight">Inspection Gallery</h1>
             <p className="text-base lg:text-lg text-sky-100/90 max-w-md">{t('Defectos, fotos y avance de cada fachada que trabajamos.')}</p>
