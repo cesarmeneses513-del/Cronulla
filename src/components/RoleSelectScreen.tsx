@@ -170,8 +170,9 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
     setMessage(null);
   };
 
-  // One way in for everyone (team and clients): one of our buildings behind, CPR's brand on the
-  // left and the sign-in card on the right (on phones, the brand above the card).
+  // One way in for everyone (team and clients, of every building): a façade drawn in lines with its
+  // numbered drops behind (no real building), CPR's brand on the left and the sign-in card on the
+  // right (on phones, the brand above the card).
   const features: { Icon: typeof Camera; text: string }[] = [
     { Icon: Camera, text: t('Fotos de antes, durante y después de cada defecto') },
     { Icon: Grid3X3, text: t('La fachada por drop y nivel, de un vistazo') },
@@ -179,8 +180,9 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
   ];
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-900 font-sans antialiased">
-      <img src="/login-building.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-gradient-to-b lg:bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-sky-950/40" />
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950" />
+      <FacadeDrawing className="absolute top-[3%] start-[-30%] sm:start-[5%] lg:start-[30%] h-[112%] w-auto opacity-[0.16]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(14,165,233,0.25),transparent_55%)]" />
 
       <div className="relative min-h-screen max-w-6xl mx-auto px-5 py-6 lg:py-10 flex flex-col lg:flex-row lg:items-center gap-8 lg:gap-16">
         <section className="text-white lg:flex-1 space-y-6 lg:space-y-10">
@@ -381,5 +383,55 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
       </main>
       </div>
     </div>
+  );
+};
+
+// A façade in thin lines with its rope drops numbered along the top, like the FCRS drawings.
+const FacadeDrawing: React.FC<{ className?: string }> = ({ className = '' }) => {
+  const cols = 7;
+  const rows = 14;
+  const x0 = 60;
+  const y0 = 120;
+  const w = 480;
+  const h = 860;
+  const cw = w / cols;
+  const rh = h / rows;
+  return (
+    <svg viewBox="0 0 620 1000" className={className} fill="none" aria-hidden="true">
+      {/* Building and roof */}
+      <rect x={x0} y={y0} width={w} height={h} stroke="#bae6fd" strokeWidth="2" />
+      <rect x={x0 + 120} y={y0 - 50} width={w - 240} height="50" stroke="#bae6fd" strokeWidth="1.5" />
+      {/* Floors */}
+      {Array.from({ length: rows - 1 }, (_, r) => (
+        <line key={`f${r}`} x1={x0} x2={x0 + w} y1={y0 + rh * (r + 1)} y2={y0 + rh * (r + 1)} stroke="#bae6fd" strokeOpacity="0.35" />
+      ))}
+      {/* Windows */}
+      {Array.from({ length: rows }, (_, r) =>
+        Array.from({ length: cols }, (_, c) => (
+          <rect
+            key={`w${r}-${c}`}
+            x={x0 + c * cw + cw * 0.22}
+            y={y0 + r * rh + rh * 0.25}
+            width={cw * 0.56}
+            height={rh * 0.5}
+            stroke="#bae6fd"
+            strokeOpacity="0.55"
+          />
+        ))
+      )}
+      {/* Rope drops, numbered */}
+      {Array.from({ length: cols }, (_, c) => {
+        const x = x0 + c * cw + cw / 2;
+        return (
+          <g key={`d${c}`}>
+            <line x1={x} x2={x} y1={y0 - 70} y2={y0 + h} stroke="#38bdf8" strokeWidth="2.5" strokeDasharray="10 8" />
+            <circle cx={x} cy={y0 - 92} r="17" fill="#0c4a6e" stroke="#38bdf8" strokeWidth="2" />
+            <text x={x} y={y0 - 86} textAnchor="middle" fontSize="17" fontWeight="700" fill="#e0f2fe" fontFamily="system-ui, sans-serif">
+              {c + 1}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 };
