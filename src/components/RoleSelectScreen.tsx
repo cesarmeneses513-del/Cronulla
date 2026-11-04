@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Building2, Camera, Eye, EyeOff, Grid3X3, Loader2, Lock, Mail, User } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { canonicalPerson } from '../lib/people';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -157,9 +157,11 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
   };
 
 
+  // Fields with their icon inside; CPR's blue.
   const input =
-    'w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-blue-700 focus:ring-2 focus:ring-blue-100';
-  const label = 'text-sm font-medium text-slate-700';
+    'w-full ps-10 pe-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-sky-600 focus:ring-4 focus:ring-sky-100 transition';
+  const label = 'text-xs font-semibold uppercase tracking-wider text-slate-500';
+  const icon = 'absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none';
   const backToSignIn = () => {
     // From the reset link: the address is cleaned so a reload doesn't show that step again.
     if (step === 'reset') window.history.replaceState(null, '', window.location.pathname);
@@ -168,39 +170,47 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
     setMessage(null);
   };
 
-  // One way in for everyone (team and clients), like AIMMS: the brand on one side, signing in on the other.
+  // One way in for everyone (team and clients): one of our buildings behind, CPR's brand on the
+  // left and the sign-in card on the right (on phones, the brand above the card).
+  const features: { Icon: typeof Camera; text: string }[] = [
+    { Icon: Camera, text: t('Fotos de antes, durante y después de cada defecto') },
+    { Icon: Grid3X3, text: t('La fachada por drop y nivel, de un vistazo') },
+    { Icon: Building2, text: t('Todos tus edificios en una sola app') },
+  ];
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-white font-sans antialiased">
-      <aside
-        className="relative overflow-hidden bg-slate-950 text-white lg:w-1/2 lg:min-h-screen px-6 py-6 lg:p-12 flex flex-col justify-between gap-6"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle at 25% 30%, rgba(37,99,235,0.45), transparent 55%), linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
-          backgroundSize: '100% 100%, 64px 64px, 64px 64px',
-        }}
-      >
-        <div className="bg-white rounded-xl px-3 py-2 self-start">
-          <img src="/cpr-logo-full.png" alt="CPR Facade Upgrade Specialists" className="h-8 lg:h-10 w-auto" />
-        </div>
-        <div className="space-y-3 max-w-md">
-          <p className="text-xs font-semibold tracking-[0.2em] text-blue-200 uppercase">CPR · Inspection Gallery</p>
-          <h1 className="text-2xl lg:text-4xl font-bold leading-tight">{t('Cada fachada, cada defecto, cada foto, en un solo lugar.')}</h1>
-          <p className="hidden sm:block text-sm text-slate-300 leading-relaxed">
-            {t('Inspecciones, reparaciones y su avance, edificio por edificio, para el equipo y los clientes.')}
-          </p>
-        </div>
-      </aside>
+    <div className="relative min-h-screen overflow-hidden bg-slate-900 font-sans antialiased">
+      <img src="/login-building.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-b lg:bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-sky-950/40" />
 
-      <main className="relative flex-1 flex flex-col items-center justify-center px-6 py-10 lg:py-12">
+      <div className="relative min-h-screen max-w-6xl mx-auto px-5 py-6 lg:py-10 flex flex-col lg:flex-row lg:items-center gap-8 lg:gap-16">
+        <section className="text-white lg:flex-1 space-y-6 lg:space-y-10">
+          <img src="/cpr-logo-full.png" alt="CPR Facade Upgrade Specialists" className="h-10 lg:h-12 w-auto bg-white rounded-xl px-3 py-2" />
+          <div className="space-y-3">
+            <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight">Inspection Gallery</h1>
+            <p className="text-base lg:text-lg text-sky-100/90 max-w-md">{t('Defectos, fotos y avance de cada fachada que trabajamos.')}</p>
+          </div>
+          <ul className="hidden sm:grid gap-3 max-w-md">
+            {features.map(({ Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 text-sm text-slate-100">
+                <span className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+                  <Icon className="w-4 h-4 text-sky-300" />
+                </span>
+                {text}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+      <main className="relative w-full max-w-md mx-auto lg:mx-0 lg:shrink-0 bg-white rounded-3xl shadow-2xl p-6 sm:p-8">
         <div className="absolute top-4 end-4">
-          <LanguageSwitcher className="bg-white border border-slate-200" />
+          <LanguageSwitcher className="bg-slate-50 border border-slate-200" />
         </div>
         {checking ? (
           <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
         ) : (
-          <form onSubmit={submitAccount} className="w-full max-w-sm space-y-5">
+          <form onSubmit={submitAccount} className="w-full space-y-5 pt-6">
             <div className="space-y-1.5">
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
                 {step === 'signup'
                   ? t('Crear cuenta')
                   : step === 'forgot'
@@ -223,7 +233,10 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
             {step === 'signup' && (
               <div className="space-y-1.5">
                 <label htmlFor="acc-name" className={label}>{t('Nombre y apellido')}</label>
-                <input id="acc-name" type="text" autoComplete="name" required value={name} onChange={e => setName(e.target.value)} className={input} />
+                <div className="relative">
+                  <User className={icon} />
+                  <input id="acc-name" type="text" autoComplete="name" required value={name} onChange={e => setName(e.target.value)} className={input} />
+                </div>
                 <p className="text-[11px] text-slate-400">{t('Aparece en el historial de cambios')}</p>
               </div>
             )}
@@ -231,16 +244,19 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
             {step !== 'reset' && (
               <div className="space-y-1.5">
                 <label htmlFor="acc-email" className={label}>{t('Correo')}</label>
-                <input
-                  id="acc-email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="you@example.com.au"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className={input}
-                />
+                <div className="relative">
+                  <Mail className={icon} />
+                  <input
+                    id="acc-email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder="you@example.com.au"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className={input}
+                  />
+                </div>
               </div>
             )}
 
@@ -248,6 +264,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
               <div className="space-y-1.5">
                 <label htmlFor="acc-password" className={label}>{step === 'reset' ? t('Contraseña nueva') : t('Contraseña')}</label>
                 <div className="relative">
+                  <Lock className={icon} />
                   <input
                     id="acc-password"
                     type={showPassword ? 'text' : 'password'}
@@ -256,14 +273,16 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                     minLength={6}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className={`${input} pe-20`}
+                    className={`${input} pe-11`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
-                    className="absolute end-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+                    title={showPassword ? t('Ocultar') : t('Mostrar')}
+                    aria-label={showPassword ? t('Ocultar') : t('Mostrar')}
+                    className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
                   >
-                    {showPassword ? t('Ocultar') : t('Mostrar')}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
                 {step === 'signin' && (
@@ -274,7 +293,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
                         setStep('forgot');
                         setMessage(null);
                       }}
-                      className="text-sm text-slate-600 hover:text-slate-900 hover:underline"
+                      className="text-sm font-medium text-sky-700 hover:text-sky-900"
                     >
                       {t('¿Olvidaste tu contraseña?')}
                     </button>
@@ -286,16 +305,19 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
             {(step === 'signup' || step === 'reset') && (
               <div className="space-y-1.5">
                 <label htmlFor="acc-password2" className={label}>{t('Repite la contraseña')}</label>
-                <input
-                  id="acc-password2"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  required
-                  minLength={6}
-                  value={password2}
-                  onChange={e => setPassword2(e.target.value)}
-                  className={input}
-                />
+                <div className="relative">
+                  <Lock className={icon} />
+                  <input
+                    id="acc-password2"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    value={password2}
+                    onChange={e => setPassword2(e.target.value)}
+                    className={input}
+                  />
+                </div>
               </div>
             )}
 
@@ -306,7 +328,7 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
             <button
               type="submit"
               disabled={busy}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50 rounded-lg transition-colors"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-gradient-to-r from-sky-600 to-sky-800 hover:from-sky-700 hover:to-sky-900 disabled:opacity-50 rounded-xl shadow-lg shadow-sky-900/20 transition"
             >
               {busy && <Loader2 className="w-4 h-4 animate-spin" />}
               {step === 'signup'
@@ -353,10 +375,11 @@ export const RoleSelectScreen: React.FC<RoleSelectScreenProps> = ({ onSelect }) 
             </div>
           </form>
         )}
-        <p className="mt-10 text-center text-[11px] text-slate-400">
+        <p className="mt-8 text-center text-[11px] text-slate-400">
           {t('Creado por')} <span className="font-semibold text-slate-600">CIMA &amp; Daniel Vidal</span> · CPR 2026
         </p>
       </main>
+      </div>
     </div>
   );
 };
