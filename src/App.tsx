@@ -1473,8 +1473,21 @@ export default function App() {
 
   // Projects: the list when this one isn't visible to the person (or a client with several
   // hasn't chosen yet). Loading the list: a moment of blank screen rather than the wrong project.
-  if (supabase && account && projects === undefined) {
-    return <div className="min-h-screen bg-slate-100" />;
+  // Signed in: until the account and its projects are known, a loading screen (not the default
+  // project, which a client may not even have).
+  const accountPending = (() => {
+    try {
+      return sessionStorage.getItem(AUTH_KEY) === 'account';
+    } catch {
+      return false;
+    }
+  })();
+  if (supabase && ((accountPending && !account) || (account && projects === undefined) || (projects && projects.length === 1 && projects[0].id !== CURRENT_PROJECT))) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <Loader2 className="w-7 h-7 animate-spin text-slate-400" />
+      </div>
+    );
   }
   if (projects && (PICKING_PROJECT || !project || (role === 'client' && !CHOSEN_PROJECT && projects.length > 1))) {
     return (
