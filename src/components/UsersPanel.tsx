@@ -36,24 +36,33 @@ const SEES_ALL: string[] = ['admin'];
 const select =
   'w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 focus:outline-hidden focus:border-slate-400 disabled:opacity-60';
 
-// Invitation text, ready for WhatsApp or email.
-const inviteMessage = (inv: Invitation, roleLabel: string, t: ReturnType<typeof useI18n>['t']) =>
+// Invitation text, ready for WhatsApp or email: "Altitude High-Rise Inspection Gallery" from
+// inside a project, just "Inspection Gallery" from the projects list.
+const inviteMessage = (inv: Invitation, roleLabel: string, t: ReturnType<typeof useI18n>['t'], projectName?: string) =>
   t(
-    'Hola {name}, te invito a Cronulla Inspection Gallery como {role}.\n\n1. Abre {link}\n2. Pulsa "Crear cuenta nueva"\n3. Usa este correo: {email}\n\nTu acceso queda listo al crear la cuenta.',
-    { name: inv.name || inv.email, role: roleLabel, link: APP_URL, email: inv.email }
+    'Hola {name}, te invito a {app} como {role}.\n\n1. Abre {link}\n2. Pulsa "Crear cuenta nueva"\n3. Usa este correo: {email}\n\nTu acceso queda listo al crear la cuenta.',
+    {
+      name: inv.name || inv.email,
+      app: projectName ? `${projectName} Inspection Gallery` : 'Inspection Gallery',
+      role: roleLabel,
+      link: APP_URL,
+      email: inv.email,
+    }
   );
 
 // Administrators: accounts, invitations and what each role may do.
 // `canManage`: roles, accounts and permissions. Without it (only "Enviar invitaciones") the
 // panel just invites, as Facade Technician or Client.
 // `canInvite`: invitations. `canSeeTeam` (without canManage): the technicians, read-only.
-export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?: boolean; canSeeTeam?: boolean; onClose: () => void }> = ({
-  me,
-  canManage,
-  canInvite = canManage,
-  canSeeTeam = false,
-  onClose,
-}) => {
+export const UsersPanel: React.FC<{
+  me: Profile;
+  canManage: boolean;
+  canInvite?: boolean;
+  canSeeTeam?: boolean;
+  // The project open (for the invitation text); none from the projects list.
+  projectName?: string;
+  onClose: () => void;
+}> = ({ me, canManage, canInvite = canManage, canSeeTeam = false, projectName, onClose }) => {
   const { t, lang } = useI18n();
   const onlineIds = useOnlineIds();
   // "Last seen": how long ago, in the app's language.
@@ -525,7 +534,7 @@ export const UsersPanel: React.FC<{ me: Profile; canManage: boolean; canInvite?:
       )}
 
       {/* Send the invitation: WhatsApp or email (the person's own apps, free) */}
-      {sharing && <ShareInvite inv={sharing} message={inviteMessage(sharing, roleLabel(sharing.role), t)} onClose={() => setSharing(null)} />}
+      {sharing && <ShareInvite inv={sharing} message={inviteMessage(sharing, roleLabel(sharing.role), t, projectName)} onClose={() => setSharing(null)} />}
     </div>
   );
 };

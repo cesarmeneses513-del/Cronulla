@@ -101,7 +101,7 @@ const DICT: Record<string, { en: string; fa: string }> = {
   "Project Manager": { en: "Project Manager", fa: "مدیر پروژه" },
   "Team Leader / Supervisor": { en: "Team Leader / Supervisor", fa: "سرپرست تیم" },
   "Facade Technician (Editor)": { en: "Facade Technician (Editor)", fa: "تکنیسین نما (ویرایشگر)" },
-  "Hola {name}, te invito a Cronulla Inspection Gallery como {role}.\n\n1. Abre {link}\n2. Pulsa \"Crear cuenta nueva\"\n3. Usa este correo: {email}\n\nTu acceso queda listo al crear la cuenta.": { en: "Hi {name}, you are invited to Cronulla Inspection Gallery as {role}.\n\n1. Open {link}\n2. Tap \"Create a new account\"\n3. Use this email: {email}\n\nYour access is ready as soon as you create the account.", fa: "سلام {name}، شما به عنوان {role} به Cronulla Inspection Gallery دعوت شده‌اید.\n\n۱. {link} را باز کنید\n۲. روی «ساخت حساب جدید» بزنید\n۳. از این ایمیل استفاده کنید: {email}\n\nبا ساخت حساب، دسترسی شما آماده است." },
+  "Hola {name}, te invito a {app} como {role}.\n\n1. Abre {link}\n2. Pulsa \"Crear cuenta nueva\"\n3. Usa este correo: {email}\n\nTu acceso queda listo al crear la cuenta.": { en: "Hi {name}, you are invited to {app} as {role}.\n\n1. Open {link}\n2. Tap \"Create a new account\"\n3. Use this email: {email}\n\nYour access is ready as soon as you create the account.", fa: "سلام {name}، شما به عنوان {role} به {app} دعوت شده‌اید.\n\n۱. {link} را باز کنید\n۲. روی «ساخت حساب جدید» بزنید\n۳. از این ایمیل استفاده کنید: {email}\n\nبا ساخت حساب، دسترسی شما آماده است." },
   'Listo': { en: 'Done', fa: 'تمام' },
   'Buscar': { en: 'Search', fa: 'جستجو' },
   'Con fotos': { en: 'With photos', fa: 'با عکس' },

@@ -1902,6 +1902,7 @@ export default function App() {
           canManage={isAccountAdmin}
           canInvite={isAccountAdmin || can('users.invite')}
           canSeeTeam={can('team.view')}
+          projectName={project?.name || 'Cronulla'}
           onClose={() => setIsUsersOpen(false)}
         />
       )}
